@@ -1,6 +1,7 @@
 package com.ohgiraffers.recruitment.domain.entity;
 
 import com.ohgiraffers.recruitment.domain.enums.JobPostingStatus;
+import com.ohgiraffers.recruitment.domain.enums.ProjectStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -39,6 +40,7 @@ public class JobPosting {
             joinColumns = @JoinColumn(name = "job_posting_id")
     )
     @Column(name = "tech", nullable = false)
+    @Builder.Default
     private List<String> techStack = new ArrayList<>();
 
     @Column(nullable = false)
@@ -61,7 +63,8 @@ public class JobPosting {
        연관관계 (선택)
        ========================= */
     @OneToMany(mappedBy = "jobPosting", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<JobPosting> projects = new ArrayList<>();
+    @Builder.Default
+    private List<Project> projects = new ArrayList<>();
 
     @PrePersist
     void prePersist() {
