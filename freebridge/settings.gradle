@@ -1,1 +1,9 @@
 rootProject.name = 'freebridge'
+
+include 'app-main'
+
+include 'rag'
+include 'recruitment', 'matchs', 'review'
+include 'user', 'common'
+include 'email', 'chatting'
+include 'contract', 'settlement', 'subscription'

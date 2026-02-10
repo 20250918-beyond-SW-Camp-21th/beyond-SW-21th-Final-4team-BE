@@ -1,0 +1,10 @@
+description = 'matchs'
+
+bootJar { enabled = false }
+jar { enabled = true }
+
+dependencies {
+    implementation project(':common')
+    implementation project(':recruitment') // 채용 공고를 참조해야 함
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+}

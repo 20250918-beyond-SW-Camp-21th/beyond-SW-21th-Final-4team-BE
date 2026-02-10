@@ -1,0 +1,15 @@
+spring:
+  datasource:
+    url: jdbc:mariadb://beyond21.iptime.org:4003/freebridge
+    username: fiveguys
+    password: '7276'
+    driver-class-name: org.mariadb.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MariaDBDialect
