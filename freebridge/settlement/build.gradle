@@ -1,0 +1,10 @@
+description = 'settlement'
+
+bootJar { enabled = false }
+jar { enabled = true }
+
+dependencies {
+    implementation project(':common')
+    implementation project(':contract')
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+}

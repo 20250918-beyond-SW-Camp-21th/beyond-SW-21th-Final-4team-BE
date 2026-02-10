@@ -1,0 +1,11 @@
+description = 'common'
+
+// 실행 파일이 아닌 공유 라이브러리 역할을 하도록 설정
+bootJar { enabled = false }
+jar { enabled = true }
+
+dependencies {
+    // 모든 모듈에서 공통으로 쓸 라이브러리 (예: 유효성 검사 등)
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    // 필요하다면 여기에 공통 유틸리티용 라이브러리를 추가해
+}
