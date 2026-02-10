@@ -1,43 +1,69 @@
 package com.fallguys.recruitment.entity;
 
-import lombok.*;
-
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
-@Builder
 public class JobPosting {
 
-    @Builder.Default
-    private String id = UUID.randomUUID().toString(); // UUID String
-
-    private String employerId;
-
-    private String employerName;
+    private final String id;
+    private final String employerId;
+    private final String employerName;
 
     private String title;
-
     private String description;
-
-    @Builder.Default
-    private List<String> techStack = new ArrayList<>();
+    private List<String> techStack;
 
     private Long budget;
+    private Integer duration;
 
-    private Integer duration; //months
+    private JobPostingStatus status;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 
-    @Builder.Default
-    private JobPostingStatus status = JobPostingStatus.OPEN;
+    public JobPosting(
+            String employerId,
+            String employerName,
+            String title,
+            String description,
+            List<String> techStack,
+            Long budget,
+            Integer duration
+    ) {
+        this.id = UUID.randomUUID().toString();
+        this.employerId = employerId;
+        this.employerName = employerName;
+        this.title = title;
+        this.description = description;
+        this.techStack = new ArrayList<>(techStack);
+        this.budget = budget;
+        this.duration = duration;
+        this.status = JobPostingStatus.OPEN;
+        this.createdAt = LocalDateTime.now();
+        this.updatedAt = this.createdAt;
+    }
 
-    @Builder.Default
-    private LocalDateTime createdAt = LocalDateTime.now();
+    /* ===== 도메인 행위 ===== */
 
-    @Builder.Default
-    private LocalDateTime updatedAt = LocalDateTime.now();
+    public void close() {
+        if (status != JobPostingStatus.OPEN) {
+            throw new IllegalStateException("이미 종료된 공고입니다.");
+        }
+        this.status = JobPostingStatus.CLOSED;
+        touch();
+    }
+
+    public void updateTitle(String title) {
+        this.title = title;
+        touch();
+    }
+
+    private void touch() {
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public boolean isOpen() {
+        return status == JobPostingStatus.OPEN;
+    }
 }
