@@ -1,0 +1,10 @@
+description = 'review'
+
+bootJar { enabled = false }
+jar { enabled = true }
+
+dependencies {
+    implementation project(':common')
+    implementation project(':matchs') // 매칭 완료 후 리뷰 작성
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+}
