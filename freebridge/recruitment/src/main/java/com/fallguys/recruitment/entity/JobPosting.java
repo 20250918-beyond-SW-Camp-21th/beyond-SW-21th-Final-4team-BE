@@ -54,7 +54,7 @@ public class JobPosting {
         touch();
     }
 
-    public void UpdatePosting(
+    public void updatePosting(
             String title,
             String description,
             List<String> techStack,
