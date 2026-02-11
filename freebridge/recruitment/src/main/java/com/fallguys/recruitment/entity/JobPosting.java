@@ -54,8 +54,17 @@ public class JobPosting {
         touch();
     }
 
-    public void updateTitle(String title) {
+    public void UpdatePosting(
+            String title,
+            String description,
+            List<String> techStack,
+            Long budget,
+            Integer duration) {
         this.title = title;
+        this.description = description;
+        this.techStack = new ArrayList<>(techStack);
+        this.budget = budget;
+        this.duration = duration;
         touch();
     }
 
