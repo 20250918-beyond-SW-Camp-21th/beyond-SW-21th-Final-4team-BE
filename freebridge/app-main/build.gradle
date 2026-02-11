@@ -1,13 +1,15 @@
-description = 'Main Application Entry Point'
+plugins {
+    id 'org.springframework.boot'
+    id 'java'
+}
 
 bootJar { enabled = true }
 jar { enabled = false }
 
 dependencies {
     implementation project(':common')
+    implementation project(':infra-common')
     implementation project(':user')
-    implementation project(':email')
-    implementation project(':rag')
     implementation project(':chatting')
     implementation project(':recruitment')
     implementation project(':matchs')
@@ -15,6 +17,8 @@ dependencies {
     implementation project(':contract')
     implementation project(':settlement')
     implementation project(':subscription')
+
+    runtimeOnly 'org.mariadb.jdbc:mariadb-java-client'
 
     implementation 'org.springframework.boot:spring-boot-starter-web'
 }

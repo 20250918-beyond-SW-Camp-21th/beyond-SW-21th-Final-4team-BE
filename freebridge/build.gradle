@@ -1,29 +1,39 @@
 plugins {
+    id 'org.springframework.boot' version '3.4.2' apply false
+    id 'io.spring.dependency-management' version '1.1.7' apply false
     id 'java'
-    id 'org.springframework.boot' version '3.4.2'
-    id 'io.spring.dependency-management' version '1.1.7'
 }
 
 allprojects {
+    group = 'com.fallguys'
+    version = '0.0.1-SNAPSHOT'
+
     repositories {
         mavenCentral()
     }
 }
 
-// 루트는 실행/라이브러리 산출물 필요 없음
-bootJar { enabled = false }
-jar { enabled = false }
-
 subprojects {
     apply plugin: 'java'
-    apply plugin: 'org.springframework.boot'
     apply plugin: 'io.spring.dependency-management'
 
-    group = 'com.fallguys'
-    version = '0.0.1-SNAPSHOT'
+    repositories {
+        mavenCentral()
+    }
+
+    dependencyManagement {
+        imports {
+            mavenBom "org.springframework.boot:spring-boot-dependencies:3.4.2"
+            mavenBom "software.amazon.awssdk:bom:2.20.162"
+        }
+    }
 
     java {
         toolchain { languageVersion = JavaLanguageVersion.of(21) }
+    }
+
+    plugins.withType(org.springframework.boot.gradle.plugin.SpringBootPlugin) {
+        bootJar { enabled = false }
     }
 
     dependencies {
@@ -33,7 +43,7 @@ subprojects {
         testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     }
 
-    // 기본은 "부품 모듈 = 라이브러리 jar" 로 만든다
-    bootJar { enabled = false }
-    jar { enabled = true }
+    tasks.withType(Test).configureEach {
+        useJUnitPlatform()
+    }
 }

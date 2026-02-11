@@ -1,10 +1,12 @@
-description = 'review'
+plugins {
+    id 'java-library'
+}
 
-bootJar { enabled = false }
-jar { enabled = true }
+description = 'review'
 
 dependencies {
     implementation project(':common')
-    implementation project(':matchs') // 매칭 완료 후 리뷰 작성
+    implementation project(':matchs')
+
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 }
