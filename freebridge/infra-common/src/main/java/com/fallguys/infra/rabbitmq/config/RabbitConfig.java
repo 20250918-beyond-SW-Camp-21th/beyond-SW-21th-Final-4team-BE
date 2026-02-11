@@ -1,11 +1,10 @@
 package com.fallguys.infra.rabbitmq.config;
 
+import com.fallguys.infra.rabbitmq.support.RabbitProperties;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fallguys.infra.rabbitmq.support.RabbitProperties;
 import lombok.RequiredArgsConstructor;
-import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -35,8 +34,8 @@ public class RabbitConfig {
     @Bean
     public MessageConverter messageConverter() {
         ObjectMapper objectMapper = new ObjectMapper()
-                .registerModule(new JavaTimeModule()) // 날짜 처리를 위해 추가
-                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false); // 모르는 필드 있어도 통과
+                .registerModule(new JavaTimeModule())
+                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
         return new Jackson2JsonMessageConverter(objectMapper);
     }

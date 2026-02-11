@@ -16,4 +16,8 @@ public enum ErrorCode {
     private final int status;
     private final String code;
     private final String message;
+
+    public org.springframework.http.HttpStatus getHttpStatus() {
+        return org.springframework.http.HttpStatus.valueOf(status);
+    }
 }

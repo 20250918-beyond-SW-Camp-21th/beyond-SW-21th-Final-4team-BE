@@ -23,8 +23,8 @@ subprojects {
 
     dependencyManagement {
         imports {
-            mavenBom "org.springframework.boot:spring-boot-dependencies:3.4.2"
-            mavenBom "software.amazon.awssdk:bom:2.20.162"
+            mavenBom "org.springframework.boot:spring-boot-dependencies:3.4.13"
+            mavenBom "software.amazon.awssdk:bom:2.41.24"
         }
     }
 
