@@ -7,7 +7,7 @@ import java.util.UUID;
 
 public class JobPosting {
 
-    private final String id;
+    private String id = UUID.randomUUID().toString();
     private final String employerId;
     private final String employerName;
 

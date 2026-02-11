@@ -1,10 +1,12 @@
 package com.fallguys.matchs.entity;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
+
 //기업->프리랜서
 public class Proposal {
 
-    private String id;
+    private String id = UUID.randomUUID().toString();
 
     private String jobPosting;
 
