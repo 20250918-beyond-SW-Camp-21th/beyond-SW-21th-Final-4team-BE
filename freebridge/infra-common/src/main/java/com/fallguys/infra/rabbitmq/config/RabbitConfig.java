@@ -3,6 +3,7 @@ package com.fallguys.infra.rabbitmq.config;
 import com.fallguys.infra.rabbitmq.support.RabbitProperties;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import lombok.RequiredArgsConstructor;
 import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
@@ -35,7 +36,8 @@ public class RabbitConfig {
     public MessageConverter messageConverter() {
         ObjectMapper objectMapper = new ObjectMapper()
                 .registerModule(new JavaTimeModule())
-                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
         return new Jackson2JsonMessageConverter(objectMapper);
     }
