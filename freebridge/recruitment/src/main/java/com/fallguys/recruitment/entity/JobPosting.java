@@ -7,7 +7,7 @@ import java.util.UUID;
 
 public class JobPosting {
 
-    private final String id;
+    private String id = UUID.randomUUID().toString();
     private final String employerId;
     private final String employerName;
 
@@ -54,8 +54,17 @@ public class JobPosting {
         touch();
     }
 
-    public void updateTitle(String title) {
+    public void updatePosting(
+            String title,
+            String description,
+            List<String> techStack,
+            Long budget,
+            Integer duration) {
         this.title = title;
+        this.description = description;
+        this.techStack = new ArrayList<>(techStack);
+        this.budget = budget;
+        this.duration = duration;
         touch();
     }
 
