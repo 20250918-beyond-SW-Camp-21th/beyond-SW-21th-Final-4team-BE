@@ -422,3 +422,29 @@ application-*.properties
 
 ### Docker ###
 docker-compose.override.yml
+
+
+# Spring Boot Secret Configs
+*-secret.yml
+*-secret.yaml
+*-secret.properties
+**/application-*-secret.yml
+**/application-*-secret.yaml
+
+# Local Environment Secrets
+.env
+.env.local
+.env.*.local
+
+# Keystore & Certs (보안 인증서 등)
+*.jks
+*.p12
+*.pfx
+*.pem
+
+# Python AI Server 관련 (가상환경 및 설정)
+/ai/.env
+/ai/venv/
+/ai/.venv/
+/ai/__pycache__/
+/ai/**/*.py[cod]
