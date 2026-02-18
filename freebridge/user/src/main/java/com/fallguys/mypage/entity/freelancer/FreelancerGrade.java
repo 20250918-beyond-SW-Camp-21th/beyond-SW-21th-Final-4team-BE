@@ -1,8 +1,8 @@
-package com.fallguys.mypage.entity;
+package com.fallguys.mypage.entity.freelancer;
 
 public enum FreelancerGrade {
-    BEGINNER,
+    JUNIOR,
     INTERMEDIATE,
-    PROFESSIONAL,
+    SENIOR,
     MASTER
 }
