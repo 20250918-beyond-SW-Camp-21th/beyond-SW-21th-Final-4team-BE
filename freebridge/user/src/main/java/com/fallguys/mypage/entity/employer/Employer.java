@@ -6,26 +6,25 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
-
 import java.time.LocalDateTime;
 import java.util.Objects;
 
 @Entity
 @Getter
-@Table(name = "employer")
-@EntityListeners(AuditingEntityListener.class)
-@NoArgsConstructor(access =  AccessLevel.PROTECTED)
+@Table(name = "employer",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_employer_user", columnNames = "user_id")
+        })
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Employer {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "employer_id")
-    private Long employerId; // = user_id (PK 공유)
+    private Long employerId;
 
-    @MapsId
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id", nullable = false, unique = true)
-    private User user; // ※ 너희 프로젝트의 User 엔티티 패키지에 맞춰 import/수정
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
@@ -52,21 +51,21 @@ public class Employer {
     private LocalDateTime updatedAt;
 
     /* =========================
-       생성 로직 (정적 팩토리)
-       */
+    *   생성
+    *  =========================*/
     public static Employer create(
-            User user,
+            Long userId,
             Subscription subscription,
             String companyName,
             String businessRegistrationNumber,
             String description,
             String logoUrl
     ) {
-        Objects.requireNonNull(user, "user must not be null");
-        Objects.requireNonNull(subscription, "subscription must not be null");
+        if (userId == null) throw new IllegalArgumentException("userId 가 비어있습니다.");
+        Objects.requireNonNull(subscription, "subscription 이 비어있습니다.");
 
         Employer employer = new Employer();
-        employer.user = user;
+        employer.userId = userId;
         employer.subscription = subscription;
         employer.companyName = normalize(companyName);
         employer.businessRegistrationNumber = normalizeBrn(businessRegistrationNumber);
@@ -79,8 +78,8 @@ public class Employer {
 
 
     /* =========================
-       POJO 스타일 변경 메서드
-       */
+     *   업데이트
+     *  =========================*/
     public void updateProfile(String companyName, String businessRegistrationNumber, String description, String logoUrl) {
         this.companyName = normalize(companyName);
         this.businessRegistrationNumber = normalizeBrn(businessRegistrationNumber);
@@ -91,7 +90,7 @@ public class Employer {
     }
 
     public void changeSubscription(Subscription subscription) {
-        this.subscription = Objects.requireNonNull(subscription, "subscription must not be null");
+        this.subscription = Objects.requireNonNull(subscription, "subscription 이 비어있습니다.");
     }
 
     public void changeLogoUrl(String logoUrl) {
@@ -104,27 +103,25 @@ public class Employer {
     }
 
     /* =========================
-       도메인 규칙/검증
-       */
+     *   도메인 규칙/검증
+     *  =========================*/
     private void validateInvariants() {
-        if (companyName.isBlank()) {
-            throw new IllegalArgumentException("companyName must not be blank");
+        if (companyName == null || companyName.isBlank()) {
+            throw new IllegalArgumentException("companyName 이 비어있습니다.");
         }
-        if (businessRegistrationNumber.isBlank()) {
-            throw new IllegalArgumentException("businessRegistrationNumber must not be blank");
+        if (businessRegistrationNumber == null || businessRegistrationNumber.isBlank()) {
+            throw new IllegalArgumentException("businessRegistrationNumber 이 비어있습니다.");
         }
-        // 예: 사업자등록번호(한국) 10자리 숫자만 허용 (하이픈 제거 후)
         if (!businessRegistrationNumber.matches("\\d{10}")) {
-            throw new IllegalArgumentException("businessRegistrationNumber must be 10 digits (numbers only)");
+            throw new IllegalArgumentException("businessRegistrationNumber 은 반드시 10자(숫자)여야 합니다.");
         }
-        // description 너무 길면 제한하고 싶다면 여기서 체크 (DB TEXT라 무한이지만 서비스 정책상 제한 추천)
         if (description != null && description.length() > 5000) {
-            throw new IllegalArgumentException("description must be <= 5000 chars");
+            throw new IllegalArgumentException("description 은 5000 <= char 이어야 합니다.");
         }
     }
 
     private static String normalize(String value) {
-        if (value == null) throw new IllegalArgumentException("value must not be null");
+        if (value == null) throw new IllegalArgumentException("값이 비어있습니다.");
         return value.trim();
     }
 
@@ -136,7 +133,6 @@ public class Employer {
 
     private static String normalizeBrn(String brn) {
         String v = normalize(brn);
-        // "123-45-67890" 입력도 허용하려면 하이픈 제거
         return v.replace("-", "");
     }
 }
