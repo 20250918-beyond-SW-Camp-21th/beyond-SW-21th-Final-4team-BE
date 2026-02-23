@@ -38,7 +38,7 @@ public class JobPosting extends BaseEntity {
     private Integer duration;
 
     @Column(nullable=false)
-    private Status status;
+    private Status status=Status.ACTIVE;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
