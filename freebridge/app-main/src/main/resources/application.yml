@@ -17,8 +17,8 @@ spring:
   mail:
     host: smtp.gmail.com
     port: 587
-    username: ${GMAIL_USERNAME}
-    password: ${GMAIL_APP_PASSWORD}
+    username: ${GMAIL_USERNAME:}
+    password: ${GMAIL_APP_PASSWORD:}
     properties:
       mail:
         smtp:
@@ -39,6 +39,9 @@ fallguys:
     port: ${RABBIT_PORT:5672}
   ai:
     python-url: ${PYTHON_AI_URL:http://localhost:8000}
-  jwt:
-    secret: ${JWT_SECRET:FreeBridgeSecretKeyForJwtTokenMustBeAtLeast256Bits!}
-    expiration: 3600000
+  s3:
+    bucket: ${S3_BUCKET:dummy-bucket}
+    region: ${S3_REGION:ap-northeast-2}
+    credentials:
+      access-key: ${S3_ACCESS_KEY:dummy-access}
+      secret-key: ${S3_SECRET_KEY:dummy-secret}
