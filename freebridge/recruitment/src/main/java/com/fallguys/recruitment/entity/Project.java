@@ -10,8 +10,6 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "projects")
 @Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
 public class Project {
 
@@ -49,4 +47,8 @@ public class Project {
 
     @Column(nullable = false)
     private LocalDateTime updatedAt;
+
+    public Project() {
+
+    }
 }

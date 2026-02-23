@@ -1,23 +1,44 @@
 package com.fallguys.matchs.entity;
 
+
+import jakarta.persistence.*;
+import lombok.Builder;
+import lombok.Getter;
+
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 //프리랜서->기업
+@Entity
+@Table(name="application")
+@Getter
+@Builder
 public class Application {
 
-    private String id = UUID.randomUUID().toString();
+    @Id
+    @GeneratedValue(strategy= GenerationType.IDENTITY)
+    private Long id ;
 
-    private String jobPosting;
+    @Column(nullable=false)
+    private Long jobPostingId;
 
-    private String freelancerId;
+    @Column(nullable=false)
+    private Long freelancerId;
 
-    private String employerId;
+    @Column(nullable=false)
+    private Long employerId;
 
+    @Column(nullable=false)
     private String message;
 
+    @Column(nullable=false)
+    @Builder.Default
     private MatchsStatus status=MatchsStatus.PENDING;
 
+    @Column
+    @Builder.Default
     private LocalDateTime createdAt=LocalDateTime.now();
 
+    public Application() {
+
+    }
 }

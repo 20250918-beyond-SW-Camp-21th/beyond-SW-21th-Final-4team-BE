@@ -1,19 +1,16 @@
 package com.fallguys.recruitment.entity;
 
 import jakarta.persistence.*;
-import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
-
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+
 @Builder
 @Entity
 @Table(name = "job_posting")
 @Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class JobPosting {
 
     @Id
@@ -59,4 +56,7 @@ public class JobPosting {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
+    public JobPosting() {
+
+    }
 }
