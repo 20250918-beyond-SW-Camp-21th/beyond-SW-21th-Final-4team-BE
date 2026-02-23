@@ -10,4 +10,5 @@ public interface JobPostingService {
     public void updateJobPosting(JobPostingUpdateDTO jobPostingUpdateDTO,Long jobPostingId);
 
     public void deleteJobPosting(Long jobPostingId);
+
 }

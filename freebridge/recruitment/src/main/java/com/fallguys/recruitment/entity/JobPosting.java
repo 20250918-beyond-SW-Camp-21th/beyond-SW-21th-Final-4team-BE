@@ -1,5 +1,6 @@
 package com.fallguys.recruitment.entity;
 
+import com.fallguys.recruitment.api.dto.request.JobPostingCreateDTO;
 import com.fallguys.recruitment.api.dto.request.JobPostingUpdateDTO;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -68,5 +69,19 @@ public class JobPosting {
         this.techStack=jobPostingUpdateDTO.getTechStack();
         this.budget=jobPostingUpdateDTO.getBudget();
         this.duration=jobPostingUpdateDTO.getDuration();
+        this.status=jobPostingUpdateDTO.getStatus();
+        this.updatedAt=LocalDateTime.now();
+    }
+
+    public void create(JobPostingCreateDTO jobPostingCreateDTO,Long employerId, String employerName){
+        this.title=jobPostingCreateDTO.getTitle();
+        this.description=jobPostingCreateDTO.getDescription();
+        this.techStack=jobPostingCreateDTO.getTechStack();
+        this.budget=jobPostingCreateDTO.getBudget();
+        this.duration=jobPostingCreateDTO.getDuration();
+        this.status=JobPostingStatus.OPEN;
+        this.employerId=employerId;
+        this.employerName=employerName;
+        this.createdAt=LocalDateTime.now();
     }
 }

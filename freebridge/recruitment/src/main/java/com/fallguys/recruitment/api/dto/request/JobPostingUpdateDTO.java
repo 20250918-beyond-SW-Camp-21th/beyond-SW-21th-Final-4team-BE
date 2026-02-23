@@ -1,5 +1,6 @@
 package com.fallguys.recruitment.api.dto.request;
 
+import com.fallguys.recruitment.entity.JobPostingStatus;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -14,4 +15,5 @@ public class JobPostingUpdateDTO {
     List<String> techStack;
     Long budget;
     Integer duration;
+    JobPostingStatus status;
 }

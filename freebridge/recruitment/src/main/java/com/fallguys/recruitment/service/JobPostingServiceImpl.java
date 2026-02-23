@@ -17,29 +17,27 @@ public class JobPostingServiceImpl implements JobPostingService {
     @Autowired
     JobPostingRepo jobPostingRepo;
 
+    /*공고 생성*/
     @Override
     public void createJobPosting(JobPostingCreateDTO jobPostingCreateDTO){
-        JobPosting jobPosting = JobPosting.builder()
-                .employerId(jobPostingCreateDTO.getEmployerId())
-                .employerName(jobPostingCreateDTO.getEmployerName())
-                .title(jobPostingCreateDTO.getTitle())
-                .status(JobPostingStatus.OPEN)
-                .description(jobPostingCreateDTO.getDescription())
-                .techStack(jobPostingCreateDTO.getTechStack())
-                .duration(jobPostingCreateDTO.getDuration())
-                .createdAt(LocalDateTime.now()).build();
-
+        JobPosting jobPosting=new JobPosting();
+        jobPosting.create(jobPostingCreateDTO);
         jobPostingRepo.save(jobPosting);
     }
 
+    /*공고 수정*/
     @Override
     public void updateJobPosting(JobPostingUpdateDTO jobPostingUpdateDTO,Long JobPostingId){
         JobPosting jobPosting=jobPostingRepo.getById(JobPostingId);
         jobPosting.update(jobPostingUpdateDTO);
     }
 
+    /*공고 삭제*/
     @Override
     public void deleteJobPosting(Long JobPostingId){
         jobPostingRepo.deleteById(JobPostingId);
     }
+
+
+
 }
