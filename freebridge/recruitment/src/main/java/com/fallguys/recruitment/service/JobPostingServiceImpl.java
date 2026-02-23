@@ -17,6 +17,7 @@ public class JobPostingServiceImpl implements JobPostingService {
     private final JobPostingRepo jobPostingRepo;
     private final UserRepository userRepository;
 
+    /*생성*/
     @Override
     @Transactional
     public void createJobPosting(JobPostingCreateDTO jobPostingCreateDTO, Long userId) {
@@ -25,6 +26,7 @@ public class JobPostingServiceImpl implements JobPostingService {
         jobPostingRepo.save(jobPosting);
     }
 
+    /*수정*/
     @Override
     @Transactional
     public void updateJobPosting(JobPostingUpdateDTO jobPostingUpdateDTO, Long jobPostingId) {
@@ -32,9 +34,11 @@ public class JobPostingServiceImpl implements JobPostingService {
         jobPosting.update(jobPostingUpdateDTO);
     }
 
+    /*삭제*/
     @Override
     @Transactional
     public void deleteJobPosting(Long jobPostingId) {
-        jobPostingRepo.deleteById(jobPostingId);
+        JobPosting jobPosting = jobPostingRepo.findById(jobPostingId).orElseThrow();
+        jobPosting.delete();
     }
 }

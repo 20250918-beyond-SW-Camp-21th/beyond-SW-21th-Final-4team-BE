@@ -37,9 +37,12 @@ public class JobPosting extends BaseEntity {
     @Column(nullable = false)
     private Integer duration;
 
+    @Column(nullable=false)
+    private Status status;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private JobPostingStatus status = JobPostingStatus.OPEN;
+    private JobPostingStatus postingStatus = JobPostingStatus.OPEN;
 
     public static JobPosting from(JobPostingCreateDTO jobPostingCreateDTO, Long employerId, String employerName) {
         JobPosting jobPosting = new JobPosting();
@@ -55,7 +58,7 @@ public class JobPosting extends BaseEntity {
                 : new ArrayList<>(jobPostingUpdateDTO.getTechStack());
         this.budget = jobPostingUpdateDTO.getBudget();
         this.duration = jobPostingUpdateDTO.getDuration();
-        this.status = jobPostingUpdateDTO.getStatus();
+        this.postingStatus = jobPostingUpdateDTO.getStatus();
     }
 
     public void create(JobPostingCreateDTO jobPostingCreateDTO, Long employerId, String employerName) {
@@ -66,8 +69,13 @@ public class JobPosting extends BaseEntity {
                 : new ArrayList<>(jobPostingCreateDTO.getTechStack());
         this.budget = jobPostingCreateDTO.getBudget();
         this.duration = jobPostingCreateDTO.getDuration();
-        this.status = JobPostingStatus.OPEN;
+        this.postingStatus = JobPostingStatus.OPEN;
+        this.status=Status.ACTIVE;
         assignEmployer(employerId);
         this.employerName = employerName;
+    }
+
+    public void delete() {
+        this.status = Status.DELETED;
     }
 }
