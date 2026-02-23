@@ -17,7 +17,7 @@ public class Project {
 
     @Id
     @Column(length = 36)
-    private String id; // UUID String
+    private String id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "job_posting_id", nullable = false)
@@ -32,15 +32,18 @@ public class Project {
     @Column(nullable = false)
     private String projectName;
 
+    @Column
     private LocalDate startDate;
+
+    @Column
     private LocalDate endDate;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private ProjectStatus status;
+    private ProjectStatus status=ProjectStatus.IN_PROGRESS;
 
     @Column(nullable = false)
-    private LocalDateTime createdAt;
+    private LocalDateTime createdAt=LocalDateTime.now();
 
     @Column(nullable = false)
     private LocalDateTime updatedAt;

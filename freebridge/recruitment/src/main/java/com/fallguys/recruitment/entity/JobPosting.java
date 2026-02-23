@@ -50,7 +50,7 @@ public class JobPosting {
     private JobPostingStatus status;
 
     @Column(nullable = false)
-    private LocalDateTime createdAt;
+    private LocalDateTime createdAt=LocalDateTime.now();
 
     @Column(nullable = false)
     private LocalDateTime updatedAt;
