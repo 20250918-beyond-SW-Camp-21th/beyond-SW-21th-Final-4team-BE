@@ -3,22 +3,18 @@ package com.fallguys.recruitment.service;
 import com.fallguys.recruitment.api.dto.request.JobPostingCreateDTO;
 import com.fallguys.recruitment.api.dto.request.JobPostingUpdateDTO;
 import com.fallguys.recruitment.entity.JobPosting;
-import com.fallguys.recruitment.entity.JobPostingStatus;
 import com.fallguys.recruitment.repository.JobPostingRepo;
 import com.fallguys.user.entity.User;
 import com.fallguys.user.repository.UserRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.jpa.repository.JpaRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
-
 @Service
+@RequiredArgsConstructor
 public class JobPostingServiceImpl implements JobPostingService {
 
-    @Autowired
-    JobPostingRepo jobPostingRepo;
-    UserRepository userRepository;
+    final JobPostingRepo jobPostingRepo;
+    final UserRepository userRepository;
 
     /*공고 생성*/
     @Override
