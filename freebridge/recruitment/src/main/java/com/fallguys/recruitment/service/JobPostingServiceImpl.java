@@ -8,36 +8,33 @@ import com.fallguys.user.entity.User;
 import com.fallguys.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
 public class JobPostingServiceImpl implements JobPostingService {
 
-    final JobPostingRepo jobPostingRepo;
-    final UserRepository userRepository;
+    private final JobPostingRepo jobPostingRepo;
+    private final UserRepository userRepository;
 
-    /*공고 생성*/
     @Override
-    public void createJobPosting(JobPostingCreateDTO jobPostingCreateDTO,Long userId) {
-        User user=userRepository.findById(userId).orElseThrow();
-        JobPosting jobPosting=new JobPosting();
-        jobPosting.create(jobPostingCreateDTO,user.getId(),user.getName());
+    @Transactional
+    public void createJobPosting(JobPostingCreateDTO jobPostingCreateDTO, Long userId) {
+        User user = userRepository.findById(userId).orElseThrow();
+        JobPosting jobPosting = JobPosting.from(jobPostingCreateDTO, user.getId(), user.getName());
         jobPostingRepo.save(jobPosting);
     }
 
-    /*공고 수정*/
     @Override
-    public void updateJobPosting(JobPostingUpdateDTO jobPostingUpdateDTO,Long JobPostingId){
-        JobPosting jobPosting=jobPostingRepo.getById(JobPostingId);
+    @Transactional
+    public void updateJobPosting(JobPostingUpdateDTO jobPostingUpdateDTO, Long jobPostingId) {
+        JobPosting jobPosting = jobPostingRepo.findById(jobPostingId).orElseThrow();
         jobPosting.update(jobPostingUpdateDTO);
     }
 
-    /*공고 삭제*/
     @Override
-    public void deleteJobPosting(Long JobPostingId){
-        jobPostingRepo.deleteById(JobPostingId);
+    @Transactional
+    public void deleteJobPosting(Long jobPostingId) {
+        jobPostingRepo.deleteById(jobPostingId);
     }
-
-
-
 }
