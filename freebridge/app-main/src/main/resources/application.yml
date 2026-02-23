@@ -17,8 +17,8 @@ spring:
   mail:
     host: smtp.gmail.com
     port: 587
-    username: yusk000@gmail.com
-    password: waqu qszg ytdc fabq
+    username: ${GMAIL_USERNAME}
+    password: ${GMAIL_APP_PASSWORD}
     properties:
       mail:
         smtp:
@@ -39,3 +39,6 @@ fallguys:
     port: ${RABBIT_PORT:5672}
   ai:
     python-url: ${PYTHON_AI_URL:http://localhost:8000}
+  jwt:
+    secret: ${JWT_SECRET:FreeBridgeSecretKeyForJwtTokenMustBeAtLeast256Bits!}
+    expiration: 3600000

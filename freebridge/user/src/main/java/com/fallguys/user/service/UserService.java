@@ -7,6 +7,7 @@ import com.fallguys.user.entity.User;
 import com.fallguys.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,8 +40,14 @@ public class UserService {
                 .privacyAgreed(request.getPrivacyAgreed())
                 .build();
 
-        User savedUser = userRepository.save(user);
-        log.info("회원가입 완료: {}", savedUser.getEmail());
+        User savedUser;
+        try {
+            savedUser = userRepository.save(user);
+        } catch (DataIntegrityViolationException e) {
+            log.warn("회원가입 중복 충돌 - email: {}", maskEmail(request.getEmail()));
+            throw new IllegalArgumentException("이미 사용 중인 이메일입니다.");
+        }
+        log.info("회원가입 완료 - userId: {}", savedUser.getId());
 
         return UserResponseDto.from(savedUser);
     }
@@ -50,13 +57,13 @@ public class UserService {
      */
     public UserResponseDto login(LoginRequestDto request) {
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 이메일입니다."));
+                .orElseThrow(() -> new IllegalArgumentException("이메일 또는 비밀번호가 올바르지 않습니다."));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new IllegalArgumentException("비밀번호가 올바르지 않습니다.");
+            throw new IllegalArgumentException("이메일 또는 비밀번호가 올바르지 않습니다.");
         }
 
-        log.info("로그인 성공: {}", user.getEmail());
+        log.info("로그인 성공 - userId: {}", user.getId());
         return UserResponseDto.from(user);
     }
 
@@ -93,6 +100,18 @@ public class UserService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다."));
         user.verifyEmail();
-        log.info("이메일 인증 완료: {}", email);
+        log.info("이메일 인증 완료 - email: {}", maskEmail(email));
+    }
+
+    /**
+     * 이메일 마스킹 (예: test@gmail.com → t***t@gmail.com)
+     */
+    private String maskEmail(String email) {
+        int atIndex = email.indexOf('@');
+        if (atIndex <= 1)
+            return "***" + email.substring(atIndex);
+        String local = email.substring(0, atIndex);
+        String domain = email.substring(atIndex);
+        return local.charAt(0) + "***" + local.charAt(local.length() - 1) + domain;
     }
 }

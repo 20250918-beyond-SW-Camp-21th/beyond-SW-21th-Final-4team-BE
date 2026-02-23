@@ -42,10 +42,20 @@ public class Project {
     @Builder.Default
     private ProjectStatus status = ProjectStatus.IN_PROGRESS;
 
-    @Column(nullable = false)
-    @Builder.Default
-    private LocalDateTime createdAt = LocalDateTime.now();
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
 
     @Column(nullable = false)
     private LocalDateTime updatedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
 }
