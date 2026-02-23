@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
 @Table(name = "projects")
 @Getter
 @Builder
+@AllArgsConstructor
 public class Project {
 
     @Id

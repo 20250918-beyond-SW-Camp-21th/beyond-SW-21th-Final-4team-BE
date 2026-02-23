@@ -2,6 +2,7 @@ package com.fallguys.matchs.entity;
 
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -12,6 +13,7 @@ import java.time.LocalDateTime;
 @Table(name="application")
 @Getter
 @Builder
+@AllArgsConstructor
 public class Application {
 
     @Id

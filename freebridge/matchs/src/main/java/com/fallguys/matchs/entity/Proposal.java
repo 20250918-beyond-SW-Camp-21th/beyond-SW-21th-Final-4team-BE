@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 @Table(name="Proposal")
 @Builder
 @Getter
+@AllArgsConstructor
 public class Proposal {
 
     @Id
