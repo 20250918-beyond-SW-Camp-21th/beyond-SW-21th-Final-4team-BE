@@ -2,14 +2,14 @@ plugins {
     id 'java-library'
 }
 
-description = 'user'
+description = 'email'
 
 dependencies {
     implementation project(':common')
+    implementation project(':infra-common')
 
-    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-mail'
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
-    implementation 'org.springframework.security:spring-security-crypto'
-    implementation project(':email')
 }
