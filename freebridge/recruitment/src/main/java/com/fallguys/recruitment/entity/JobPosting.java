@@ -38,10 +38,7 @@ public class JobPosting {
     private String description;
 
     @ElementCollection
-    @CollectionTable(
-            name = "job_posting_tech_stack",
-            joinColumns = @JoinColumn(name = "job_posting_id")
-    )
+    @CollectionTable(name = "job_posting_tech_stack", joinColumns = @JoinColumn(name = "job_posting_id"))
     @Column(name = "tech", nullable = false)
     private List<String> techStack = new ArrayList<>();
 
@@ -54,11 +51,11 @@ public class JobPosting {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default
-    private JobPostingStatus status=JobPostingStatus.OPEN;
+    private JobPostingStatus status = JobPostingStatus.OPEN;
 
     @Column(nullable = false)
     @Builder.Default
-    private LocalDateTime createdAt=LocalDateTime.now();
+    private LocalDateTime createdAt = LocalDateTime.now();
 
     @Column(nullable = false)
     private LocalDateTime updatedAt;
