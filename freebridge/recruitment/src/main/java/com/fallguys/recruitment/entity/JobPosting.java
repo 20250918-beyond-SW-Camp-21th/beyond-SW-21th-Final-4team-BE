@@ -2,12 +2,14 @@ package com.fallguys.recruitment.entity;
 
 import jakarta.persistence.*;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+@Builder
 @Entity
 @Table(name = "job_posting")
 @Getter
@@ -47,9 +49,11 @@ public class JobPosting {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
+    @Builder.Default
     private JobPostingStatus status=JobPostingStatus.OPEN;
 
     @Column(nullable = false)
+    @Builder.Default
     private LocalDateTime createdAt=LocalDateTime.now();
 
     @Column(nullable = false)

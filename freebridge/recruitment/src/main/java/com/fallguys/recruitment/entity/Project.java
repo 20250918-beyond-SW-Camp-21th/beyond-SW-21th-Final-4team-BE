@@ -40,9 +40,11 @@ public class Project {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
+    @Builder.Default
     private ProjectStatus status=ProjectStatus.IN_PROGRESS;
 
     @Column(nullable = false)
+    @Builder.Default
     private LocalDateTime createdAt=LocalDateTime.now();
 
     @Column(nullable = false)
