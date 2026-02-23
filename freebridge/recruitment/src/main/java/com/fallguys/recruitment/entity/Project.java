@@ -16,18 +16,18 @@ import java.time.LocalDateTime;
 public class Project {
 
     @Id
-    @Column(length = 36)
-    private String id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "job_posting_id", nullable = false)
     private JobPosting jobPosting;
 
     @Column(name = "employer_id", nullable = false, length = 36)
-    private String employerId;
+    private Long employerId;
 
     @Column(name = "freelancer_id", nullable = false, length = 36)
-    private String freelancerId;
+    private Long freelancerId;
 
     @Column(nullable = false)
     private String projectName;

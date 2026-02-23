@@ -15,11 +15,11 @@ import java.util.List;
 public class JobPosting {
 
     @Id
-    @Column(length = 36)
-    private String id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     @Column(name = "employer_id", nullable = false, length = 36)
-    private String employerId;
+    private Long employerId;
 
     @Column(name = "employer_name", nullable = false)
     private String employerName;
