@@ -37,4 +37,9 @@ public class JobPostingServiceImpl implements JobPostingService {
         JobPosting jobPosting=jobPostingRepo.getById(JobPostingId);
         jobPosting.update(jobPostingUpdateDTO);
     }
+
+    @Override
+    public void deleteJobPosting(Long JobPostingId){
+        jobPostingRepo.deleteById(JobPostingId);
+    }
 }
