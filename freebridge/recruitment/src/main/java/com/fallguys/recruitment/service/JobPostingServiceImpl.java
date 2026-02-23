@@ -29,7 +29,7 @@ public class JobPostingServiceImpl implements JobPostingService {
     /*수정*/
     @Override
     @Transactional
-    public void updateJobPosting(JobPostingUpdateDTO jobPostingUpdateDTO, Long jobPostingId) {
+    public void updateJobPosting(JobPostingUpdateDTO jobPostingUpdateDTO, Long jobPostingId, Long userId) {
         JobPosting jobPosting = jobPostingRepo.findById(jobPostingId).orElseThrow();
         jobPosting.update(jobPostingUpdateDTO);
     }
@@ -37,7 +37,7 @@ public class JobPostingServiceImpl implements JobPostingService {
     /*삭제*/
     @Override
     @Transactional
-    public void deleteJobPosting(Long jobPostingId) {
+    public void deleteJobPosting(Long jobPostingId, Long userId) {
         JobPosting jobPosting = jobPostingRepo.findById(jobPostingId).orElseThrow();
         jobPosting.delete();
     }

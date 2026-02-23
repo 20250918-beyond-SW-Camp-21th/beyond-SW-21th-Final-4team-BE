@@ -17,7 +17,7 @@ public class Project extends BaseEntity {
     @JoinColumn(name = "job_posting_id", nullable = false)
     private JobPosting jobPosting;
 
-    @Column(name = "freelancer_id", nullable = false, length = 36)
+    @Column(name = "freelancer_id", nullable = false)
     private Long freelancerId;
 
     @Column(nullable = false)

@@ -41,7 +41,7 @@ public class JobPosting extends BaseEntity {
     private Status status;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false)
     private JobPostingStatus postingStatus = JobPostingStatus.OPEN;
 
     public static JobPosting from(JobPostingCreateDTO jobPostingCreateDTO, Long employerId, String employerName) {
@@ -61,7 +61,7 @@ public class JobPosting extends BaseEntity {
         this.postingStatus = jobPostingUpdateDTO.getStatus();
     }
 
-    public void create(JobPostingCreateDTO jobPostingCreateDTO, Long employerId, String employerName) {
+    private void create(JobPostingCreateDTO jobPostingCreateDTO, Long employerId, String employerName) {
         this.title = jobPostingCreateDTO.getTitle();
         this.description = jobPostingCreateDTO.getDescription();
         this.techStack = jobPostingCreateDTO.getTechStack() == null

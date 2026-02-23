@@ -6,8 +6,8 @@ import com.fallguys.recruitment.api.dto.request.JobPostingUpdateDTO;
 public interface JobPostingService {
     void createJobPosting(JobPostingCreateDTO jobPostingCreateDTO, Long userId);
 
-    void updateJobPosting(JobPostingUpdateDTO jobPostingUpdateDTO, Long jobPostingId);
+    void updateJobPosting(JobPostingUpdateDTO jobPostingUpdateDTO, Long jobPostingId,Long userId);
 
-    void deleteJobPosting(Long jobPostingId);
+    void deleteJobPosting(Long jobPostingId,Long userId);
 
 }
