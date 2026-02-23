@@ -1,6 +1,7 @@
 package com.fallguys.recruitment.service;
 
 import com.fallguys.recruitment.api.dto.request.JobPostingCreateDTO;
+import com.fallguys.recruitment.api.dto.request.JobPostingUpdateDTO;
 import com.fallguys.recruitment.entity.JobPosting;
 import com.fallguys.recruitment.entity.JobPostingStatus;
 import com.fallguys.recruitment.repository.JobPostingRepo;
@@ -29,5 +30,11 @@ public class JobPostingServiceImpl implements JobPostingService {
                 .createdAt(LocalDateTime.now()).build();
 
         jobPostingRepo.save(jobPosting);
+    }
+
+    @Override
+    public void updateJobPosting(JobPostingUpdateDTO jobPostingUpdateDTO,Long JobPostingId){
+        JobPosting jobPosting=jobPostingRepo.getById(JobPostingId);
+        jobPosting.update(jobPostingUpdateDTO);
     }
 }
