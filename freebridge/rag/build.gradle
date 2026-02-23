@@ -1,9 +1,0 @@
-description = 'ai'
-
-bootJar { enabled = false }
-jar { enabled = true }
-
-dependencies {
-    implementation project(':common')
-    // 나중에 파이썬 연동 라이브러리 추가 예정
-}
