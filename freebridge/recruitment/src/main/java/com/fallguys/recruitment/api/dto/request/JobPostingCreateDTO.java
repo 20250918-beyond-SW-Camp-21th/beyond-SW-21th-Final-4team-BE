@@ -1,9 +1,9 @@
 package com.fallguys.recruitment.api.dto.request;
 
+import com.fallguys.recruitment.entity.JobPostingStatus;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Getter
@@ -13,6 +13,7 @@ public class JobPostingCreateDTO {
     String employerName;
     String title;
     String description;
+    JobPostingStatus status;
     List<String> techStack;
     Long budget;
     Integer duration;

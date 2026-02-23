@@ -4,8 +4,10 @@ import com.fallguys.recruitment.api.dto.request.JobPostingCreateDTO;
 import com.fallguys.recruitment.api.dto.request.JobPostingUpdateDTO;
 
 public interface JobPostingService {
-    public void createJobPosting(JobPostingCreateDTO jobPostingCreateDTO);
-    //TODO: user 입력되면 유저로 employerID 등록하기
+    void createJobPosting(JobPostingCreateDTO jobPostingCreateDTO, Long userId);
 
-    public void updateJobPosting(JobPostingUpdateDTO jobPostingUpdateDTO,Long jobPostingId);
+    void updateJobPosting(JobPostingUpdateDTO jobPostingUpdateDTO, Long jobPostingId,Long userId);
+
+    void deleteJobPosting(Long jobPostingId,Long userId);
+
 }
