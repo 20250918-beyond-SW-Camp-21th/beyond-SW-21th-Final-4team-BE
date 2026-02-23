@@ -1,6 +1,7 @@
 package com.fallguys.recruitment.service;
 
 import com.fallguys.recruitment.entity.JobPosting;
+import com.fallguys.recruitment.repository.JobPostingRepo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -8,7 +9,7 @@ import org.springframework.stereotype.Service;
 public class JobPostingService implements JobPostingServiceImpl{
 
     @Autowired
-    private JobPosting jobPosting;
+    private JobPostingRepo jobPostingRepo;
 
 
     @Override
