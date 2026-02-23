@@ -7,13 +7,16 @@ import com.fallguys.user.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
+@Validated
 public class UserController {
 
     private final UserService userService;
@@ -26,14 +29,16 @@ public class UserController {
     public ResponseEntity<Map<String, Object>> signup(@Valid @RequestBody SignupRequestDto request) {
         try {
             UserResponseDto user = userService.signup(request);
-            return ResponseEntity.ok(Map.of(
-                    "success", true,
-                    "message", "회원가입이 완료되었습니다.",
-                    "data", user));
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "회원가입이 완료되었습니다.");
+            response.put("data", user);
+            return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "message", e.getMessage()));
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
         }
     }
 
@@ -45,14 +50,16 @@ public class UserController {
     public ResponseEntity<Map<String, Object>> login(@Valid @RequestBody LoginRequestDto request) {
         try {
             UserResponseDto user = userService.login(request);
-            return ResponseEntity.ok(Map.of(
-                    "success", true,
-                    "message", "로그인 성공",
-                    "data", user));
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "로그인 성공");
+            response.put("data", user);
+            return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "message", e.getMessage()));
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
         }
     }
 
@@ -63,10 +70,11 @@ public class UserController {
     @GetMapping("/check-email")
     public ResponseEntity<Map<String, Object>> checkEmail(@RequestParam String email) {
         boolean exists = userService.checkEmailDuplicate(email);
-        return ResponseEntity.ok(Map.of(
-                "success", true,
-                "exists", exists,
-                "available", !exists));
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("exists", exists);
+        response.put("available", !exists);
+        return ResponseEntity.ok(response);
     }
 
     /*
@@ -77,13 +85,15 @@ public class UserController {
     public ResponseEntity<Map<String, Object>> getUserById(@PathVariable Long id) {
         try {
             UserResponseDto user = userService.findById(id);
-            return ResponseEntity.ok(Map.of(
-                    "success", true,
-                    "data", user));
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("data", user);
+            return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "message", e.getMessage()));
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
         }
     }
 
@@ -95,13 +105,15 @@ public class UserController {
     public ResponseEntity<Map<String, Object>> getUserByEmail(@RequestParam String email) {
         try {
             UserResponseDto user = userService.findByEmail(email);
-            return ResponseEntity.ok(Map.of(
-                    "success", true,
-                    "data", user));
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("data", user);
+            return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "message", e.getMessage()));
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
         }
     }
 }
