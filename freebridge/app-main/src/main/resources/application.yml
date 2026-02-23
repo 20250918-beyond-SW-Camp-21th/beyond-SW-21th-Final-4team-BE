@@ -14,6 +14,22 @@ spring:
         format_sql: true
         dialect: org.hibernate.dialect.MariaDBDialect
 
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: yusk000@gmail.com
+    password: waqu qszg ytdc fabq
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          connection-timeout: 5000
+          timeout: 5000
+          write-timeout: 5000
+
 fallguys:
   redis:
     host: ${REDIS_HOST:localhost}
