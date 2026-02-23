@@ -1,5 +1,6 @@
 package com.fallguys.recruitment.entity;
 
+import com.fallguys.recruitment.api.dto.request.JobPostingUpdateDTO;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -60,4 +61,12 @@ public class JobPosting {
 
     @Column(nullable = false)
     private LocalDateTime updatedAt;
+
+    public void update(JobPostingUpdateDTO jobPostingUpdateDTO){
+        this.title=jobPostingUpdateDTO.getTitle();
+        this.description=jobPostingUpdateDTO.getDescription();
+        this.techStack=jobPostingUpdateDTO.getTechStack();
+        this.budget=jobPostingUpdateDTO.getBudget();
+        this.duration=jobPostingUpdateDTO.getDuration();
+    }
 }
