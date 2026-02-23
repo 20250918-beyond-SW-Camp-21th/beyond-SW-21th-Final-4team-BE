@@ -47,7 +47,7 @@ public class JobPosting {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private JobPostingStatus status;
+    private JobPostingStatus status=JobPostingStatus.OPEN;
 
     @Column(nullable = false)
     private LocalDateTime createdAt=LocalDateTime.now();
@@ -55,6 +55,4 @@ public class JobPosting {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
-    @OneToMany(mappedBy = "jobPosting", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Project> projects = new ArrayList<>();
 }
