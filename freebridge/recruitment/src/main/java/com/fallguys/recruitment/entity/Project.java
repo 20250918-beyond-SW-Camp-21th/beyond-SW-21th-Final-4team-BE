@@ -11,6 +11,8 @@ import java.time.LocalDateTime;
 @Table(name = "projects")
 @Getter
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class Project {
 
     @Id
@@ -47,8 +49,4 @@ public class Project {
 
     @Column(nullable = false)
     private LocalDateTime updatedAt;
-
-    public Project() {
-
-    }
 }

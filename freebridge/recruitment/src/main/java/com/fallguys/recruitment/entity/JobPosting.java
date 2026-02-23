@@ -1,8 +1,11 @@
 package com.fallguys.recruitment.entity;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -11,6 +14,8 @@ import java.util.List;
 @Entity
 @Table(name = "job_posting")
 @Getter
+@NoArgsConstructor
+@AllArgsConstructor
 public class JobPosting {
 
     @Id
@@ -55,8 +60,4 @@ public class JobPosting {
 
     @Column(nullable = false)
     private LocalDateTime updatedAt;
-
-    public JobPosting() {
-
-    }
 }
