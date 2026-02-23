@@ -1,0 +1,6 @@
+.git
+.github
+.idea
+.gradle
+*.md
+Jenkinsfile
