@@ -15,6 +15,8 @@ public class EmailVerificationService {
 
     private final EmailService emailService;
     private final StringRedisTemplate redisTemplate;
+    private final org.springframework.data.redis.core.script.RedisScript<Long> verifyFailScript;
+    private final java.util.List<EmailVerificationListener> listeners;
 
     private static final String REDIS_KEY_PREFIX = "email:verification:";
     private static final String REDIS_COUNT_PREFIX = "email:verification:count:";
@@ -22,7 +24,7 @@ public class EmailVerificationService {
     private static final int CODE_LENGTH = 6;
     private static final long MAX_SENDS_PER_WINDOW = 5;
 
-    /**
+    /*
      * 인증코드 생성 → Redis 저장 → 이메일 발송 (발송 횟수 제한 포함)
      */
     public void sendVerificationCode(String email) {
@@ -44,6 +46,10 @@ public class EmailVerificationService {
 
         // Redis에 인증코드 저장 (5분 TTL)
         String key = REDIS_KEY_PREFIX + email;
+        String failKey = REDIS_FAIL_PREFIX + email;
+
+        // 새 코드 발급 시 실패 횟수 초기화
+        redisTemplate.delete(failKey);
         redisTemplate.opsForValue().set(key, code, EXPIRATION_MINUTES, TimeUnit.MINUTES);
 
         log.info("인증코드 생성 완료 - email: {}", maskEmail(email));
@@ -55,53 +61,48 @@ public class EmailVerificationService {
     private static final String REDIS_FAIL_PREFIX = "email:verification:fails:";
     private static final long MAX_FAIL_ATTEMPTS = 5;
 
-    /**
+    /*
      * 인증코드 검증 (브루트포스 방어 포함)
      */
     public boolean verifyCode(String email, String code) {
         String key = REDIS_KEY_PREFIX + email;
         String failKey = REDIS_FAIL_PREFIX + email;
 
-        // 차단 상태 확인
-        String failCountStr = redisTemplate.opsForValue().get(failKey);
-        if (failCountStr != null && Long.parseLong(failCountStr) >= MAX_FAIL_ATTEMPTS) {
-            log.warn("인증 시도 차단 (실패 횟수 초과) - email: {}", maskEmail(email));
+        // Lua 스크립트 실행 (원자적 검증)
+        // KEYS: [failKey, codeKey], ARGV: [maxAttempts, providedCode, failTtlSeconds]
+        Long result = redisTemplate.execute(
+                verifyFailScript,
+                java.util.Arrays.asList(failKey, key),
+                String.valueOf(MAX_FAIL_ATTEMPTS),
+                code,
+                String.valueOf(TimeUnit.MINUTES.toSeconds(EXPIRATION_MINUTES)));
+
+        if (result == null)
             return false;
-        }
 
-        String storedCode = redisTemplate.opsForValue().get(key);
-
-        if (storedCode == null) {
-            log.warn("인증코드 만료 또는 미존재 - email: {}", maskEmail(email));
-            return false;
-        }
-
-        if (storedCode.equals(code)) {
-            // 인증 성공 → 코드 + 실패 카운터 삭제
-            redisTemplate.delete(key);
-            redisTemplate.delete(failKey);
+        if (result == 1) { // SUCCESS
             log.info("이메일 인증 성공 - email: {}", maskEmail(email));
+            // 리스너 알림 (의존성 역전)
+            if (listeners != null) {
+                listeners.forEach(l -> l.onVerificationSuccess(email));
+            }
             return true;
         }
 
-        // 실패 카운터 증가
-        Long failCount = redisTemplate.opsForValue().increment(failKey);
-        if (failCount != null && failCount == 1) {
-            redisTemplate.expire(failKey, EXPIRATION_MINUTES, TimeUnit.MINUTES);
-        }
-
-        log.warn("인증코드 불일치 - email: {}, 실패 횟수: {}", maskEmail(email), failCount);
-
-        // 최대 실패 횟수 도달 시 인증코드 무효화
-        if (failCount != null && failCount >= MAX_FAIL_ATTEMPTS) {
-            redisTemplate.delete(key);
+        if (result == -1) {
+            log.warn("인증 시도 차단 (실패 횟수 초과) - email: {}", maskEmail(email));
+        } else if (result == -2) {
+            log.warn("인증코드 만료 또는 미존재 - email: {}", maskEmail(email));
+        } else if (result == -3) {
             log.warn("최대 실패 횟수 도달 - 인증코드 무효화 - email: {}", maskEmail(email));
+        } else {
+            log.warn("인증코드 불일치 - email: {}", maskEmail(email));
         }
 
         return false;
     }
 
-    /**
+    /*
      * 6자리 숫자 인증코드 생성
      */
     private String generateVerificationCode() {
@@ -110,7 +111,7 @@ public class EmailVerificationService {
         return String.valueOf(code);
     }
 
-    /**
+    /*
      * 이메일 마스킹 (예: test@gmail.com → t***t@gmail.com)
      */
     private String maskEmail(String email) {

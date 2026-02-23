@@ -3,7 +3,6 @@ package com.fallguys.email.controller;
 import com.fallguys.email.dto.EmailVerificationRequestDto;
 import com.fallguys.email.dto.EmailVerifyCodeRequestDto;
 import com.fallguys.email.service.EmailVerificationService;
-import com.fallguys.user.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,7 +18,6 @@ import java.util.Map;
 public class EmailController {
 
     private final EmailVerificationService emailVerificationService;
-    private final UserService userService;
 
     /**
      * 이메일 인증코드 발송
@@ -52,7 +50,6 @@ public class EmailController {
                 request.getEmail(), request.getCode());
 
         if (verified) {
-            userService.verifyUserEmail(request.getEmail());
             return ResponseEntity.ok(Map.of(
                     "success", true,
                     "message", "이메일 인증이 완료되었습니다."));

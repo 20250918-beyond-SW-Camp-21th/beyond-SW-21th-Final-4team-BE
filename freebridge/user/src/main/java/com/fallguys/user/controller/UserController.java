@@ -18,7 +18,7 @@ public class UserController {
 
     private final UserService userService;
 
-    /**
+    /*
      * 회원가입
      * POST /api/users/signup
      */
@@ -37,7 +37,7 @@ public class UserController {
         }
     }
 
-    /**
+    /*
      * 로그인
      * POST /api/users/login
      */
@@ -56,7 +56,7 @@ public class UserController {
         }
     }
 
-    /**
+    /*
      * 이메일 중복 확인
      * GET /api/users/check-email?email=xxx
      */
@@ -69,7 +69,7 @@ public class UserController {
                 "available", !exists));
     }
 
-    /**
+    /*
      * ID로 사용자 조회
      * GET /api/users/{id}
      */
@@ -87,7 +87,7 @@ public class UserController {
         }
     }
 
-    /**
+    /*
      * 이메일로 사용자 조회
      * GET /api/users/by-email?email=xxx
      */

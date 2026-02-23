@@ -1,5 +1,6 @@
 package com.fallguys.user.service;
 
+import com.fallguys.email.service.EmailVerificationListener;
 import com.fallguys.user.dto.LoginRequestDto;
 import com.fallguys.user.dto.SignupRequestDto;
 import com.fallguys.user.dto.UserResponseDto;
@@ -16,10 +17,16 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class UserService {
+public class UserService implements EmailVerificationListener {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+
+    @Override
+    @Transactional
+    public void onVerificationSuccess(String email) {
+        verifyUserEmail(email);
+    }
 
     /**
      * 회원가입
