@@ -164,6 +164,9 @@ pipeline {
     post {
         always {
             sh 'docker logout || true'
+            sh "docker rmi ${env.IMAGE_NAME}:${env.IMAGE_TAG} || true"
+            sh "docker rmi ${env.IMAGE_NAME}:latest || true"
+            sh 'docker image prune -f || true'
             cleanWs()
         }
         success {
