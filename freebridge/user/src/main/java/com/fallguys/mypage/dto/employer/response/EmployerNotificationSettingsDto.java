@@ -1,4 +1,4 @@
-package com.fallguys.mypage.dto.request.employer;
+package com.fallguys.mypage.dto.employer.response;
 
 public record EmployerNotificationSettingsDto(
         Boolean emailEnabled,

@@ -1,8 +1,8 @@
 package com.fallguys.mypage.api.web.employer;
 
 import com.fallguys.common.response.ApiResponse;
-import com.fallguys.mypage.dto.request.employer.EmployerProfileUpdateRequestDto;
-import com.fallguys.mypage.dto.response.employer.EmployerProfileResponseDto;
+import com.fallguys.mypage.dto.employer.request.EmployerProfileUpdateRequestDto;
+import com.fallguys.mypage.dto.employer.response.EmployerProfileResponseDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

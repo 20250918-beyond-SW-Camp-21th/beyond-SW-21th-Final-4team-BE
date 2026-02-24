@@ -1,9 +1,11 @@
 package com.fallguys.mypage.api.web.employer;
 
 import com.fallguys.common.response.ApiResponse;
-import com.fallguys.mypage.dto.request.employer.EmployerNotificationSettingsDto;
-import com.fallguys.mypage.dto.request.employer.UpdatePasswordRequestDto;
-import com.fallguys.mypage.dto.response.employer.EmployerSubscriptionResponseDto;
+import com.fallguys.mypage.dto.employer.response.EmployerNotificationSettingsDto;
+import com.fallguys.mypage.dto.employer.request.UpdatePasswordRequestDto;
+import com.fallguys.mypage.dto.employer.request.UpdateSubscriptionRequestDto;
+import com.fallguys.mypage.dto.employer.response.EmployerSubscriptionResponseDto;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;

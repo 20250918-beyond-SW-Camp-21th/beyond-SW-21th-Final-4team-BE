@@ -1,4 +1,4 @@
-package com.fallguys.mypage.dto.request.employer;
+package com.fallguys.mypage.dto.employer.request;
 
 public record EmployerProfileUpdateRequestDto(
         String companyName,
