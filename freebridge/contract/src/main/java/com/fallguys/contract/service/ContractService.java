@@ -1,10 +1,10 @@
 package com.fallguys.contract.service;
 
-import com.fallguys.common.api.web.PaginationInfo;
 import com.fallguys.common.exception.BusinessException;
 import com.fallguys.common.exception.ErrorCode;
 import com.fallguys.contract.api.shared.ContractActivatedEvent;
 import com.fallguys.contract.api.web.dto.*;
+import com.fallguys.contract.api.web.PaginationInfo;
 import com.fallguys.contract.entity.Contract;
 import com.fallguys.contract.entity.ContractStatus;
 import com.fallguys.contract.repository.ContractRepository;
@@ -21,14 +21,12 @@ import java.util.stream.Collectors;
 @Transactional
 public class ContractService {
 
-    // TODO: Replace with SubscriptionQuery.getCommissionRate(employerId) when subscription module is ready
+    // TODO: 구독 모듈 생성 후 모듈에서 api로 수수료 불러오기로 수정
     private static final double DEFAULT_COMMISSION_RATE = 0.05;
 
     private final ContractRepository contractRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final ContractPdfService contractPdfService;
-
-    // ── CREATE ───────────────────────────────────────────────────────────────
 
     public ContractResponse createContract(CreateContractRequest req, Long employerId) {
         Contract contract = new Contract();
@@ -57,7 +55,6 @@ public class ContractService {
         contract.setFreelancerAddress(req.getFreelancerAddress());
         contract.setFreelancerPhone(req.getFreelancerPhone());
 
-        // Employer signs on creation using the entity's business method
         if (req.getEmployerSignature() != null && !req.getEmployerSignature().isBlank()) {
             contract.signBy("EMPLOYER", req.getEmployerSignature());
         }
@@ -65,15 +62,12 @@ public class ContractService {
         Contract saved = contractRepository.save(contract);
         saved.setContractId(saved.getId() + 1000L);
 
-        // Generate the unsigned contract PDF and store the URL
         String pdfUrl = contractPdfService.generateContractPdf(saved);
         saved.setContractPdfUrl(pdfUrl);
 
         saved = contractRepository.save(saved);
         return toResponse(saved);
     }
-
-    // ── LIST ─────────────────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
     public ContractListResponse listContracts(Long userId, String role,
@@ -111,14 +105,10 @@ public class ContractService {
                 .build();
     }
 
-    // ── GET ──────────────────────────────────────────────────────────────────
-
     @Transactional(readOnly = true)
     public ContractResponse getContract(Long id) {
         return toResponse(findById(id));
     }
-
-    // ── SIGN ─────────────────────────────────────────────────────────────────
 
     public ContractResponse sign(Long id, String signature, String role) {
         Contract contract = findById(id);
@@ -139,8 +129,6 @@ public class ContractService {
         return toResponse(contractRepository.save(contract));
     }
 
-    // ── COMPLETE / REJECT ────────────────────────────────────────────────────
-
     public ContractResponse complete(Long id) {
         Contract contract = findById(id);
         contract.complete();
@@ -152,8 +140,6 @@ public class ContractService {
         contract.reject();
         return toResponse(contractRepository.save(contract));
     }
-
-    // ── INTERNAL HELPERS ─────────────────────────────────────────────────────
 
     private Contract findById(Long id) {
         return contractRepository.findById(id)

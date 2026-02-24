@@ -1,6 +1,6 @@
 package com.fallguys.contract.api.web.dto;
 
-import com.fallguys.common.api.web.PaginationInfo;
+import com.fallguys.contract.api.web.PaginationInfo;
 import lombok.Builder;
 import lombok.Getter;
 
