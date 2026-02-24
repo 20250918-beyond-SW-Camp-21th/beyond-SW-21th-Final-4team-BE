@@ -1,7 +1,7 @@
 package com.fallguys.mypage.api.web.freelancer;
 
 import com.fallguys.common.response.ApiResponse;
-import com.fallguys.mypage.dto.EmployerProfileDto;
+import com.fallguys.mypage.dto.response.EmployerProfileResponseDto;
 import com.fallguys.mypage.dto.FreelancerProfileDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -25,13 +25,13 @@ public class FreelnacerMyPageController {
     }
 
     @GetMapping("/employer/me")
-    public ApiResponse<EmployerProfileDto> getMyEmployerProfile(@RequestHeader("X-User-Id") String userId) {
+    public ApiResponse<EmployerProfileResponseDto> getMyEmployerProfile(@RequestHeader("X-User-Id") String userId) {
         return ApiResponse.ok(null);
     }
 
     @PutMapping("/employer/me")
     public ApiResponse<Void> updateMyEmployerProfile(@RequestHeader("X-User-Id") String userId,
-                                                     @RequestBody EmployerProfileDto dto) {
+                                                     @RequestBody EmployerProfileResponseDto dto) {
         return ApiResponse.ok(null);
     }
 }
