@@ -8,16 +8,19 @@ pipeline {
     environment {
         JAVA_TOOL_OPTIONS = '-Dfile.encoding=UTF-8'
 
-        // [Manifest Repo] - New Repository (Separate Credential)
+        // [Manifest Repo]
         CRED_ID_MANIFEST = 'github-manifest-key'
         MANIFEST_REPO_URL = 'git@github.com:20250918-beyond-SW-Camp-21th/beyond-SW-21th-Final-4team-Manifest-file.git'
 
         // Docker
         IMAGE_NAME = 'o2ppo/freebrback001'
-        DOCKER_CRED_ID = credentials('dockerhub-credentials')
+        DOCKER_CRED_ID = 'dockerhub-credentials'
 
         // Git Config
         GIT_EMAIL = 'lmjayoul@gmail.com'
+
+        // BuildKit 활성화 (성능 및 안정성)
+        DOCKER_BUILDKIT = '1'
     }
 
     stages {
@@ -38,8 +41,8 @@ pipeline {
                     def rawBranch = env.BRANCH_NAME ?: (env.GIT_BRANCH ?: 'main')
                     env.TARGET_BRANCH = rawBranch.replace('origin/', '')
 
-                    echo " Build Tag: ${env.IMAGE_TAG}"
-                    echo " Target Branch: ${env.TARGET_BRANCH}"
+                    echo "Build Tag: ${env.IMAGE_TAG}"
+                    echo "Target Branch: ${env.TARGET_BRANCH}"
                 }
             }
         }
@@ -47,17 +50,26 @@ pipeline {
         stage('Build & Push') {
             steps {
                 script {
-                    // Gradle Build
-                    // Assuming gradlew is executable. If not, modify to ensure execute permission.
+                    // 1. Gradle Build (bootJar만 빌드하여 속도 향상)
                     sh 'chmod +x freebridge/gradlew'
-                    sh 'cd freebridge && ./gradlew clean build -x test' // Skipping tests for speed, remove -x test to run tests
+                    sh 'cd freebridge && ./gradlew clean bootJar -x test'
 
-                    withCredentials([usernamePassword(credentialsId: "${env.DOCKER_CRED_ID}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                        sh "docker build -t ${env.IMAGE_NAME}:${env.IMAGE_TAG} ."
+                    withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                        // 2. Docker Build (캐시 없이 빌드하여 400 에러 방지)
+                        sh "docker build --no-cache -t ${env.IMAGE_NAME}:${env.IMAGE_TAG} ."
                         sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
-                        sh "docker push ${env.IMAGE_NAME}:${env.IMAGE_TAG}"
+
+                        // 3. Docker Push (502/400 에러 대비 재시도 로직)
+                        retry(3) {
+                            echo "Attempting to push image: ${env.IMAGE_TAG}"
+                            sh "docker push ${env.IMAGE_NAME}:${env.IMAGE_TAG}"
+                        }
+
+                        // latest 태그 생성 및 푸시
                         sh "docker tag ${env.IMAGE_NAME}:${env.IMAGE_TAG} ${env.IMAGE_NAME}:latest"
-                        sh "docker push ${env.IMAGE_NAME}:latest"
+                        retry(2) {
+                            sh "docker push ${env.IMAGE_NAME}:latest"
+                        }
                     }
                 }
             }
@@ -72,7 +84,6 @@ pipeline {
                             mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
 
                             # 2. Clone Manifest Repository
-                            # Removing existing dir if any
                             rm -rf manifest-repo
                             git clone ${env.MANIFEST_REPO_URL} manifest-repo
 
@@ -84,18 +95,13 @@ pipeline {
 
                             # 3. Check for Manifest Files
                             if [ ! -f kube-folder/backend-deployment.yml ]; then
-                                echo "Error: kube-folder/backend-deployment.yml not found in manifest repo!"
-                                echo "Current directory structure:"
-                                ls -R
+                                echo "Error: kube-folder/backend-deployment.yml not found!"
                                 exit 1
                             fi
 
-                            # 4. Update Image Tag
-                            echo "Updating kube-folder/backend-deployment.yml..."
-                            sed -i 's|image: ${env.IMAGE_NAME}:.*|image: ${env.IMAGE_NAME}:${env.IMAGE_TAG}|g' kube-folder/backend-deployment.yml
-
-                            # Verify change
-                            cat kube-folder/backend-deployment.yml | grep "image:"
+                            # 4. Update Image Tag (변수 치환을 위해 큰따옴표 사용)
+                            echo "Updating image to ${env.IMAGE_NAME}:${env.IMAGE_TAG}"
+                            sed -i "s|image: ${env.IMAGE_NAME}:.*|image: ${env.IMAGE_NAME}:${env.IMAGE_TAG}|g" kube-folder/backend-deployment.yml
 
                             # 5. Commit & Push
                             git add .
@@ -120,41 +126,19 @@ pipeline {
                             export KUBECONFIG=$KUBECONFIG
                             chmod 600 $KUBECONFIG
 
-                            # Ensure kubectl is installed (Simplified check)
-                            if ! command -v kubectl > /dev/null 2>&1; then
-                                echo "kubectl not found. Installing..."
-                                curl -LO "https://dl.k8s.io/release/v1.31.0/bin/linux/amd64/kubectl"
-                                chmod +x kubectl
+                            # kubectl 실행 경로 설정 (설치된 위치 확인)
+                            export PATH=$PATH:/usr/local/bin:$HOME/bin
 
-                                # Try installing to global path, fall back to user local bin
-                                if mv kubectl /usr/local/bin/ > /dev/null 2>&1; then
-                                    echo "Installed kubectl to /usr/local/bin"
-                                else
-                                    echo "Cannot install to /usr/local/bin. Installing to $HOME/bin"
-                                    mkdir -p $HOME/bin
-                                    mv kubectl $HOME/bin/ || exit 1
-                                    export PATH=$HOME/bin:$PATH
-                                fi
-                            fi
+                            echo "Deploying to Kubernetes Cluster..."
 
-                            echo "Deploying to Server B..."
-                            kubectl cluster-info
-
-                            # Apply from the CLONED manifest-repo directory
-                            if [ ! -d manifest-repo ]; then
-                                echo "Error: manifest-repo directory not found! Was the previous stage successful?"
-                                exit 1
-                            fi
+                            # 매니페스트 적용 (Update stage에서 클론된 폴더 내 파일 사용)
                             cd manifest-repo
-
-                            # Apply all manifests
                             kubectl apply -f kube-folder/backend-deployment.yml
                             kubectl apply -f kube-folder/backend-service.yml
 
-                            # Restart rollout to ensure image pull
+                            # 배포 상태 확인 및 롤아웃 재시작 (최신 이미지 반영 보장)
                             kubectl rollout restart deployment/backend
-
-                            echo "Deployment Command Sent!"
+                            kubectl rollout status deployment/backend --timeout=60s
                         '''
                     }
                 }
@@ -164,6 +148,7 @@ pipeline {
 
     post {
         always {
+            // 자격 증명 및 로컬 이미지 정리
             sh 'docker logout || true'
             sh "docker rmi ${env.IMAGE_NAME}:${env.IMAGE_TAG} || true"
             sh "docker rmi ${env.IMAGE_NAME}:latest || true"
@@ -173,13 +158,7 @@ pipeline {
         success {
             withCredentials([string(credentialsId: 'discord', variable: 'DISCORD')]) {
                 discordSend(
-                    description: """
-                        **백엔드 배포 성공!** :tada:
-
-                        **Tag**: ${env.IMAGE_TAG}
-                        **Repo**: [Manifest Repo Link](${env.MANIFEST_REPO_URL})
-                        **Result**: SUCCESS
-                    """.stripIndent(),
+                    description: "**백엔드 배포 성공!** :tada:\n**Tag**: ${env.IMAGE_TAG}\n**Result**: SUCCESS",
                     result: 'SUCCESS',
                     title: "${env.JOB_NAME} Build Success",
                     webhookURL: "$DISCORD"
@@ -189,7 +168,7 @@ pipeline {
         failure {
             withCredentials([string(credentialsId: 'discord', variable: 'DISCORD')]) {
                 discordSend(
-                    description: "**백엔드 배포 실패** :x: Check Console Output",
+                    description: "**백엔드 배포 실패** :x:\n에러 로그를 확인하세요.",
                     result: 'FAILURE',
                     title: "${env.JOB_NAME} Build Failed",
                     webhookURL: "$DISCORD"
