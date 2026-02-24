@@ -1,6 +1,6 @@
 package com.fallguys.user.service;
 
-import com.fallguys.email.service.EmailVerificationListener;
+import com.fallguys.common.event.EmailVerifiedEvent;
 import com.fallguys.user.dto.LoginRequestDto;
 import com.fallguys.user.dto.SignupRequestDto;
 import com.fallguys.user.dto.UserResponseDto;
@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,15 +18,15 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class UserService implements EmailVerificationListener {
+public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
-    @Override
+    @EventListener
     @Transactional
-    public void onVerificationSuccess(String email) {
-        verifyUserEmail(email);
+    public void handleEmailVerifiedEvent(EmailVerifiedEvent event) {
+        verifyUserEmail(event.email());
     }
 
     /**
@@ -106,7 +107,7 @@ public class UserService implements EmailVerificationListener {
     public void verifyUserEmail(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다."));
-        user.verifyEmail();
+        user.setEmailVerified(true);
         log.info("이메일 인증 완료 - email: {}", maskEmail(email));
     }
 

@@ -19,7 +19,7 @@ public class EmailController {
 
     private final EmailVerificationService emailVerificationService;
 
-    /**
+    /*
      * 이메일 인증코드 발송
      * POST /api/auth/send-verification
      */
@@ -39,7 +39,7 @@ public class EmailController {
         }
     }
 
-    /**
+    /*
      * 이메일 인증코드 확인
      * POST /api/auth/verify-email
      */
@@ -60,7 +60,7 @@ public class EmailController {
         }
     }
 
-    /**
+    /*
      * 인증코드 재발송
      * POST /api/auth/resend-verification
      */

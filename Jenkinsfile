@@ -6,6 +6,7 @@ pipeline {
     }
 
     environment {
+        JAVA_TOOL_OPTIONS = '-Dfile.encoding=UTF-8'
 
         // [Manifest Repo] - New Repository (Separate Credential)
         CRED_ID_MANIFEST = 'github-manifest-key' 
