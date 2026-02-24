@@ -1,6 +1,6 @@
 package com.fallguys.contract.api.web;
 
-import com.fallguys.common.api.web.ApiResponse;
+import com.fallguys.common.response.ApiResponse;
 import com.fallguys.contract.api.web.dto.*;
 import com.fallguys.contract.service.ContractService;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +25,8 @@ public class ContractController {
             @RequestHeader("X-User-Id") Long userId) {
 
         ContractResponse response = contractService.createContract(request, userId);
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(response));
+        ApiResponse<ContractResponse> apiResponse = ApiResponse.created(response);
+        return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 
     // 계약 미리보기
@@ -41,13 +42,15 @@ public class ContractController {
 
         ContractListResponse response = contractService.listContracts(
                 userId, userRole, status, search, page, limit);
-        return ResponseEntity.ok(ApiResponse.success(response));
+        ApiResponse<ContractListResponse> apiResponse = ApiResponse.ok(response);
+        return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 
 
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<ContractResponse>> getOne(@PathVariable Long id) {
-        return ResponseEntity.ok(ApiResponse.success(contractService.getContract(id)));
+        ApiResponse<ContractResponse> apiResponse = ApiResponse.ok(contractService.getContract(id));
+        return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 
     // 서명 후 계약 상태 변환
@@ -58,23 +61,27 @@ public class ContractController {
             @RequestHeader("X-User-Role") String userRole) {
 
         ContractResponse response = contractService.sign(id, request.getSignature(), userRole);
-        return ResponseEntity.ok(ApiResponse.success(response));
+        ApiResponse<ContractResponse> apiResponse = ApiResponse.ok(response);
+        return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 
     @PatchMapping("/{id}/complete")
     public ResponseEntity<ApiResponse<ContractResponse>> complete(@PathVariable Long id) {
-        return ResponseEntity.ok(ApiResponse.success(contractService.complete(id)));
+        ApiResponse<ContractResponse> apiResponse = ApiResponse.ok(contractService.complete(id));
+        return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 
     @PatchMapping("/{id}/reject")
     public ResponseEntity<ApiResponse<ContractResponse>> reject(@PathVariable Long id) {
-        return ResponseEntity.ok(ApiResponse.success(contractService.reject(id)));
+        ApiResponse<ContractResponse> apiResponse = ApiResponse.ok(contractService.reject(id));
+        return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 
     // TODO: AWS에 올리면 E3에서 제대로 된 주소로 반환하게 수정
     @GetMapping("/{id}/pdf")
     public ResponseEntity<ApiResponse<String>> getPdf(@PathVariable Long id) {
         String pdfUrl = contractService.getContract(id).getContractPdfUrl();
-        return ResponseEntity.ok(ApiResponse.success(pdfUrl));
+        ApiResponse<String> apiResponse = ApiResponse.ok(pdfUrl);
+        return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 }
