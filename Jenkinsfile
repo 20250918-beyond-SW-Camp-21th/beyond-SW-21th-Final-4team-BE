@@ -19,8 +19,8 @@ pipeline {
         // Git Config
         GIT_EMAIL = 'lmjayoul@gmail.com'
 
-        // BuildKit 활성화 (성능 및 안정성)
-        DOCKER_BUILDKIT = '1'
+        // BuildKit 문제 발생 시 비활성화 설정 (0으로 설정)
+        DOCKER_BUILDKIT = '0'
     }
 
     stages {
@@ -50,22 +50,23 @@ pipeline {
         stage('Build & Push') {
             steps {
                 script {
-                    // 1. Gradle Build (bootJar만 빌드하여 속도 향상)
+                    // 1. Gradle Build (bootJar만 빌드)
                     sh 'chmod +x freebridge/gradlew'
                     sh 'cd freebridge && ./gradlew clean bootJar -x test'
 
+                    // 2. Docker 빌드 및 로그인 (직접 ID 입력 방식으로 안정성 확보)
                     withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                        // 2. Docker Build (캐시 없이 빌드하여 400 에러 방지)
-                        sh "docker build --no-cache -t ${env.IMAGE_NAME}:${env.IMAGE_TAG} ."
+
+                        // 핵심 수정: DOCKER_BUILDKIT=0 명시하여 buildx 미설치 에러 해결
+                        sh "DOCKER_BUILDKIT=0 docker build --no-cache -t ${env.IMAGE_NAME}:${env.IMAGE_TAG} ."
+
                         sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
 
-                        // 3. Docker Push (502/400 에러 대비 재시도 로직)
+                        // 3. Docker Push (네트워크 불안정 대비 retry 로직)
                         retry(3) {
-                            echo "Attempting to push image: ${env.IMAGE_TAG}"
                             sh "docker push ${env.IMAGE_NAME}:${env.IMAGE_TAG}"
                         }
 
-                        // latest 태그 생성 및 푸시
                         sh "docker tag ${env.IMAGE_NAME}:${env.IMAGE_TAG} ${env.IMAGE_NAME}:latest"
                         retry(2) {
                             sh "docker push ${env.IMAGE_NAME}:latest"
@@ -99,8 +100,7 @@ pipeline {
                                 exit 1
                             fi
 
-                            # 4. Update Image Tag (변수 치환을 위해 큰따옴표 사용)
-                            echo "Updating image to ${env.IMAGE_NAME}:${env.IMAGE_TAG}"
+                            # 4. Update Image Tag (큰따옴표를 사용하여 변수 치환 보장)
                             sed -i "s|image: ${env.IMAGE_NAME}:.*|image: ${env.IMAGE_NAME}:${env.IMAGE_TAG}|g" kube-folder/backend-deployment.yml
 
                             # 5. Commit & Push
@@ -125,18 +125,15 @@ pipeline {
                         sh '''
                             export KUBECONFIG=$KUBECONFIG
                             chmod 600 $KUBECONFIG
-
-                            # kubectl 실행 경로 설정 (설치된 위치 확인)
                             export PATH=$PATH:/usr/local/bin:$HOME/bin
 
-                            echo "Deploying to Kubernetes Cluster..."
-
-                            # 매니페스트 적용 (Update stage에서 클론된 폴더 내 파일 사용)
                             cd manifest-repo
+
+                            # 쿠버네티스 리소스 적용
                             kubectl apply -f kube-folder/backend-deployment.yml
                             kubectl apply -f kube-folder/backend-service.yml
 
-                            # 배포 상태 확인 및 롤아웃 재시작 (최신 이미지 반영 보장)
+                            # 최신 이미지를 즉시 반영하기 위한 재시작
                             kubectl rollout restart deployment/backend
                             kubectl rollout status deployment/backend --timeout=60s
                         '''
@@ -148,7 +145,6 @@ pipeline {
 
     post {
         always {
-            // 자격 증명 및 로컬 이미지 정리
             sh 'docker logout || true'
             sh "docker rmi ${env.IMAGE_NAME}:${env.IMAGE_TAG} || true"
             sh "docker rmi ${env.IMAGE_NAME}:latest || true"
@@ -158,7 +154,7 @@ pipeline {
         success {
             withCredentials([string(credentialsId: 'discord', variable: 'DISCORD')]) {
                 discordSend(
-                    description: "**백엔드 배포 성공!** :tada:\n**Tag**: ${env.IMAGE_TAG}\n**Result**: SUCCESS",
+                    description: "**백엔드 배포 성공!** :tada:\n**Tag**: ${env.IMAGE_TAG}",
                     result: 'SUCCESS',
                     title: "${env.JOB_NAME} Build Success",
                     webhookURL: "$DISCORD"
@@ -168,7 +164,7 @@ pipeline {
         failure {
             withCredentials([string(credentialsId: 'discord', variable: 'DISCORD')]) {
                 discordSend(
-                    description: "**백엔드 배포 실패** :x:\n에러 로그를 확인하세요.",
+                    description: "**백엔드 배포 실패** :x:\nJenkins 콘솔 로그를 확인하세요.",
                     result: 'FAILURE',
                     title: "${env.JOB_NAME} Build Failed",
                     webhookURL: "$DISCORD"
