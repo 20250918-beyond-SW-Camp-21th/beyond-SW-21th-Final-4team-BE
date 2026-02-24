@@ -1,78 +1,82 @@
 package com.fallguys.recruitment.entity;
 
-import java.time.LocalDateTime;
+import com.fallguys.recruitment.api.dto.request.JobPostingCreateDTO;
+import com.fallguys.recruitment.api.dto.request.JobPostingUpdateDTO;
+import jakarta.persistence.*;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
-public class JobPosting {
+@Entity
+@Table(name = "job_posting")
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class JobPosting extends BaseEntity {
 
-    private String id = UUID.randomUUID().toString();
-    private final String employerId;
-    private final String employerName;
+    @Column(name = "employer_name", nullable = false)
+    private String employerName;
 
+    @Column(nullable = false)
     private String title;
-    private String description;
-    private List<String> techStack;
 
+    @Lob
+    @Column(nullable = false)
+    private String description;
+
+    @ElementCollection
+    @CollectionTable(name = "job_posting_tech_stack", joinColumns = @JoinColumn(name = "job_posting_id"))
+    @Column(name = "tech", nullable = false)
+    private List<String> techStack = new ArrayList<>();
+
+    @Column(nullable = false)
     private Long budget;
+
+    @Column(nullable = false)
     private Integer duration;
 
-    private JobPostingStatus status;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable=false)
+    private Status status=Status.ACTIVE;
 
-    public JobPosting(
-            String employerId,
-            String employerName,
-            String title,
-            String description,
-            List<String> techStack,
-            Long budget,
-            Integer duration
-    ) {
-        this.id = UUID.randomUUID().toString();
-        this.employerId = employerId;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private JobPostingStatus postingStatus = JobPostingStatus.OPEN;
+
+    public static JobPosting from(JobPostingCreateDTO jobPostingCreateDTO, Long employerId, String employerName) {
+        JobPosting jobPosting = new JobPosting();
+        jobPosting.create(jobPostingCreateDTO, employerId, employerName);
+        return jobPosting;
+    }
+
+    public void update(JobPostingUpdateDTO jobPostingUpdateDTO) {
+        this.title = jobPostingUpdateDTO.getTitle();
+        this.description = jobPostingUpdateDTO.getDescription();
+        this.techStack = jobPostingUpdateDTO.getTechStack() == null
+                ? new ArrayList<>()
+                : new ArrayList<>(jobPostingUpdateDTO.getTechStack());
+        this.budget = jobPostingUpdateDTO.getBudget();
+        this.duration = jobPostingUpdateDTO.getDuration();
+        this.postingStatus = jobPostingUpdateDTO.getStatus();
+    }
+
+    private void create(JobPostingCreateDTO jobPostingCreateDTO, Long employerId, String employerName) {
+        this.title = jobPostingCreateDTO.getTitle();
+        this.description = jobPostingCreateDTO.getDescription();
+        this.techStack = jobPostingCreateDTO.getTechStack() == null
+                ? new ArrayList<>()
+                : new ArrayList<>(jobPostingCreateDTO.getTechStack());
+        this.budget = jobPostingCreateDTO.getBudget();
+        this.duration = jobPostingCreateDTO.getDuration();
+        this.postingStatus = JobPostingStatus.OPEN;
+        this.status=Status.ACTIVE;
+        assignEmployer(employerId);
         this.employerName = employerName;
-        this.title = title;
-        this.description = description;
-        this.techStack = new ArrayList<>(techStack);
-        this.budget = budget;
-        this.duration = duration;
-        this.status = JobPostingStatus.OPEN;
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = this.createdAt;
     }
 
-    /* ===== 도메인 행위 ===== */
-
-    public void close() {
-        if (status != JobPostingStatus.OPEN) {
-            throw new IllegalStateException("이미 종료된 공고입니다.");
-        }
-        this.status = JobPostingStatus.CLOSED;
-        touch();
-    }
-
-    public void updatePosting(
-            String title,
-            String description,
-            List<String> techStack,
-            Long budget,
-            Integer duration) {
-        this.title = title;
-        this.description = description;
-        this.techStack = new ArrayList<>(techStack);
-        this.budget = budget;
-        this.duration = duration;
-        touch();
-    }
-
-    private void touch() {
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    public boolean isOpen() {
-        return status == JobPostingStatus.OPEN;
+    public void delete() {
+        this.status = Status.DELETED;
     }
 }

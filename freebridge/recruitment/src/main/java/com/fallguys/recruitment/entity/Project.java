@@ -1,32 +1,35 @@
 package com.fallguys.recruitment.entity;
 
+import jakarta.persistence.*;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.UUID;
 
+@Entity
+@Table(name = "projects")
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class Project extends BaseEntity {
 
-public class Project {
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "job_posting_id", nullable = false)
+    private JobPosting jobPosting;
 
+    @Column(name = "freelancer_id", nullable = false)
+    private Long freelancerId;
 
-    private String id = UUID.randomUUID().toString();
-
-    private String jobPostingId;
-
-    private String employerId;
-
-    private String freelancerId;
-
+    @Column(nullable = false)
     private String projectName;
 
+    @Column
     private LocalDate startDate;
+
+    @Column
     private LocalDate endDate;
 
-
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
     private ProjectStatus status = ProjectStatus.IN_PROGRESS;
-
-
-    private LocalDateTime createdAt = LocalDateTime.now();
-
-
-    private LocalDateTime updatedAt = LocalDateTime.now();
 }
