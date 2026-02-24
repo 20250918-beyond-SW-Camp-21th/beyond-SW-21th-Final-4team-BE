@@ -9,9 +9,9 @@ pipeline {
         JAVA_TOOL_OPTIONS = '-Dfile.encoding=UTF-8'
 
         // [Manifest Repo] - New Repository (Separate Credential)
-        CRED_ID_MANIFEST = 'github-manifest-key' 
+        CRED_ID_MANIFEST = 'github-manifest-key'
         MANIFEST_REPO_URL = 'git@github.com:20250918-beyond-SW-Camp-21th/beyond-SW-21th-Final-4team-Manifest-file.git'
-        
+
         // Docker
         IMAGE_NAME = 'o2ppo/freebrback001'
         DOCKER_CRED_ID = credentials('dockerhub-credentials')
