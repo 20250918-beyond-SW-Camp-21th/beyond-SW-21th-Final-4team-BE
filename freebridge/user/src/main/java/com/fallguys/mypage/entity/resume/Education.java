@@ -6,6 +6,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDate;
+
 @Embeddable
 @Getter
 @NoArgsConstructor
@@ -16,6 +18,6 @@ public class Education {
     private String schoolName;
     private String major;
     private String status;
-    private String entranceDate;
-    private String graduationDate;
+    private LocalDate entranceDate;
+    private LocalDate graduationDate;
 }

@@ -1,4 +1,4 @@
-package com.fallguys.mypage.api;
+package com.fallguys.mypage.api.web.freelancer;
 
 import com.fallguys.common.response.ApiResponse;
 import com.fallguys.mypage.dto.EmployerProfileDto;
@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/mypage")
 @RequiredArgsConstructor
-public class MyPageController {
+public class FreelnacerMyPageController {
 
     // TODO: 추후 Spring Security의 @AuthenticationPrincipal 등을 통해 실제 접속 유저 ID를 매핑해야 함.
     

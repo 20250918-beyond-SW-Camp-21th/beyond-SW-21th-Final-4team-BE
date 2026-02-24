@@ -9,12 +9,12 @@ import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "Employer MyPage - Profile", description = "고용주 마이페이지 프로필 관리 API")
 @RestController
-@RequestMapping("/api/mypage/employer/profile")
+@RequestMapping("/api/employer/mypage")
 @RequiredArgsConstructor
 public class EmployerProfileController {
 
-    @Operation(summary = "고용주 프로필 조회", description = "고용주 대시보드 및 프로필 정보를 조회합니다.")
-    @GetMapping
+    @Operation(summary = "고용주 프로필 조회", description = "고용주 프로필 정보를 조회합니다.")
+    @GetMapping("/profile")
     public ApiResponse<EmployerProfileDto> getProfile(@RequestHeader("X-User-Id") String userId) {
         // TODO: EmployerProfileDto 반환 로직 구현
         // Service: myPageService.getEmployerProfile(UUID.fromString(userId));

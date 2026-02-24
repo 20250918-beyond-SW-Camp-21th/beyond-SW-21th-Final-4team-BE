@@ -1,4 +1,4 @@
-package com.fallguys.mypage.api;
+package com.fallguys.mypage.api.web.employer;
 
 import com.fallguys.common.response.ApiResponse;
 import com.fallguys.mypage.dto.EmployerProfileDto;
@@ -7,29 +7,18 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/mypage")
+@RequestMapping("/api/employer")
 @RequiredArgsConstructor
-public class MyPageController {
+public class EmployerMyPageController {
 
     // TODO: 추후 Spring Security의 @AuthenticationPrincipal 등을 통해 실제 접속 유저 ID를 매핑해야 함.
-    
-    @GetMapping("/freelancer/me")
-    public ApiResponse<FreelancerProfileDto> getMyFreelancerProfile(@RequestHeader("X-User-Id") String userId) {
-        return ApiResponse.ok(null);
-    }
 
-    @PutMapping("/freelancer/me")
-    public ApiResponse<Void> updateMyFreelancerProfile(@RequestHeader("X-User-Id") String userId,
-                                                       @RequestBody FreelancerProfileDto dto) {
-        return ApiResponse.ok(null);
-    }
-
-    @GetMapping("/employer/me")
+    @GetMapping("/profile")
     public ApiResponse<EmployerProfileDto> getMyEmployerProfile(@RequestHeader("X-User-Id") String userId) {
         return ApiResponse.ok(null);
     }
 
-    @PutMapping("/employer/me")
+    @PutMapping("/profile")
     public ApiResponse<Void> updateMyEmployerProfile(@RequestHeader("X-User-Id") String userId,
                                                      @RequestBody EmployerProfileDto dto) {
         return ApiResponse.ok(null);

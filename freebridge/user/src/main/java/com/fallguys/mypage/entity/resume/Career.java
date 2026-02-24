@@ -6,6 +6,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDate;
+
 @Embeddable
 @Getter
 @NoArgsConstructor
@@ -17,7 +19,7 @@ public class Career {
     private String position;
     private String jobType;
     private String employmentType;
-    private String startDate;
-    private String endDate;
+    private LocalDate startDate;
+    private LocalDate endDate;
     private String description;
 }

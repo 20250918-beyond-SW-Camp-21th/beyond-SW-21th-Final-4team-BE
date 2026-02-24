@@ -5,16 +5,16 @@ import jakarta.persistence.Embeddable;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
+
+import java.time.LocalDate;
 
 @Embeddable
 @Getter
-@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 public class WorkConditions {
     private String conditionsType;
-    private String startDate;
+    private LocalDate startDate;
     private String workStyle;
     private String location;
 }

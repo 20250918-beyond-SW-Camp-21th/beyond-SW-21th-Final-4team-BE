@@ -7,14 +7,10 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import java.time.LocalDateTime;
-import java.util.Objects;
 
 @Entity
 @Getter
-@Table(name = "employer",
-        uniqueConstraints = {
-                @UniqueConstraint(name = "uk_employer_user", columnNames = "user_id")
-        })
+@Table(name = "employer")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Employer {
 
@@ -33,14 +29,24 @@ public class Employer {
     @Column(nullable = false, length = 100)
     private String companyName;
 
-    @Column(nullable = false, length = 20, unique = true)
-    private String businessRegistrationNumber;
-
     @Column(columnDefinition = "TEXT")
     private String description;
 
     @Column(length = 500)
     private String logoUrl;
+
+    @Column(length = 100)
+    private String industry;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private Scale scale;
+
+    @Column(length=100)
+    private String location;
+
+    @Column(length = 100)
+    private String websiteUrl;
 
     @CreatedDate
     @Column(updatable = false, nullable = false)
@@ -51,78 +57,86 @@ public class Employer {
     private LocalDateTime updatedAt;
 
     /* =========================
-    *   생성
-    *  =========================*/
+   생성 (정적 팩토리)
+   ========================= */
     public static Employer create(
             Long userId,
             Subscription subscription,
             String companyName,
-            String businessRegistrationNumber,
-            String description,
-            String logoUrl
+            Scale scale
     ) {
-        if (userId == null) throw new IllegalArgumentException("userId 가 비어있습니다.");
-        Objects.requireNonNull(subscription, "subscription 이 비어있습니다.");
-
-        Employer employer = new Employer();
-        employer.userId = userId;
-        employer.subscription = subscription;
-        employer.companyName = normalize(companyName);
-        employer.businessRegistrationNumber = normalizeBrn(businessRegistrationNumber);
-        employer.description = normalizeNullable(description);
-        employer.logoUrl = normalizeNullable(logoUrl);
-
-        employer.validateInvariants();
-        return employer;
+        Employer e = new Employer();
+        e.userId = requireNonNull(userId, "userId");
+        e.subscription = requireNonNull(subscription, "subscription");
+        e.companyName = normalize(companyName, "companyName");
+        e.scale = requireNonNull(scale, "scale");
+        return e;
     }
 
-
     /* =========================
-     *   업데이트
-     *  =========================*/
-    public void updateProfile(String companyName, String businessRegistrationNumber, String description, String logoUrl) {
-        this.companyName = normalize(companyName);
-        this.businessRegistrationNumber = normalizeBrn(businessRegistrationNumber);
-        this.description = normalizeNullable(description);
-        this.logoUrl = normalizeNullable(logoUrl);
+       POJO 스타일 변경 메소드
+       ========================= */
 
-        validateInvariants();
+    public void changeCompanyName(String companyName) {
+        this.companyName = normalize(companyName, "companyName");
     }
 
     public void changeSubscription(Subscription subscription) {
-        this.subscription = Objects.requireNonNull(subscription, "subscription 이 비어있습니다.");
+        this.subscription = requireNonNull(subscription, "subscription");
     }
 
-    public void changeLogoUrl(String logoUrl) {
+    public void changeScale(Scale scale) {
+        this.scale = requireNonNull(scale, "scale");
+    }
+
+    public void updateIndustry(String industry) {
+        this.industry = normalizeNullable(industry);
+    }
+
+    public void updateLocation(String location) {
+        this.location = normalizeNullable(location);
+    }
+
+    public void updateWebsiteUrl(String websiteUrl) {
+        // URL 정교 검증까지는 과할 수 있어서 기본 정리만
+        this.websiteUrl = normalizeNullable(websiteUrl);
+    }
+
+    public void updateDescription(String description) {
+        this.description = normalizeNullable(description);
+    }
+
+
+    public void updateLogoUrl(String logoUrl) {
         this.logoUrl = normalizeNullable(logoUrl);
     }
 
-    public void changeDescription(String description) {
-        this.description = normalizeNullable(description);
-        validateInvariants();
+    public void updateProfile(
+            String companyName,
+            String industry,
+            Scale scale,
+            String location,
+            String websiteUrl,
+            String description,
+            String introduction,
+            String logoUrl
+    ) {
+        changeCompanyName(companyName);
+        updateIndustry(industry);
+        changeScale(scale);
+        updateLocation(location);
+        updateWebsiteUrl(websiteUrl);
+        updateDescription(description);
+        updateLogoUrl(logoUrl);
     }
-
     /* =========================
-     *   도메인 규칙/검증
-     *  =========================*/
-    private void validateInvariants() {
-        if (companyName == null || companyName.isBlank()) {
-            throw new IllegalArgumentException("companyName 이 비어있습니다.");
-        }
-        if (businessRegistrationNumber == null || businessRegistrationNumber.isBlank()) {
-            throw new IllegalArgumentException("businessRegistrationNumber 이 비어있습니다.");
-        }
-        if (!businessRegistrationNumber.matches("\\d{10}")) {
-            throw new IllegalArgumentException("businessRegistrationNumber 은 반드시 10자(숫자)여야 합니다.");
-        }
-        if (description != null && description.length() > 5000) {
-            throw new IllegalArgumentException("description 은 5000 <= char 이어야 합니다.");
-        }
-    }
-
-    private static String normalize(String value) {
-        if (value == null) throw new IllegalArgumentException("값이 비어있습니다.");
-        return value.trim();
+         내부 유틸
+         ========================= */
+    private static String normalize(String value, String fieldName) {
+        if (value == null) throw new IllegalArgumentException(fieldName + " 값이 비어있습니다.");
+        String v = value.trim();
+        if (v.isEmpty()) throw new IllegalArgumentException(fieldName + " 값이 비어있습니다.");
+        return v;
     }
 
     private static String normalizeNullable(String value) {
@@ -131,8 +145,8 @@ public class Employer {
         return v.isEmpty() ? null : v;
     }
 
-    private static String normalizeBrn(String brn) {
-        String v = normalize(brn);
-        return v.replace("-", "");
+    private static <T> T requireNonNull(T value, String fieldName) {
+        if (value == null) throw new IllegalArgumentException(fieldName + " 값이 비어있습니다.");
+        return value;
     }
 }

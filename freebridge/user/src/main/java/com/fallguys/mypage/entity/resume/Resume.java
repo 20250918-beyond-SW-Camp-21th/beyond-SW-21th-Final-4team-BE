@@ -7,10 +7,10 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 @Entity
 @Getter
@@ -28,7 +28,7 @@ public class Resume {
     private Long freelancerId;
 
     private String name;
-    private String birthDate;
+    private LocalDate birthDate;
     private String phone;
     private String email;
     private String address;
@@ -55,7 +55,7 @@ public class Resume {
         this.freelancerId = freelancerId;
     }
 
-    public void update(String name, String birthDate, String phone, String email, String address,
+    public void update(String name, LocalDate birthDate, String phone, String email, String address,
                        List<Education> educations, List<Career> careers, List<Certification> certifications) {
         this.name = name;
         this.birthDate = birthDate;

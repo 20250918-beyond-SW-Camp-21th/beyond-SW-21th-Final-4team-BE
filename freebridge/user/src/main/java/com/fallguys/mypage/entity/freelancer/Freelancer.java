@@ -24,8 +24,7 @@ public class Freelancer {
 
     private Long userId;
 
-    private Long resumeId;
-
+    @Enumerated(EnumType.STRING)
     private FreelancerGrade grade;
 
     private String job;
@@ -53,7 +52,7 @@ public class Freelancer {
     @Embedded
     private Collaboration collaboration;
 
-    private Double averateRate;
+    private Double averageRate;
     private Integer statContact;
     private Integer statChat;
     private Integer statContract;
@@ -92,7 +91,7 @@ public class Freelancer {
         f.statContact = 0;
         f.statChat = 0;
         f.statContract = 0;
-        f.averateRate = 0.0;
+        f.averageRate = 0.0;
         f.topPercentile = 0;
         return f;
     }
@@ -121,15 +120,6 @@ public class Freelancer {
     public void changeGrade(FreelancerGrade newGrade) {
         if (newGrade == null) throw new IllegalArgumentException("grade is required");
         this.grade = newGrade;
-    }
-
-    public void connectResume(Long resumeId) {
-        if (resumeId == null) throw new IllegalArgumentException("resumeId is required");
-        this.resumeId = resumeId;
-    }
-
-    public void disconnectResume() {
-        this.resumeId = null;
     }
 
     public void updateWorkConditions(WorkConditions workConditions) {
@@ -224,7 +214,7 @@ public class Freelancer {
         if (averageRate < 0.0 || averageRate > 5.0) {
             throw new IllegalArgumentException("averageRate must be between 0.0 and 5.0");
         }
-        this.averateRate = averageRate;
+        this.averageRate = averageRate;
     }
 
     public void updateTopPercentile(Integer topPercentile) {
