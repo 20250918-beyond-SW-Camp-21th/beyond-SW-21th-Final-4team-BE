@@ -2,6 +2,8 @@ package com.fallguys.email.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.fallguys.common.event.EmailVerifiedEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -16,7 +18,7 @@ public class EmailVerificationService {
     private final EmailService emailService;
     private final StringRedisTemplate redisTemplate;
     private final org.springframework.data.redis.core.script.RedisScript<Long> verifyFailScript;
-    private final java.util.List<EmailVerificationListener> listeners;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     private static final String REDIS_KEY_PREFIX = "email:verification:";
     private static final String REDIS_COUNT_PREFIX = "email:verification:count:";
@@ -82,10 +84,8 @@ public class EmailVerificationService {
 
         if (result == 1) { // SUCCESS
             log.info("이메일 인증 성공 - email: {}", maskEmail(email));
-            // 리스너 알림 (의존성 역전)
-            if (listeners != null) {
-                listeners.forEach(l -> l.onVerificationSuccess(email));
-            }
+            // 이벤트 발행 (의존성 역전)
+            applicationEventPublisher.publishEvent(new EmailVerifiedEvent(email));
             return true;
         }
 

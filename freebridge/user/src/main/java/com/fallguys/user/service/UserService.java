@@ -1,6 +1,6 @@
 package com.fallguys.user.service;
 
-import com.fallguys.email.service.EmailVerificationListener;
+import com.fallguys.common.event.EmailVerifiedEvent;
 import com.fallguys.user.dto.LoginRequestDto;
 import com.fallguys.user.dto.SignupRequestDto;
 import com.fallguys.user.dto.UserResponseDto;
@@ -10,6 +10,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.context.event.EventListener;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,15 +19,22 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class UserService implements EmailVerificationListener {
+public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
-    @Override
+    @Async
+    @EventListener
     @Transactional
-    public void onVerificationSuccess(String email) {
-        verifyUserEmail(email);
+    public void handleEmailVerifiedEvent(EmailVerifiedEvent event) {
+        // 회원가입 전 이메일 인증 시에는 아직 User가 없으므로 Exception이 발생하지 않도록 처리
+        userRepository.findByEmail(event.email()).ifPresentOrElse(
+                user -> {
+                    user.setEmailVerified(true);
+                    log.info("이메일 인증 완료 처리 (기존 회원) - email: {}", maskEmail(event.email()));
+                },
+                () -> log.info("이메일 인증 완료 (신규 가입 대기) - email: {}", maskEmail(event.email())));
     }
 
     /**
@@ -106,7 +115,7 @@ public class UserService implements EmailVerificationListener {
     public void verifyUserEmail(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다."));
-        user.verifyEmail();
+        user.setEmailVerified(true);
         log.info("이메일 인증 완료 - email: {}", maskEmail(email));
     }
 
