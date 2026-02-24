@@ -47,11 +47,36 @@ public class EmailLog {
     public EmailLog(Long userId, String receiverEmail, String subject, String content, EmailStatus status,
             String errorMessage, LocalDateTime sentAt) {
         this.userId = userId;
-        this.receiverEmail = receiverEmail;
+        this.receiverEmail = maskEmail(receiverEmail);
         this.subject = subject;
-        this.content = content;
+        this.content = redactAuthCodes(content);
         this.status = status;
         this.errorMessage = errorMessage;
         this.sentAt = sentAt;
     }
+
+    /**
+     * 이메일 마스킹 (예: test@gmail.com → t***t@gmail.com)
+     */
+    private String maskEmail(String email) {
+        if (email == null)
+            return null;
+        int atIndex = email.indexOf('@');
+        if (atIndex <= 1)
+            return "***" + (atIndex >= 0 ? email.substring(atIndex) : "");
+        String local = email.substring(0, atIndex);
+        String domain = email.substring(atIndex);
+        return local.charAt(0) + "***" + local.charAt(local.length() - 1) + domain;
+    }
+
+    /**
+     * 본문 내용의 인증코드(6자리 숫자 등) 보호
+     */
+    private String redactAuthCodes(String text) {
+        if (text == null)
+            return null;
+        // 6자리 연속된 숫자를 [REDACTED] 로 치환
+        return text.replaceAll("\\b\\d{6}\\b", "[REDACTED]");
+    }
+
 }
