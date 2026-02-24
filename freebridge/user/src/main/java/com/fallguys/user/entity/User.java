@@ -5,6 +5,7 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity
 @Getter
@@ -38,13 +39,14 @@ public class User extends BaseTimeEntity {
     @Column(nullable = false)
     private Boolean privacyAgreed;
 
-    /* 이메일 인증 값  */
+    /* 이메일 인증 값 */
+    @Setter
     @Column(nullable = false)
     private Boolean emailVerified = false;
 
     @Builder
     public User(String email, String password, String name, Role role,
-                Boolean termsAgreed, Boolean privacyAgreed) {
+            Boolean termsAgreed, Boolean privacyAgreed) {
         this.email = email;
         this.password = password;
         this.name = name;
@@ -52,10 +54,5 @@ public class User extends BaseTimeEntity {
         this.termsAgreed = termsAgreed;
         this.privacyAgreed = privacyAgreed;
         this.emailVerified = false;
-    }
-
-    /* 이메일 인증 완료 */
-    public void verifyEmail() {
-        this.emailVerified = true;
     }
 }
