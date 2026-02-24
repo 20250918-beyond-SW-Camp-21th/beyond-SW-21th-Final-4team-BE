@@ -4,7 +4,7 @@ pipeline {
     environment {
         IMAGE_NAME = 'o2ppo/freebrback001'
         DOCKER_CRED_ID = 'dockerhub-credentials'
-        DOCKER_BUILDKIT = '0'
+        DOCKER_BUILDKIT = '1'
 
         // 네트워크 타임아웃 강제 확장 (5분)
         DOCKER_CLIENT_TIMEOUT = '300'
@@ -27,7 +27,7 @@ pipeline {
                 }
 
                 // Docker Build
-                sh "DOCKER_BUILDKIT=0 docker build --no-cache -t ${env.IMAGE_NAME}:${env.IMAGE_TAG} ."
+                sh "DOCKER_BUILDKIT=1 docker build -t ${env.IMAGE_NAME}:${env.IMAGE_TAG} ."
             }
         }
 
