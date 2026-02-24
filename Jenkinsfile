@@ -9,13 +9,13 @@ pipeline {
         JAVA_TOOL_OPTIONS = '-Dfile.encoding=UTF-8'
 
         // [Manifest Repo] - New Repository (Separate Credential)
-        CRED_ID_MANIFEST = 'github-manifest-key' 
+        CRED_ID_MANIFEST = 'github-manifest-key'
         MANIFEST_REPO_URL = 'git@github.com:20250918-beyond-SW-Camp-21th/beyond-SW-21th-Final-4team-Manifest-file.git'
-        
+
         // Docker
         IMAGE_NAME = 'o2ppo/freebrback001'
-        DOCKER_CRED_ID = 'dockerhub-credentials'
-        
+        DOCKER_CRED_ID = credentials('dockerhub-credentials')
+
         // Git Config
         GIT_EMAIL = 'lmjayoul@gmail.com'
     }
@@ -23,7 +23,7 @@ pipeline {
     stages {
         stage('Checkout Code') {
             steps {
-                cleanWs() 
+                cleanWs()
                 checkout scm
                 echo "Source Code Checkout Complete"
             }
@@ -34,10 +34,10 @@ pipeline {
                 script {
                     env.GIT_COMMIT_HASH = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
                     env.IMAGE_TAG = "${currentBuild.number}-${env.GIT_COMMIT_HASH}"
-                    
+
                     def rawBranch = env.BRANCH_NAME ?: (env.GIT_BRANCH ?: 'main')
                     env.TARGET_BRANCH = rawBranch.replace('origin/', '')
-                    
+
                     echo " Build Tag: ${env.IMAGE_TAG}"
                     echo " Target Branch: ${env.TARGET_BRANCH}"
                 }
@@ -75,13 +75,13 @@ pipeline {
                             # Removing existing dir if any
                             rm -rf manifest-repo
                             git clone ${env.MANIFEST_REPO_URL} manifest-repo
-                            
+
                             cd manifest-repo
 
                             # Configure Git
                             git config user.name "Jenkins Backend Bot"
                             git config user.email "${env.GIT_EMAIL}"
-                            
+
                             # 3. Check for Manifest Files
                             if [ ! -f kube-folder/backend-deployment.yml ]; then
                                 echo "Error: kube-folder/backend-deployment.yml not found in manifest repo!"
@@ -93,10 +93,10 @@ pipeline {
                             # 4. Update Image Tag
                             echo "Updating kube-folder/backend-deployment.yml..."
                             sed -i 's|image: ${env.IMAGE_NAME}:.*|image: ${env.IMAGE_NAME}:${env.IMAGE_TAG}|g' kube-folder/backend-deployment.yml
-                            
+
                             # Verify change
                             cat kube-folder/backend-deployment.yml | grep "image:"
-                            
+
                             # 5. Commit & Push
                             git add .
                             if ! git diff --cached --quiet; then
@@ -119,13 +119,13 @@ pipeline {
                         sh '''
                             export KUBECONFIG=$KUBECONFIG
                             chmod 600 $KUBECONFIG
-                            
+
                             # Ensure kubectl is installed (Simplified check)
                             if ! command -v kubectl > /dev/null 2>&1; then
                                 echo "kubectl not found. Installing..."
                                 curl -LO "https://dl.k8s.io/release/v1.31.0/bin/linux/amd64/kubectl"
                                 chmod +x kubectl
-                                
+
                                 # Try installing to global path, fall back to user local bin
                                 if mv kubectl /usr/local/bin/ > /dev/null 2>&1; then
                                     echo "Installed kubectl to /usr/local/bin"
@@ -136,24 +136,24 @@ pipeline {
                                     export PATH=$HOME/bin:$PATH
                                 fi
                             fi
-                            
+
                             echo "Deploying to Server B..."
                             kubectl cluster-info
-                            
+
                             # Apply from the CLONED manifest-repo directory
                             if [ ! -d manifest-repo ]; then
                                 echo "Error: manifest-repo directory not found! Was the previous stage successful?"
                                 exit 1
                             fi
                             cd manifest-repo
-                            
+
                             # Apply all manifests
                             kubectl apply -f kube-folder/backend-deployment.yml
                             kubectl apply -f kube-folder/backend-service.yml
-                            
+
                             # Restart rollout to ensure image pull
                             kubectl rollout restart deployment/backend
-                            
+
                             echo "Deployment Command Sent!"
                         '''
                     }
@@ -161,7 +161,7 @@ pipeline {
             }
         }
     }
-    
+
     post {
         always {
             sh 'docker logout || true'
@@ -175,13 +175,13 @@ pipeline {
                 discordSend(
                     description: """
                         **백엔드 배포 성공!** :tada:
-                        
+
                         **Tag**: ${env.IMAGE_TAG}
                         **Repo**: [Manifest Repo Link](${env.MANIFEST_REPO_URL})
                         **Result**: SUCCESS
                     """.stripIndent(),
                     result: 'SUCCESS',
-                    title: "${env.JOB_NAME} Build Success", 
+                    title: "${env.JOB_NAME} Build Success",
                     webhookURL: "$DISCORD"
                 )
             }
@@ -191,7 +191,7 @@ pipeline {
                 discordSend(
                     description: "**백엔드 배포 실패** :x: Check Console Output",
                     result: 'FAILURE',
-                    title: "${env.JOB_NAME} Build Failed", 
+                    title: "${env.JOB_NAME} Build Failed",
                     webhookURL: "$DISCORD"
                 )
             }
