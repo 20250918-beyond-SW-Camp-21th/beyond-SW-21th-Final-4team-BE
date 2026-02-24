@@ -14,7 +14,7 @@ pipeline {
         
         // Docker
         IMAGE_NAME = 'o2ppo/freebrback001'
-        DOCKER_CRED_ID = 'dockerhub-credentials'
+        DOCKER_CRED_ID = credentials('dockerhub-credentials')
         
         // Git Config
         GIT_EMAIL = 'lmjayoul@gmail.com'

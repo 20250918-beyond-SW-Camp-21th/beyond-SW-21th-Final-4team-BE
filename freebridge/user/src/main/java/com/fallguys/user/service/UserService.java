@@ -26,7 +26,13 @@ public class UserService {
     @EventListener
     @Transactional
     public void handleEmailVerifiedEvent(EmailVerifiedEvent event) {
-        verifyUserEmail(event.email());
+        // 회원가입 전 이메일 인증 시에는 아직 User가 없으므로 Exception이 발생하지 않도록 처리
+        userRepository.findByEmail(event.email()).ifPresentOrElse(
+                user -> {
+                    user.setEmailVerified(true);
+                    log.info("이메일 인증 완료 처리 (기존 회원) - email: {}", maskEmail(event.email()));
+                },
+                () -> log.info("이메일 인증 완료 (신규 가입 대기) - email: {}", maskEmail(event.email())));
     }
 
     /**
