@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    triggers {
+            githubPush()
+    }
+
     environment {
         IMAGE_NAME = 'o2ppo/freebrback001'
         DOCKER_CRED_ID = 'dockerhub-credentials'
