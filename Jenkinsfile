@@ -4,87 +4,113 @@ pipeline {
     environment {
         IMAGE_NAME = 'o2ppo/freebrback001'
         DOCKER_CRED_ID = 'dockerhub-credentials'
-        DOCKER_BUILDKIT = '1'
+        DOCKER_BUILDKIT = '0' // BuildKit 강제 비활성화 (에러 방지)
 
-        // 네트워크 타임아웃 강제 확장 (5분)
-        DOCKER_CLIENT_TIMEOUT = '300'
-        COMPOSE_HTTP_TIMEOUT = '300'
+        // 네트워크 안정성을 위한 타임아웃 설정
+        DOCKER_CLIENT_TIMEOUT = '600'
+        COMPOSE_HTTP_TIMEOUT = '600'
+
+        // Manifest & Git 설정
+        CRED_ID_MANIFEST = 'github-manifest-key'
+        MANIFEST_REPO_URL = 'git@github.com:20250918-beyond-SW-Camp-21th/beyond-SW-21th-Final-4team-Manifest-file.git'
+        GIT_EMAIL = 'lmjayoul@gmail.com'
     }
 
     stages {
-        stage('Checkout & Build') {
+        stage('Checkout & Gradle Build') {
             steps {
                 cleanWs()
                 checkout scm
 
-                // Gradle Build
+                // 실행 권한 부여 및 bootJar 빌드
                 sh 'chmod +x freebridge/gradlew'
                 sh 'cd freebridge && ./gradlew clean bootJar -x test'
 
                 script {
                     env.GIT_COMMIT_HASH = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
                     env.IMAGE_TAG = "${currentBuild.number}-${env.GIT_COMMIT_HASH}"
+                    echo "Build Tag 생성 완료: ${env.IMAGE_TAG}"
                 }
-
-                // Docker Build
-                sh "DOCKER_BUILDKIT=1 docker build -t ${env.IMAGE_NAME}:${env.IMAGE_TAG} ."
             }
         }
 
-        stage('Push Image (Stabilized)') {
+        stage('Docker Build') {
+            steps {
+                script {
+                    echo "BuildKit을 끄고 레거시 빌더로 빌드를 시작합니다."
+                    // DOCKER_BUILDKIT=0을 명시하여 buildx 에러를 우회합니다.
+                    sh "DOCKER_BUILDKIT=0 docker build --no-cache -t ${env.IMAGE_NAME}:${env.IMAGE_TAG} ."
+                }
+            }
+        }
+
+        stage('Push Image to Docker Hub') {
             steps {
                 script {
                     withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                         sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
 
-                        //
-                        // 네트워크 부하를 줄이기 위해 짧은 주기로 재시도하며 푸시
+                        // 대용량 레이어 처리를 위해 타임아웃과 재시도 로직 적용
                         retry(3) {
-                            timeout(time: 7, unit: 'MINUTES') {
-                                echo "Pushing image tag: ${env.IMAGE_TAG}..."
-                                // 안정적인 전송을 위해 stdout을 유지하며 실행
+                            timeout(time: 15, unit: 'MINUTES') {
+                                echo "Docker Push 시도 중: ${env.IMAGE_TAG}..."
                                 sh "docker push ${env.IMAGE_NAME}:${env.IMAGE_TAG}"
                             }
                         }
 
-                        // latest 태그 처리
+                        // latest 태그 푸시
                         sh "docker tag ${env.IMAGE_NAME}:${env.IMAGE_TAG} ${env.IMAGE_NAME}:latest"
-                        retry(2) {
-                            sh "docker push ${env.IMAGE_NAME}:latest"
-                        }
+                        sh "docker push ${env.IMAGE_NAME}:latest"
                     }
                 }
             }
         }
 
-        stage('Update Manifest & Deploy') {
+        stage('Update Manifest Repo') {
             steps {
                 script {
-                    // Manifest 업데이트 (기존과 동일)
-                    sshagent(credentials: ['github-manifest-key']) {
+                    sshagent(credentials: ["${env.CRED_ID_MANIFEST}"]) {
                         sh """
                             mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
                             rm -rf manifest-repo
-                            git clone git@github.com:20250918-beyond-SW-Camp-21th/beyond-SW-21th-Final-4team-Manifest-file.git manifest-repo
+                            git clone ${env.MANIFEST_REPO_URL} manifest-repo
+
                             cd manifest-repo
                             git config user.name "Jenkins Backend Bot"
-                            git config user.email "lmjayoul@gmail.com"
+                            git config user.email "${env.GIT_EMAIL}"
+
+                            # Deployment YAML 내 이미지 태그 업데이트 (큰따옴표 사용 필수)
                             sed -i "s|image: ${env.IMAGE_NAME}:.*|image: ${env.IMAGE_NAME}:${env.IMAGE_TAG}|g" kube-folder/backend-deployment.yml
+
                             git add .
                             if ! git diff --cached --quiet; then
                                 git commit -m "[Jenkins] Update backend image to ${env.IMAGE_TAG}"
                                 git push origin main
+                                echo "Manifest Repo 업데이트 완료"
+                            else
+                                echo "변경 사항이 없습니다."
                             fi
                         """
                     }
+                }
+            }
+        }
 
-                    // 배포 실행
+        stage('Deploy to Kubernetes') {
+            steps {
+                script {
                     withCredentials([file(credentialsId: 'k8s-kubeconfig', variable: 'KUBECONFIG')]) {
                         sh '''
                             export KUBECONFIG=$KUBECONFIG
+                            chmod 600 $KUBECONFIG
                             cd manifest-repo
+
                             kubectl apply -f kube-folder/backend-deployment.yml
+                            kubectl apply -f kube-folder/backend-service.yml
+
+                            # 롤아웃 재시작으로 최신 이미지 반영 강제
                             kubectl rollout restart deployment/backend
+                            kubectl rollout status deployment/backend --timeout=60s
                         '''
                     }
                 }
@@ -94,8 +120,11 @@ pipeline {
 
     post {
         always {
+            // 자격 증명 로그아웃 및 로컬 이미지 정리
             sh 'docker logout || true'
             sh "docker rmi ${env.IMAGE_NAME}:${env.IMAGE_TAG} || true"
+            sh "docker rmi ${env.IMAGE_NAME}:latest || true"
+            sh 'docker image prune -f || true'
             cleanWs()
         }
     }
