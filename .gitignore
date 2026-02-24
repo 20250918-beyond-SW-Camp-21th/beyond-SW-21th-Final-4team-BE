@@ -448,3 +448,5 @@ docker-compose.override.yml
 /ai/.venv/
 /ai/__pycache__/
 /ai/**/*.py[cod]
+
+.claude/
