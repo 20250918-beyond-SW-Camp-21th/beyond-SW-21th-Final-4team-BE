@@ -25,6 +25,10 @@ public class Freelancer {
     private Long userId;
 
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
+    private FreelancerStatus status;
+
+    @Enumerated(EnumType.STRING)
     private FreelancerGrade grade;
 
     private String job;
@@ -93,12 +97,21 @@ public class Freelancer {
         f.statContract = 0;
         f.averageRate = 0.0;
         f.topPercentile = 0;
+        f.status = FreelancerStatus.POTENTIAL;
         return f;
     }
 
     /* --------------------------------
     *   프로필 수정 함수
     * */
+
+    public void changeStatus(FreelancerStatus newStatus) {
+        if (newStatus == null) throw new IllegalArgumentException("newStatus is required");
+        if (this.status == FreelancerStatus.LEFT) {
+            throw new IllegalStateException("이미 이탈한 프리랜서의 상태는 변경할 수 없습니다.");
+        }
+        this.status = newStatus;
+    }
 
     public void updateBasicProfile(String job, String avatarUrl, String introduction) {
         if (job != null && !job.isBlank()) this.job = job.trim();

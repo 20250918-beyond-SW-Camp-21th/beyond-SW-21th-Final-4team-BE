@@ -24,6 +24,10 @@ public class Employer {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
+    private EmployerStatus status;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
     private Subscription subscription;
 
     @Column(nullable = false, length = 100)
@@ -70,12 +74,21 @@ public class Employer {
         e.subscription = requireNonNull(subscription, "subscription");
         e.companyName = normalize(companyName, "companyName");
         e.scale = requireNonNull(scale, "scale");
+        e.status = EmployerStatus.POTENTIAL;
         return e;
     }
 
     /* =========================
        POJO 스타일 변경 메소드
        ========================= */
+
+    public void changeStatus(EmployerStatus newStatus) {
+        if (newStatus == null) throw new IllegalArgumentException("newStatus is required");
+        if (this.status == EmployerStatus.LEFT) {
+            throw new IllegalStateException("이미 이탈한 고용주의 상태는 변경할 수 없습니다.");
+        }
+        this.status = newStatus;
+    }
 
     public void changeCompanyName(String companyName) {
         this.companyName = normalize(companyName, "companyName");
