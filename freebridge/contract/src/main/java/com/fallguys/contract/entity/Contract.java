@@ -21,7 +21,6 @@ public class Contract {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Display ID set after first save (id + 1000)
     @Column(name = "contract_no", unique = true)
     private Long contractId;
 
@@ -52,7 +51,7 @@ public class Contract {
 
     private LocalDateTime signedDate;
 
-    // 표준근로계약서 fields
+    // 표준근로계약서
     @Column(columnDefinition = "TEXT")
     private String jobDescription;
 
@@ -76,8 +75,7 @@ public class Contract {
     @Column(length = 50)
     private String weeklyHoliday;
 
-    // Employer snapshot (captured at contract creation time)
-    @Column(length = 200)
+    // Employer Column(length = 200)
     private String employerBusinessName;
 
     @Column(length = 200)
@@ -86,7 +84,7 @@ public class Contract {
     @Column(length = 100)
     private String employerCEO;
 
-    // Freelancer snapshot
+    // Freelancer
     @Column(length = 200)
     private String freelancerAddress;
 
@@ -104,9 +102,7 @@ public class Contract {
 
     private LocalDateTime freelancerSignedDate;
 
-    // ── Business Logic ───────────────────────────────────────────────────────
 
-    // Sets the signature and timestamp for the given role.
     public void signBy(String role, String signature) {
         if ("FREELANCER".equalsIgnoreCase(role)) {
             this.freelancerSignature = signature;
@@ -117,24 +113,20 @@ public class Contract {
         }
     }
 
-    // Both parties have provided signatures.
     public boolean isBothSigned() {
         return employerSignature != null && !employerSignature.isBlank()
                 && freelancerSignature != null && !freelancerSignature.isBlank();
     }
 
-    // Contract is ready to activate: both signed and still waiting.
     public boolean isActivatable() {
         return isBothSigned() && status == ContractStatus.WAITING_SIGNATURE;
     }
 
-    // Transition to IN_PROGRESS. Called when both parties have signed.
     public void activate() {
         this.status = ContractStatus.IN_PROGRESS;
         this.signedDate = LocalDateTime.now();
     }
 
-    // Transition to COMPLETED. Only valid from IN_PROGRESS.
     public void complete() {
         if (status != ContractStatus.IN_PROGRESS) {
             throw new BusinessException(ErrorCode.CONTRACT_NOT_IN_PROGRESS);
@@ -142,7 +134,6 @@ public class Contract {
         this.status = ContractStatus.COMPLETED;
     }
 
-    // Transition to REJECTED. Not allowed once IN_PROGRESS or COMPLETED.
     public void reject() {
         if (status == ContractStatus.IN_PROGRESS || status == ContractStatus.COMPLETED) {
             throw new BusinessException(ErrorCode.CONTRACT_CANNOT_REJECT);

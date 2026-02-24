@@ -2,11 +2,13 @@ package com.fallguys.contract.api.web.dto;
 
 import lombok.Builder;
 import lombok.Getter;
+import lombok.Setter;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Getter
+@Setter
 @Builder
 public class ContractResponse {
 
@@ -35,22 +37,18 @@ public class ContractResponse {
     private Integer workDaysPerWeek;
     private String weeklyHoliday;
 
-    // Employer snapshot
     private String employerBusinessName;
     private String employerAddress;
     private String employerCEO;
 
-    // Freelancer snapshot
     private String freelancerAddress;
     private String freelancerPhone;
 
-    // Signature tracking
     private String employerSignature;
     private LocalDateTime employerSignedDate;
     private String freelancerSignature;
     private LocalDateTime freelancerSignedDate;
 
-    // Joined display fields
     // TODO: Replace mock values with real names once user module is ready
     private String freelancerName;
     private String employerName;

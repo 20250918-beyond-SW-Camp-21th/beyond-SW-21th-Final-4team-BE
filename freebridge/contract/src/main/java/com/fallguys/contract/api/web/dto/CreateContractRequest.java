@@ -2,14 +2,15 @@ package com.fallguys.contract.api.web.dto;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.time.LocalDate;
 
 @Getter
+@Setter
 @NoArgsConstructor
 public class CreateContractRequest {
 
-    // Basic info
     private String projectName;
     private Long freelancerId;
     private LocalDate startDate;
@@ -17,7 +18,7 @@ public class CreateContractRequest {
     private Long budget;
     private Integer paymentDay;      // 10, 15, 25, or 31
 
-    // 표준근로계약서 fields
+    // 표준근로계약서용
     private String jobDescription;
     private String workLocation;     // default "원격근무"
     private String workStartTime;    // "09:00" or "자율"
@@ -27,15 +28,12 @@ public class CreateContractRequest {
     private Integer workDaysPerWeek;
     private String weeklyHoliday;    // "토, 일"
 
-    // Employer info (snapshot at creation time)
     private String employerBusinessName;
     private String employerAddress;
     private String employerCEO;
 
-    // Freelancer info (optional)
     private String freelancerAddress;
     private String freelancerPhone;
 
-    // Employer signs on creation
     private String employerSignature;  // Base64 data URL
 }

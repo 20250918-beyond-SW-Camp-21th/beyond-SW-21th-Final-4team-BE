@@ -5,7 +5,6 @@ import lombok.Getter;
 
 import java.time.LocalDate;
 
-// Used in contract list responses. Lighter than ContractResponse — no signatures or work schedule fields.
 @Getter
 @Builder
 public class ContractSummary {
@@ -20,11 +19,10 @@ public class ContractSummary {
     private String status;
     private Long budget;
 
-    // Computed from signature presence — not stored separately
     private Boolean employerSigned;
     private Boolean freelancerSigned;
 
-    // TODO: Replace mock values with real names once user module is ready
+    // TODO: 유저 모듈 완성되면 수정하기
     private String freelancerName;
     private String employerName;
 }
