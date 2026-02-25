@@ -13,20 +13,18 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/employer/jobs")
 @RequiredArgsConstructor
 public class JobPostingEmployerController {
 
     private final JobPostingService jobPostingService;
 
-    @GetMapping("/")
+    @GetMapping("/api/v1/employer/jobs/")
     public ResponseEntity<ApiResponse<PagedResponseDTO<JobPostingSearchDTO>>> getMyJobPostings(
             @RequestParam Long employerId,
             @RequestParam(defaultValue = "0") int page,
@@ -36,7 +34,7 @@ public class JobPostingEmployerController {
         return ResponseEntity.ok(ApiResponse.ok(toPagedResponse(result, page, size)));
     }
 
-    @PostMapping("/post")
+    @PostMapping("/api/v1/employer/jobs/post")
     public ResponseEntity<ApiResponse<Void>> createJobPosting(
             @RequestParam Long employerId,
             @RequestBody JobPostingCreateDTO request
@@ -45,7 +43,7 @@ public class JobPostingEmployerController {
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
-    @PutMapping("/put")
+    @PutMapping("/api/v1/employer/jobs/put")
     public ResponseEntity<ApiResponse<Void>> updateJobPosting(
             @RequestParam(name = "jobsNumber") Long jobsNumber,
             @RequestParam Long employerId,
@@ -55,7 +53,7 @@ public class JobPostingEmployerController {
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
-    @DeleteMapping("/del")
+    @DeleteMapping("/api/v1/employer/jobs/del")
     public ResponseEntity<ApiResponse<Void>> deleteJobPosting(
             @RequestParam(name = "jobsNumber") Long jobsNumber,
             @RequestParam Long employerId

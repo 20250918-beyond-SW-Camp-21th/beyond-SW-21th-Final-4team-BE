@@ -10,20 +10,18 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/freelancer/jobs")
 @RequiredArgsConstructor
 public class JobPostingFreelancerController {
 
     private final JobPostingService jobPostingService;
 
-    @GetMapping
+    @GetMapping("/api/v1/freelancer/jobs")
     public ResponseEntity<ApiResponse<PagedResponseDTO<FreelancerJobPostingSearchDTO>>> searchJobPostings(
             @RequestParam Long freelancerId,
             @RequestParam(required = false) String keyword,
@@ -38,7 +36,7 @@ public class JobPostingFreelancerController {
         return ResponseEntity.ok(ApiResponse.ok(paged));
     }
 
-    @PostMapping("/{jobPostingId}/like")
+    @PostMapping("/api/v1/freelancer/jobs/{jobPostingId}/like")
     public ResponseEntity<ApiResponse<Void>> addFavorite(
             @RequestParam Long freelancerId,
             @PathVariable Long jobPostingId
@@ -47,7 +45,7 @@ public class JobPostingFreelancerController {
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
-    @DeleteMapping("/{jobPostingId}/like")
+    @DeleteMapping("/api/v1/freelancer/jobs/{jobPostingId}/like")
     public ResponseEntity<ApiResponse<Void>> removeFavorite(
             @RequestParam Long freelancerId,
             @PathVariable Long jobPostingId
