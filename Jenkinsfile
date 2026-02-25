@@ -8,7 +8,7 @@ pipeline {
     environment {
         IMAGE_NAME = 'o2ppo/freebrback001'
         DOCKER_CRED_ID = 'dockerhub-credentials'
-        DOCKER_BUILDKIT = '1' // BuildKit 활성화
+        DOCKER_BUILDKIT = '0' // BuildKit 활성화
 
         // 네트워크 안정성을 위한 타임아웃 설정
         DOCKER_CLIENT_TIMEOUT = '3000'
