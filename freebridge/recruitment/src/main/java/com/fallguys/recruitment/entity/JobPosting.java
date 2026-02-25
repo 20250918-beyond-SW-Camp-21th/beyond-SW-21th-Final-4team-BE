@@ -72,7 +72,6 @@ public class JobPosting extends BaseEntity {
             this.headcount = dto.headcount();
         }
         this.postingStatus = dto.status() == null ? this.postingStatus : dto.status();
-        syncPostingStatusByHeadcount();
     }
 
     private void create(JobPostingCreateDTO dto,
@@ -104,26 +103,9 @@ public class JobPosting extends BaseEntity {
             throw new IllegalStateException("job posting headcount already full");
         }
         this.matchedHeadcount += 1;
-        syncPostingStatusByHeadcount();
     }
 
     public boolean isRecruitmentFull() {
         return this.matchedHeadcount >= this.headcount;
-    }
-
-    private void syncPostingStatusByHeadcount() {
-        if (isRecruitmentFull()) {
-            this.postingStatus = JobPostingStatus.CLOSED;
-            return;
-        }
-
-        if (this.matchedHeadcount > 0) {
-            this.postingStatus = JobPostingStatus.IN_PROGRESS;
-            return;
-        }
-
-        if (this.postingStatus != JobPostingStatus.COMPLETED) {
-            this.postingStatus = JobPostingStatus.OPEN;
-        }
     }
 }
