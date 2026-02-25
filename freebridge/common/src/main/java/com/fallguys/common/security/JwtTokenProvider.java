@@ -12,7 +12,7 @@ import java.util.Date;
 @Component
 public class JwtTokenProvider {
 
-    // 임시 하드코딩된 Secret Key (운영 시 환경 변수 분리 권장)
+    // 임시 하드코딩된 Secret Key입니다 (운영 시 환경 변수 분리하고 수정할 계획입니다)
     private static final String JWT_SECRET = "this-is-a-very-secure-secret-key-for-jwt-token-which-is-long-enough-for-hs256";
     // 토큰 만료 24시간
     private static final long JWT_EXPIRATION_MS = 1000L * 60 * 60 * 24;

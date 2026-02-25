@@ -95,7 +95,7 @@ public class UserService {
             grade = freelancerRepository.findByUserId(user.getId())
                     .map(Freelancer::getGrade)
                     .map(Enum::name)
-                    .orElse("");
+                    .orElseThrow(() -> new IllegalStateException("프리랜서 등급 정보가 존재하지 않습니다."));
         }
 
         String accessToken = jwtTokenProvider.generateToken(
