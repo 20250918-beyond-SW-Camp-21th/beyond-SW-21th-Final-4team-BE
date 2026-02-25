@@ -1,6 +1,33 @@
+# VCS / CI
 .git
 .github
-.idea
-.gradle
-*.md
 Jenkinsfile
+
+# IDE
+.idea
+*.iml
+.vscode
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Gradle cache
+.gradle
+**/.gradle
+
+# Logs
+**/*.log
+logs
+**/logs
+
+# Build outputs (멀티모듈 포함)
+**/build
+**/out
+**/target
+
+# BUT: docker build에 필요한 jar는 다시 포함(예외)
+!freebridge/app-main/build/libs/app-main-*.jar
+
+# Docs (선택)
+*.md
