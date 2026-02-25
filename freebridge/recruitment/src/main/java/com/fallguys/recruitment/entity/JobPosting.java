@@ -83,4 +83,8 @@ public class JobPosting extends BaseEntity {
     public void delete() {
         this.status = Status.DELETED;
     }
+
+    public void markInProgress() {
+        this.postingStatus = JobPostingStatus.IN_PROGRESS;
+    }
 }

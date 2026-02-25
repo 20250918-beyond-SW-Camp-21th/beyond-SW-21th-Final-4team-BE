@@ -7,5 +7,6 @@ description = 'matchs'
 dependencies {
     implementation project(':common')
     implementation project(':recruitment') // 채용 공고 참조
+    implementation project(':user')
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 }
