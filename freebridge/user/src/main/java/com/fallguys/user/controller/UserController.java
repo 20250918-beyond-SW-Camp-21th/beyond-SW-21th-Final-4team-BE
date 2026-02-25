@@ -1,6 +1,7 @@
 package com.fallguys.user.controller;
 
 import com.fallguys.user.dto.LoginRequestDto;
+import com.fallguys.user.dto.LoginResponseDto;
 import com.fallguys.user.dto.SignupRequestDto;
 import com.fallguys.user.dto.UserResponseDto;
 import com.fallguys.user.service.UserService;
@@ -49,11 +50,11 @@ public class UserController {
     @PostMapping("/login")
     public ResponseEntity<Map<String, Object>> login(@Valid @RequestBody LoginRequestDto request) {
         try {
-            UserResponseDto user = userService.login(request);
+            LoginResponseDto loginResponse = userService.login(request);
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "로그인 성공");
-            response.put("data", user);
+            response.put("data", loginResponse);
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             Map<String, Object> response = new HashMap<>();
