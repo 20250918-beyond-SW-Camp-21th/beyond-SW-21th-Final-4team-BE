@@ -2,7 +2,7 @@ package com.fallguys.mypage.api.web.employer;
 
 import com.fallguys.common.response.ApiResponse;
 import com.fallguys.mypage.dto.employer.request.EmployerProfileUpdateRequestDto;
-import com.fallguys.mypage.dto.employer.response.EmployerProfileResponseDto;
+import com.fallguys.mypage.dto.employer.response.EmployerProfileResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +17,7 @@ public class EmployerProfileController {
 
     @Operation(summary = "고용주 프로필 조회", description = "고용주 프로필 정보(평점, 프로젝트 현황 포함)를 조회합니다.")
     @GetMapping
-    public ApiResponse<EmployerProfileResponseDto> getProfile(@RequestHeader("X-User-Id") String userId) {
+    public ApiResponse<EmployerProfileResponse> getProfile(@RequestHeader("X-User-Id") String userId) {
         // TODO: myPageService.getEmployerProfile(userId);
         return ApiResponse.ok(null);
     }
