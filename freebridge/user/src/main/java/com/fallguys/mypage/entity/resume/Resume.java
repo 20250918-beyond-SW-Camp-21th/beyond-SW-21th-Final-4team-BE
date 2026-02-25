@@ -62,8 +62,18 @@ public class Resume {
         this.phone = phone;
         this.email = email;
         this.address = address;
-        this.educations = educations;
-        this.careers = careers;
-        this.certifications = certifications;
+
+        this.educations.clear();
+        if (educations != null) {
+            this.educations.addAll(educations);
+        }
+        this.careers.clear();
+        if (careers != null) {
+            this.careers.addAll(careers);
+        }
+        this.certifications.clear();
+        if (certifications != null) {
+            this.certifications.addAll(certifications);
+        }
     }
 }

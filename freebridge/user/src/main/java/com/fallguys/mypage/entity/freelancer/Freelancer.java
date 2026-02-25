@@ -19,6 +19,7 @@ import java.util.List;
 public class Freelancer {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "freelancer_id")
     private Long freelancerId;
 
