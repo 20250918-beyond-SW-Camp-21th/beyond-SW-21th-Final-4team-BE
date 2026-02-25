@@ -12,7 +12,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 @Tag(name = "Freelancer MyPage - Account", description = "프리랜서 마이페이지 계정 관리 API")
 @RestController
-@RequestMapping("/api/mypage/freelancer/account")
+@RequestMapping("/api/freelancer/mypage/account")
 @RequiredArgsConstructor
 public class FreelancerAccountController {
 
