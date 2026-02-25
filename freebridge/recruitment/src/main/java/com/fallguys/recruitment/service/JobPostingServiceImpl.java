@@ -4,6 +4,7 @@ import com.fallguys.common.exception.BusinessException;
 import com.fallguys.common.exception.ErrorCode;
 import com.fallguys.recruitment.api.dto.request.JobPostingCreateDTO;
 import com.fallguys.recruitment.api.dto.request.JobPostingUpdateDTO;
+import com.fallguys.recruitment.api.dto.response.JobPostingSearchDTO;
 import com.fallguys.recruitment.entity.JobPosting;
 import com.fallguys.recruitment.entity.Status;
 import com.fallguys.recruitment.repository.JobPostingRepo;
@@ -14,6 +15,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -21,6 +24,16 @@ public class JobPostingServiceImpl implements JobPostingService {
 
     private final JobPostingRepo jobPostingRepo;
     private final UserRepository userRepository;
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<JobPostingSearchDTO> getJobPostings(Long userId) {
+
+        User user = getEmployerOrThrow(userId);
+
+        return jobPostingRepo
+                .findAllByEmployerIdAndDeletedFalse(user.getId());
+    }
 
     @Override
     @Transactional
