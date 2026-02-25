@@ -3,8 +3,8 @@ package com.fallguys.contract.api.web;
 import com.fallguys.common.response.ApiResponse;
 import com.fallguys.contract.api.web.dto.*;
 import com.fallguys.contract.service.ContractService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,7 +21,7 @@ public class ContractController {
     // TODO: 로그인 기능 구현 후 mockdata 사용에서 @Authenticated로 바꾸기
     @PostMapping
     public ResponseEntity<ApiResponse<ContractResponse>> create(
-            @RequestBody CreateContractRequest request,
+            @Valid @RequestBody CreateContractRequest request,
             @RequestHeader("X-User-Id") Long userId) {
 
         ContractResponse response = contractService.createContract(request, userId);
@@ -47,40 +47,54 @@ public class ContractController {
     }
 
 
+    // TODO: 로그인 기능 구현 후 mockdata 사용에서 @Authenticated로 바꾸기
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<ContractResponse>> getOne(@PathVariable Long id) {
-        ApiResponse<ContractResponse> apiResponse = ApiResponse.ok(contractService.getContract(id));
+    public ResponseEntity<ApiResponse<ContractResponse>> getOne(
+            @PathVariable Long id,
+            @RequestHeader("X-User-Id") Long userId) {
+        ApiResponse<ContractResponse> apiResponse = ApiResponse.ok(contractService.getContract(id, userId));
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 
     // 서명 후 계약 상태 변환
+    // TODO: 로그인 기능 구현 후 mockdata 사용에서 @Authenticated로 바꾸기
     @PatchMapping("/{id}/sign")
     public ResponseEntity<ApiResponse<ContractResponse>> sign(
             @PathVariable Long id,
             @RequestBody SignContractRequest request,
-            @RequestHeader("X-User-Role") String userRole) {
+            @RequestHeader("X-User-Role") String userRole,
+            @RequestHeader("X-User-Id") Long userId) {
 
-        ContractResponse response = contractService.sign(id, request.getSignature(), userRole);
+        ContractResponse response = contractService.sign(id, request.getSignature(), userRole, userId);
         ApiResponse<ContractResponse> apiResponse = ApiResponse.ok(response);
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 
+    // TODO: 로그인 기능 구현 후 mockdata 사용에서 @Authenticated로 바꾸기
     @PatchMapping("/{id}/complete")
-    public ResponseEntity<ApiResponse<ContractResponse>> complete(@PathVariable Long id) {
-        ApiResponse<ContractResponse> apiResponse = ApiResponse.ok(contractService.complete(id));
+    public ResponseEntity<ApiResponse<ContractResponse>> complete(
+            @PathVariable Long id,
+            @RequestHeader("X-User-Id") Long userId) {
+        ApiResponse<ContractResponse> apiResponse = ApiResponse.ok(contractService.complete(id, userId));
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 
+    // TODO: 로그인 기능 구현 후 mockdata 사용에서 @Authenticated로 바꾸기
     @PatchMapping("/{id}/reject")
-    public ResponseEntity<ApiResponse<ContractResponse>> reject(@PathVariable Long id) {
-        ApiResponse<ContractResponse> apiResponse = ApiResponse.ok(contractService.reject(id));
+    public ResponseEntity<ApiResponse<ContractResponse>> reject(
+            @PathVariable Long id,
+            @RequestHeader("X-User-Id") Long userId) {
+        ApiResponse<ContractResponse> apiResponse = ApiResponse.ok(contractService.reject(id, userId));
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 
     // TODO: AWS에 올리면 E3에서 제대로 된 주소로 반환하게 수정
+    // TODO: 로그인 기능 구현 후 mockdata 사용에서 @Authenticated로 바꾸기
     @GetMapping("/{id}/pdf")
-    public ResponseEntity<ApiResponse<String>> getPdf(@PathVariable Long id) {
-        String pdfUrl = contractService.getContract(id).getContractPdfUrl();
+    public ResponseEntity<ApiResponse<String>> getPdf(
+            @PathVariable Long id,
+            @RequestHeader("X-User-Id") Long userId) {
+        String pdfUrl = contractService.getContract(id, userId).getContractPdfUrl();
         ApiResponse<String> apiResponse = ApiResponse.ok(pdfUrl);
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }

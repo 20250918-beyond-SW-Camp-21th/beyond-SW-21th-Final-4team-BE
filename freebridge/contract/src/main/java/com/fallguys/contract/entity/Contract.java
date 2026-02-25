@@ -110,6 +110,8 @@ public class Contract {
         } else if ("EMPLOYER".equalsIgnoreCase(role)) {
             this.employerSignature = signature;
             this.employerSignedDate = LocalDateTime.now();
+        } else {
+            throw new BusinessException(ErrorCode.CONTRACT_FORBIDDEN);
         }
     }
 
@@ -123,6 +125,9 @@ public class Contract {
     }
 
     public void activate() {
+        if (!isActivatable()) {
+            throw new BusinessException(ErrorCode.CONTRACT_NOT_ACTIVATABLE);
+        }
         this.status = ContractStatus.IN_PROGRESS;
         this.signedDate = LocalDateTime.now();
     }
@@ -135,7 +140,7 @@ public class Contract {
     }
 
     public void reject() {
-        if (status == ContractStatus.IN_PROGRESS || status == ContractStatus.COMPLETED) {
+        if (status != ContractStatus.WAITING_SIGNATURE) {
             throw new BusinessException(ErrorCode.CONTRACT_CANNOT_REJECT);
         }
         this.status = ContractStatus.REJECTED;

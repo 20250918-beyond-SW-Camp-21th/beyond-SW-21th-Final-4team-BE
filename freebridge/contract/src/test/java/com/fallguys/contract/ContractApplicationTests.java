@@ -61,6 +61,15 @@ class ContractApplicationTests {
             assertNull(contract.getFreelancerSignature());
             assertNull(contract.getFreelancerSignedDate());
         }
+
+        @Test
+        @DisplayName("유효하지 않은 role로 서명 시 CONTRACT_FORBIDDEN 에러가 발생한다")
+        void invalidRole_throws() {
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> contract.signBy("ADMIN", "data:image/png;base64,abc"));
+
+            assertEquals(ErrorCode.CONTRACT_FORBIDDEN, ex.getErrorCode());
+        }
     }
 
     // ── isBothSigned ─────────────────────────────────────────────────────────
@@ -142,19 +151,48 @@ class ContractApplicationTests {
     class Activate {
 
         @Test
-        @DisplayName("activate() 호출 시 상태가 IN_PROGRESS로 변경된다")
+        @DisplayName("양측 서명 완료 + WAITING_SIGNATURE 상태에서 activate() 호출 시 IN_PROGRESS로 변경된다")
         void setsInProgressStatus() {
+            contract.setStatus(ContractStatus.WAITING_SIGNATURE);
+            contract.setEmployerSignature("data:image/png;base64,emp");
+            contract.setFreelancerSignature("data:image/png;base64,free");
+
             contract.activate();
 
             assertEquals(ContractStatus.IN_PROGRESS, contract.getStatus());
         }
 
         @Test
-        @DisplayName("activate() 호출 시 signedDate가 설정된다")
+        @DisplayName("양측 서명 완료 + WAITING_SIGNATURE 상태에서 activate() 호출 시 signedDate가 설정된다")
         void setsSignedDate() {
+            contract.setStatus(ContractStatus.WAITING_SIGNATURE);
+            contract.setEmployerSignature("data:image/png;base64,emp");
+            contract.setFreelancerSignature("data:image/png;base64,free");
+
             contract.activate();
 
             assertNotNull(contract.getSignedDate());
+        }
+
+        @Test
+        @DisplayName("서명이 없는 상태에서 activate() 호출 시 CONTRACT_NOT_ACTIVATABLE 에러가 발생한다")
+        void whenNotActivatable_throws() {
+            contract.setStatus(ContractStatus.WAITING_SIGNATURE);
+            // 서명 없음
+
+            BusinessException ex = assertThrows(BusinessException.class, contract::activate);
+            assertEquals(ErrorCode.CONTRACT_NOT_ACTIVATABLE, ex.getErrorCode());
+        }
+
+        @Test
+        @DisplayName("이미 IN_PROGRESS 상태에서 activate() 호출 시 CONTRACT_NOT_ACTIVATABLE 에러가 발생한다")
+        void whenAlreadyInProgress_throws() {
+            contract.setStatus(ContractStatus.IN_PROGRESS);
+            contract.setEmployerSignature("data:image/png;base64,emp");
+            contract.setFreelancerSignature("data:image/png;base64,free");
+
+            BusinessException ex = assertThrows(BusinessException.class, contract::activate);
+            assertEquals(ErrorCode.CONTRACT_NOT_ACTIVATABLE, ex.getErrorCode());
         }
     }
 

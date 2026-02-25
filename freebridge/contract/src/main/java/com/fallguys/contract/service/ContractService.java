@@ -74,13 +74,18 @@ public class ContractService {
     public ContractListResponse listContracts(Long userId, String role,
             List<String> statuses, String search, int page, int limit) {
 
-        List<Contract> all = role.equalsIgnoreCase("EMPLOYER")
-                ? contractRepository.findByEmployerIdOrderByIdDesc(userId)
-                : contractRepository.findByFreelancerIdOrderByIdDesc(userId);
+        List<Contract> all;
+        if (role != null && role.equalsIgnoreCase("EMPLOYER")) {
+            all = contractRepository.findByEmployerIdOrderByIdDesc(userId);
+        } else if (role != null && role.equalsIgnoreCase("FREELANCER")) {
+            all = contractRepository.findByFreelancerIdOrderByIdDesc(userId);
+        } else {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
 
         if (statuses != null && !statuses.isEmpty()) {
             all = all.stream()
-                    .filter(c -> statuses.contains(c.getStatus().name()))
+                    .filter(c -> c.getStatus() != null && statuses.contains(c.getStatus().name()))
                     .collect(Collectors.toList());
         }
 
@@ -107,12 +112,15 @@ public class ContractService {
     }
 
     @Transactional(readOnly = true)
-    public ContractResponse getContract(Long id) {
-        return toResponse(findById(id));
+    public ContractResponse getContract(Long id, Long userId) {
+        Contract contract = findById(id);
+        validateOwnership(contract, userId);
+        return toResponse(contract);
     }
 
-    public ContractResponse sign(Long id, String signature, String role) {
+    public ContractResponse sign(Long id, String signature, String role, Long userId) {
         Contract contract = findById(id);
+        validateOwnership(contract, userId);
         contract.signBy(role, signature);
 
         if (contract.isActivatable()) {
@@ -130,14 +138,16 @@ public class ContractService {
         return toResponse(contractRepository.save(contract));
     }
 
-    public ContractResponse complete(Long id) {
+    public ContractResponse complete(Long id, Long userId) {
         Contract contract = findById(id);
+        validateOwnership(contract, userId);
         contract.complete();
         return toResponse(contractRepository.save(contract));
     }
 
-    public ContractResponse reject(Long id) {
+    public ContractResponse reject(Long id, Long userId) {
         Contract contract = findById(id);
+        validateOwnership(contract, userId);
         contract.reject();
         return toResponse(contractRepository.save(contract));
     }
@@ -147,7 +157,14 @@ public class ContractService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.CONTRACT_NOT_FOUND));
     }
 
-    // TODO: Replace with UserQuery.getUserName(userId) when user module is ready
+    // TODO: 유저 모듈 완성되면 @Authentication으로 수정
+    private void validateOwnership(Contract contract, Long userId) {
+        if (!contract.getEmployerId().equals(userId) && !contract.getFreelancerId().equals(userId)) {
+            throw new BusinessException(ErrorCode.CONTRACT_FORBIDDEN);
+        }
+    }
+
+    // TODO: 유저 모듈 완성되면 api 콜로 수정하기
     private String getMockUserName(Long userId) {
         if (userId == null) return null;
         return "사용자 #" + userId;

@@ -77,7 +77,7 @@ class ContractQueryServiceTest {
                 () -> contractQueryService.getContractInfo(999L)
         );
 
-        assertTrue(exception.getMessage().contains("Contract not found"));
+        assertTrue(exception.getMessage().contains("계약을 찾을 수 없습니다."));
     }
 
     @Test

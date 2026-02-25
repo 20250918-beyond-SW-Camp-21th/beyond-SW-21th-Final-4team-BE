@@ -1,5 +1,7 @@
 package com.fallguys.contract.service;
 
+import com.fallguys.common.exception.BusinessException;
+import com.fallguys.common.exception.ErrorCode;
 import com.fallguys.contract.api.shared.ContractInfo;
 import com.fallguys.contract.api.shared.ContractQuery;
 import com.fallguys.contract.repository.ContractRepository;
@@ -17,7 +19,7 @@ public class ContractQueryService implements ContractQuery {
     @Override
     public ContractInfo getContractInfo(Long contractId) {
         var c = contractRepository.findById(contractId)
-                .orElseThrow(() -> new RuntimeException("Contract not found: " + contractId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.CONTRACT_NOT_FOUND));
 
         return new ContractInfo(
                 c.getId(),

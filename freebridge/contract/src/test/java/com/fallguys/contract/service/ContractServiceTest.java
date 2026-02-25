@@ -75,9 +75,10 @@ class ContractServiceTest {
         savedContract.setContractId(1001L);
         savedContract.setProjectName("테스트 프로젝트");
         savedContract.setStatus(ContractStatus.WAITING_SIGNATURE);
+        savedContract.setEmployerId(200L);
+        savedContract.setFreelancerId(100L);
     }
 
-    // ── CREATE CONTRACT ──────────────────────────────────────────────────────
 
     @Nested
     @DisplayName("createContract()")
@@ -182,8 +183,6 @@ class ContractServiceTest {
             assertEquals(0.05, response.getCommissionRate());
         }
     }
-
-    // ── LIST CONTRACTS ───────────────────────────────────────────────────────
 
     @Nested
     @DisplayName("listContracts()")
@@ -306,8 +305,6 @@ class ContractServiceTest {
         }
     }
 
-    // ── GET CONTRACT ─────────────────────────────────────────────────────────
-
     @Nested
     @DisplayName("getContract()")
     class GetContract {
@@ -318,7 +315,7 @@ class ContractServiceTest {
             when(contractRepository.findById(1L))
                     .thenReturn(Optional.of(savedContract));
 
-            ContractResponse response = contractService.getContract(1L);
+            ContractResponse response = contractService.getContract(1L, 200L);
 
             assertNotNull(response);
             assertEquals(1001L, response.getContractId());
@@ -333,14 +330,12 @@ class ContractServiceTest {
 
             BusinessException exception = assertThrows(
                     BusinessException.class,
-                    () -> contractService.getContract(999L)
+                    () -> contractService.getContract(999L, 200L)
             );
 
             assertEquals(ErrorCode.CONTRACT_NOT_FOUND, exception.getErrorCode());
         }
     }
-
-    // ── SIGN CONTRACT ────────────────────────────────────────────────────────
 
     @Nested
     @DisplayName("sign()")
@@ -355,7 +350,7 @@ class ContractServiceTest {
             when(contractRepository.save(any(Contract.class)))
                     .thenAnswer(invocation -> invocation.getArgument(0));
 
-            ContractResponse response = contractService.sign(1L, "free_sig", "FREELANCER");
+            ContractResponse response = contractService.sign(1L, "free_sig", "FREELANCER", 100L);
 
             assertNotNull(response.getFreelancerSignature());
             assertEquals("free_sig", response.getFreelancerSignature());
@@ -374,7 +369,7 @@ class ContractServiceTest {
             when(contractPdfService.generateSignedPdf(any(Contract.class)))
                     .thenReturn("/pdfs/contracts/1001_signed.pdf");
 
-            ContractResponse response = contractService.sign(1L, "free_sig", "FREELANCER");
+            ContractResponse response = contractService.sign(1L, "free_sig", "FREELANCER", 100L);
 
             assertEquals("IN_PROGRESS", response.getStatus());
             assertNotNull(response.getSignedDate());
@@ -393,7 +388,7 @@ class ContractServiceTest {
             when(contractPdfService.generateSignedPdf(any(Contract.class)))
                     .thenReturn("/pdfs/contracts/1001_signed.pdf");
 
-            ContractResponse response = contractService.sign(1L, "free_sig", "FREELANCER");
+            ContractResponse response = contractService.sign(1L, "free_sig", "FREELANCER", 100L);
 
             verify(contractPdfService).generateSignedPdf(any(Contract.class));
             assertEquals("/pdfs/contracts/1001_signed.pdf", response.getSignedPdfUrl());
@@ -412,7 +407,7 @@ class ContractServiceTest {
             when(contractPdfService.generateSignedPdf(any(Contract.class)))
                     .thenReturn("/pdfs/contracts/1001_signed.pdf");
 
-            contractService.sign(1L, "free_sig", "FREELANCER");
+            contractService.sign(1L, "free_sig", "FREELANCER", 100L);
 
             verify(eventPublisher).publishEvent(any(ContractActivatedEvent.class));
         }
@@ -425,13 +420,11 @@ class ContractServiceTest {
             when(contractRepository.save(any(Contract.class)))
                     .thenAnswer(invocation -> invocation.getArgument(0));
 
-            contractService.sign(1L, "free_sig", "FREELANCER");
+            contractService.sign(1L, "free_sig", "FREELANCER", 100L);
 
             verify(eventPublisher, never()).publishEvent(any());
         }
     }
-
-    // ── COMPLETE CONTRACT ────────────────────────────────────────────────────
 
     @Nested
     @DisplayName("complete()")
@@ -447,7 +440,7 @@ class ContractServiceTest {
             when(contractRepository.save(any(Contract.class)))
                     .thenAnswer(invocation -> invocation.getArgument(0));
 
-            ContractResponse response = contractService.complete(1L);
+            ContractResponse response = contractService.complete(1L, 200L);
 
             assertEquals("COMPLETED", response.getStatus());
         }
@@ -462,14 +455,12 @@ class ContractServiceTest {
 
             BusinessException exception = assertThrows(
                     BusinessException.class,
-                    () -> contractService.complete(1L)
+                    () -> contractService.complete(1L, 200L)
             );
 
             assertEquals(ErrorCode.CONTRACT_NOT_IN_PROGRESS, exception.getErrorCode());
         }
     }
-
-    // ── REJECT CONTRACT ──────────────────────────────────────────────────────
 
     @Nested
     @DisplayName("reject()")
@@ -485,7 +476,7 @@ class ContractServiceTest {
             when(contractRepository.save(any(Contract.class)))
                     .thenAnswer(invocation -> invocation.getArgument(0));
 
-            ContractResponse response = contractService.reject(1L);
+            ContractResponse response = contractService.reject(1L, 200L);
 
             assertEquals("REJECTED", response.getStatus());
         }
@@ -500,7 +491,7 @@ class ContractServiceTest {
 
             BusinessException exception = assertThrows(
                     BusinessException.class,
-                    () -> contractService.reject(1L)
+                    () -> contractService.reject(1L, 200L)
             );
 
             assertEquals(ErrorCode.CONTRACT_CANNOT_REJECT, exception.getErrorCode());
@@ -516,7 +507,7 @@ class ContractServiceTest {
 
             BusinessException exception = assertThrows(
                     BusinessException.class,
-                    () -> contractService.reject(1L)
+                    () -> contractService.reject(1L, 200L)
             );
 
             assertEquals(ErrorCode.CONTRACT_CANNOT_REJECT, exception.getErrorCode());
