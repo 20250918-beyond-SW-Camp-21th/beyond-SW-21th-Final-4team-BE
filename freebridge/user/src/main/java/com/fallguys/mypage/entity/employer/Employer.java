@@ -61,8 +61,8 @@ public class Employer {
     private LocalDateTime updatedAt;
 
     /* =========================
-   생성 (정적 팩토리)
-   ========================= */
+       생성 메소드
+       ========================= */
     public static Employer create(
             Long userId,
             Subscription subscription,
@@ -79,7 +79,7 @@ public class Employer {
     }
 
     /* =========================
-       POJO 스타일 변경 메소드
+       UPDATE 메소드
        ========================= */
 
     public void changeStatus(EmployerStatus newStatus) {
@@ -131,7 +131,6 @@ public class Employer {
             String location,
             String websiteUrl,
             String description,
-            String introduction,
             String logoUrl
     ) {
         changeCompanyName(companyName);
