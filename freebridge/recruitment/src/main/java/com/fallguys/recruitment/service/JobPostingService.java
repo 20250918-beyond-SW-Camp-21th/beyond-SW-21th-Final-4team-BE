@@ -3,7 +3,6 @@ package com.fallguys.recruitment.service;
 import com.fallguys.recruitment.api.dto.request.JobPostingCreateDTO;
 import com.fallguys.recruitment.api.dto.request.JobPostingUpdateDTO;
 import com.fallguys.recruitment.api.dto.response.JobPostingSearchDTO;
-import com.fallguys.recruitment.entity.JobPosting;
 
 import java.util.List;
 
@@ -14,7 +13,9 @@ public interface JobPostingService {
 
     void deleteJobPosting(Long jobPostingId,Long userId);
 
+    //TODO:paging
     List<JobPostingSearchDTO> getJobPostings(Long userId);
+
 
 
 }
