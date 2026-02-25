@@ -5,7 +5,6 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 @Entity
 @Getter
@@ -40,9 +39,12 @@ public class User extends BaseTimeEntity {
     private Boolean privacyAgreed;
 
     /* 이메일 인증 값 */
-    @Setter
     @Column(nullable = false)
     private Boolean emailVerified = false;
+
+    public void verifyEmail() {
+        this.emailVerified = true;
+    }
 
     @Builder
     public User(String email, String password, String name, Role role,

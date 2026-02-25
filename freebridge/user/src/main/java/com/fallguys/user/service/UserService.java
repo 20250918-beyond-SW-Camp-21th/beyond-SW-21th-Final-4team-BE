@@ -3,9 +3,14 @@ package com.fallguys.user.service;
 import com.fallguys.common.event.EmailVerifiedEvent;
 import com.fallguys.user.dto.LoginRequestDto;
 import com.fallguys.user.dto.SignupRequestDto;
+import com.fallguys.user.dto.LoginResponseDto;
 import com.fallguys.user.dto.UserResponseDto;
+import com.fallguys.user.entity.Role;
 import com.fallguys.user.entity.User;
 import com.fallguys.user.repository.UserRepository;
+import com.fallguys.common.security.JwtTokenProvider;
+import com.fallguys.mypage.repository.FreelancerRepository;
+import com.fallguys.mypage.entity.freelancer.Freelancer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -23,6 +28,8 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtTokenProvider jwtTokenProvider;
+    private final FreelancerRepository freelancerRepository;
 
     @Async
     @EventListener
@@ -31,7 +38,7 @@ public class UserService {
         // 회원가입 전 이메일 인증 시에는 아직 User가 없으므로 Exception이 발생하지 않도록 처리
         userRepository.findByEmail(event.email()).ifPresentOrElse(
                 user -> {
-                    user.setEmailVerified(true);
+                    user.verifyEmail();
                     log.info("이메일 인증 완료 처리 (기존 회원) - email: {}", maskEmail(event.email()));
                 },
                 () -> log.info("이메일 인증 완료 (신규 가입 대기) - email: {}", maskEmail(event.email())));
@@ -71,7 +78,7 @@ public class UserService {
     /**
      * 로그인
      */
-    public UserResponseDto login(LoginRequestDto request) {
+    public LoginResponseDto login(LoginRequestDto request) {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("이메일 또는 비밀번호가 올바르지 않습니다."));
 
@@ -79,8 +86,24 @@ public class UserService {
             throw new IllegalArgumentException("이메일 또는 비밀번호가 올바르지 않습니다.");
         }
 
+        String grade = "";
+        if (Role.FREELANCER.equals(user.getRole())) {
+            grade = freelancerRepository.findByUserId(user.getId())
+                    .map(Freelancer::getGrade)
+                    .map(Enum::name)
+                    .orElse("");
+        }
+
+        String accessToken = jwtTokenProvider.generateToken(
+                user.getId(), user.getEmail(), user.getRole().name(), user.getName(), grade);
+
         log.info("로그인 성공 - userId: {}", user.getId());
-        return UserResponseDto.from(user);
+
+        return LoginResponseDto.builder()
+                .accessToken(accessToken)
+                .user(UserResponseDto.from(user))
+                .grade(grade)
+                .build();
     }
 
     /**
@@ -115,7 +138,7 @@ public class UserService {
     public void verifyUserEmail(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다."));
-        user.setEmailVerified(true);
+        user.verifyEmail();
         log.info("이메일 인증 완료 - email: {}", maskEmail(email));
     }
 
