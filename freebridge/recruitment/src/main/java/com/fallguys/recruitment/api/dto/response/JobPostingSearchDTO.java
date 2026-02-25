@@ -1,18 +1,14 @@
-package com.fallguys.recruitment.api.dto.request;
+package com.fallguys.recruitment.api.dto.response;
 
 import com.fallguys.recruitment.entity.JobPostingStatus;
-import lombok.Getter;
 
 import java.util.List;
 
-@Getter
-public class JobPostingCreateDTO {
-    Long employerId;
-    String employerName;
+public class JobPostingSearchDTO {
     String title;
     String description;
-    JobPostingStatus status;
     List<String> techStack;
     Long budget;
     Integer duration;
+    JobPostingStatus status;
 }
