@@ -6,9 +6,7 @@ import com.fallguys.mypage.dto.employer.response.EmployerProfileResponseDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.multipart.MultipartFile;
 
 @Tag(name = "Employer MyPage - Profile", description = "고용주 마이페이지 프로필 관리 API")
@@ -21,7 +19,7 @@ public class EmployerProfileController {
     @GetMapping
     public ApiResponse<EmployerProfileResponseDto> getProfile(@RequestHeader("X-User-Id") String userId) {
         // TODO: myPageService.getEmployerProfile(userId);
-        throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented yet");
+        return ApiResponse.ok(null);
     }
 
     @Operation(summary = "고용주 프로필 수정", description = "고용주 프로필 정보를 수정합니다.")
@@ -29,7 +27,7 @@ public class EmployerProfileController {
     public ApiResponse<Void> updateProfile(@RequestHeader("X-User-Id") String userId,
                                            @RequestBody EmployerProfileUpdateRequestDto request) {
         // TODO: myPageService.updateEmployerProfile(userId, request);
-        throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented yet");
+        return ApiResponse.ok(null);
     }
 
     @Operation(summary = "로고 이미지 수정", description = "고용주 로고 이미지를 업로드하고 반환합니다.")
