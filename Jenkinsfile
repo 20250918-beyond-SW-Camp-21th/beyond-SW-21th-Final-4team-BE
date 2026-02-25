@@ -43,7 +43,7 @@ pipeline {
                 script {
                     echo "BuildKit을 끄고 레거시 빌더로 빌드를 시작합니다."
                     // DOCKER_BUILDKIT=0을 명시하여 buildx 에러를 우회합니다.
-                    sh "DOCKER_BUILDKIT=0 docker build --build-arg APP_JAR=freebridge/app-main/build/libs/app-main-0.0.1-SNAPSHOT.jar --no-cache -t ${env.IMAGE_NAME}:${env.IMAGE_TAG} ."
+                    sh "DOCKER_BUILDKIT=0 docker build --build-arg APP_JAR=freebridge/app-main/build/libs/app-main-0.0.1-SNAPSHOT.jar -t ${env.IMAGE_NAME}:${env.IMAGE_TAG} ."
                 }
             }
         }
