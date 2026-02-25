@@ -42,7 +42,7 @@ pipeline {
             steps {
                 script {
                     echo "BuildKit을 활성화하여 빌드를 시작합니다."
-                    sh "DOCKER_BUILDKIT=0 docker build --build-arg APP_JAR=freebridge/app-main/build/libs/app-main-0.0.1-SNAPSHOT.jar --no-cache -t ${env.IMAGE_NAME}:${env.IMAGE_TAG} ."
+                    sh "DOCKER_BUILDKIT=0 docker build --build-arg APP_JAR=freebridge/app-main/build/libs/app-main-0.0.1-SNAPSHOT.jar -t ${env.IMAGE_NAME}:${env.IMAGE_TAG} ."
                 }
             }
         }
