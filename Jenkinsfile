@@ -43,7 +43,7 @@ pipeline {
                 script {
                     echo "BuildKit을 끄고 레거시 빌더로 빌드를 시작합니다."
                     // DOCKER_BUILDKIT=0을 명시하여 buildx 에러를 우회합니다.
-                    sh "DOCKER_BUILDKIT=0 docker build --no-cache -t ${env.IMAGE_NAME}:${env.IMAGE_TAG} ."
+                    sh "DOCKER_BUILDKIT=0 docker build --build-arg APP_JAR=freebridge/app-main/build/libs/app-main-0.0.1-SNAPSHOT.jar --no-cache -t ${env.IMAGE_NAME}:${env.IMAGE_TAG} ."
                 }
             }
         }
@@ -52,19 +52,20 @@ pipeline {
             steps {
                 script {
                     withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                        sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
-
                         // 대용량 레이어 처리를 위해 타임아웃과 재시도 로직 적용
                         retry(3) {
                             timeout(time: 15, unit: 'MINUTES') {
-                                echo "Docker Push 시도 중: ${env.IMAGE_TAG}..."
-                                sh "docker push ${env.IMAGE_NAME}:${env.IMAGE_TAG}"
+                                echo "Docker Login 및 Push 시도 중: ${env.IMAGE_TAG}..."
+                                sh """
+                                    echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin
+                                    
+                                    docker push ${env.IMAGE_NAME}:${env.IMAGE_TAG}
+                                    
+                                    docker tag ${env.IMAGE_NAME}:${env.IMAGE_TAG} ${env.IMAGE_NAME}:latest
+                                    docker push ${env.IMAGE_NAME}:latest
+                                """
                             }
                         }
-
-                        // latest 태그 푸시
-                        sh "docker tag ${env.IMAGE_NAME}:${env.IMAGE_TAG} ${env.IMAGE_NAME}:latest"
-                        sh "docker push ${env.IMAGE_NAME}:latest"
                     }
                 }
             }
