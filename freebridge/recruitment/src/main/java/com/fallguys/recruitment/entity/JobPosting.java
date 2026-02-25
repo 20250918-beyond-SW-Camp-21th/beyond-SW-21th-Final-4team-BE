@@ -51,27 +51,31 @@ public class JobPosting extends BaseEntity {
         return jobPosting;
     }
 
-    public void update(JobPostingUpdateDTO jobPostingUpdateDTO) {
-        this.title = jobPostingUpdateDTO.getTitle();
-        this.description = jobPostingUpdateDTO.getDescription();
-        this.techStack = jobPostingUpdateDTO.getTechStack() == null
+    public void update(JobPostingUpdateDTO dto) {
+        this.title = dto.title();
+        this.description = dto.description();
+        this.techStack = dto.techStack() == null
                 ? new ArrayList<>()
-                : new ArrayList<>(jobPostingUpdateDTO.getTechStack());
-        this.budget = jobPostingUpdateDTO.getBudget();
-        this.duration = jobPostingUpdateDTO.getDuration();
-        this.postingStatus = jobPostingUpdateDTO.getStatus();
+                : new ArrayList<>(dto.techStack());
+        this.budget = dto.budget();
+        this.duration = dto.duration();
+        this.postingStatus = dto.status();
     }
 
-    private void create(JobPostingCreateDTO jobPostingCreateDTO, Long employerId, String employerName) {
-        this.title = jobPostingCreateDTO.getTitle();
-        this.description = jobPostingCreateDTO.getDescription();
-        this.techStack = jobPostingCreateDTO.getTechStack() == null
+    private void create(JobPostingCreateDTO dto,
+                        Long employerId,
+                        String employerName) {
+
+        this.title = dto.title();
+        this.description = dto.description();
+        this.techStack = dto.techStack() == null
                 ? new ArrayList<>()
-                : new ArrayList<>(jobPostingCreateDTO.getTechStack());
-        this.budget = jobPostingCreateDTO.getBudget();
-        this.duration = jobPostingCreateDTO.getDuration();
+                : new ArrayList<>(dto.techStack());
+        this.budget = dto.budget();
+        this.duration = dto.duration();
         this.postingStatus = JobPostingStatus.OPEN;
-        this.status=Status.ACTIVE;
+        this.status = Status.ACTIVE;
+
         assignEmployer(employerId);
         this.employerName = employerName;
     }
