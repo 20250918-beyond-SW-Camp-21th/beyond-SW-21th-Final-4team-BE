@@ -28,28 +28,28 @@ public class JwtTokenProvider {
         Date expiryDate = new Date(now.getTime() + JWT_EXPIRATION_MS);
 
         return Jwts.builder()
-                .setSubject(email)
+                .subject(email)
                 .claim("id", id)
                 .claim("role", role)
                 .claim("name", name)
                 .claim("grade", grade != null ? grade : "")
-                .setIssuedAt(now)
-                .setExpiration(expiryDate)
-                .signWith(key, SignatureAlgorithm.HS256)
+                .issuedAt(now)
+                .expiration(expiryDate)
+                .signWith((javax.crypto.SecretKey) key, Jwts.SIG.HS256)
                 .compact();
     }
 
     public Claims getClaimsFromToken(String token) {
-        return Jwts.parserBuilder()
-                .setSigningKey(key)
+        return Jwts.parser()
+                .verifyWith(Keys.hmacShaKeyFor(JWT_SECRET.getBytes()))
                 .build()
-                .parseClaimsJws(token)
-                .getBody();
+                .parseSignedClaims(token)
+                .getPayload();
     }
 
     public boolean validateToken(String token) {
         try {
-            Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token);
+            Jwts.parser().verifyWith(Keys.hmacShaKeyFor(JWT_SECRET.getBytes())).build().parseSignedClaims(token);
             return true;
         } catch (SecurityException | MalformedJwtException ex) {
             log.warn("Invalid JWT Signature", ex);
