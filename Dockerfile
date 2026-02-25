@@ -5,7 +5,8 @@ WORKDIR /app
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 # 2. JAR 복사 (이 부분이 자주 변함)
-COPY freebridge/app-main/build/libs/app-main-0.0.1-SNAPSHOT.jar app.jar
+ARG APP_JAR=freebridge/app-main/build/libs/app-main-0.0.1-SNAPSHOT.jar
+COPY ${APP_JAR} app.jar
 
 # 3. 권한 설정
 RUN chown appuser:appgroup app.jar
