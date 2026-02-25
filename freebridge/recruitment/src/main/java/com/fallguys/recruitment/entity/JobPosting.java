@@ -1,26 +1,20 @@
 package com.fallguys.recruitment.entity;
 
+import com.fallguys.recruitment.api.dto.request.JobPostingCreateDTO;
+import com.fallguys.recruitment.api.dto.request.JobPostingUpdateDTO;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
+import lombok.AccessLevel;
 import lombok.Getter;
-import java.time.LocalDateTime;
+import lombok.NoArgsConstructor;
+
 import java.util.ArrayList;
 import java.util.List;
 
-@Builder
 @Entity
 @Table(name = "job_posting")
 @Getter
-@AllArgsConstructor
-public class JobPosting {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @Column(name = "employer_id", nullable = false, length = 36)
-    private Long employerId;
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class JobPosting extends BaseEntity {
 
     @Column(name = "employer_name", nullable = false)
     private String employerName;
@@ -33,10 +27,7 @@ public class JobPosting {
     private String description;
 
     @ElementCollection
-    @CollectionTable(
-            name = "job_posting_tech_stack",
-            joinColumns = @JoinColumn(name = "job_posting_id")
-    )
+    @CollectionTable(name = "job_posting_tech_stack", joinColumns = @JoinColumn(name = "job_posting_id"))
     @Column(name = "tech", nullable = false)
     private List<String> techStack = new ArrayList<>();
 
@@ -44,21 +35,52 @@ public class JobPosting {
     private Long budget;
 
     @Column(nullable = false)
-    private Integer duration; // weeks
+    private Integer duration;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    @Builder.Default
-    private JobPostingStatus status=JobPostingStatus.OPEN;
+    @Column(nullable=false)
+    private Status status=Status.ACTIVE;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    @Builder.Default
-    private LocalDateTime createdAt=LocalDateTime.now();
+    private JobPostingStatus postingStatus = JobPostingStatus.OPEN;
 
-    @Column(nullable = false)
-    private LocalDateTime updatedAt;
+    public static JobPosting from(JobPostingCreateDTO jobPostingCreateDTO, Long employerId, String employerName) {
+        JobPosting jobPosting = new JobPosting();
+        jobPosting.create(jobPostingCreateDTO, employerId, employerName);
+        return jobPosting;
+    }
 
-    public JobPosting() {
+    public void update(JobPostingUpdateDTO dto) {
+        this.title = dto.title() == null ? this.title : dto.title();
+        this.description = dto.description() == null ? this.description : dto.description();
+        this.techStack = dto.techStack() == null
+                ? this.techStack
+                : new ArrayList<>(dto.techStack());
+        this.budget = dto.budget() == null ? this.budget : dto.budget();
+        this.duration = dto.duration() == null ? this.duration : dto.duration();
+        this.postingStatus = dto.status() == null ? this.postingStatus : dto.status();
+    }
 
+    private void create(JobPostingCreateDTO dto,
+                        Long employerId,
+                        String employerName) {
+
+        this.title = dto.title();
+        this.description = dto.description();
+        this.techStack = dto.techStack() == null
+                ? new ArrayList<>()
+                : new ArrayList<>(dto.techStack());
+        this.budget = dto.budget();
+        this.duration = dto.duration();
+        this.postingStatus = JobPostingStatus.OPEN;
+        this.status = Status.ACTIVE;
+
+        assignEmployer(employerId);
+        this.employerName = employerName;
+    }
+
+    public void delete() {
+        this.status = Status.DELETED;
     }
 }

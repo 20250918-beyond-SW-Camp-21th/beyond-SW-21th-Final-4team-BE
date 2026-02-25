@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
@@ -13,6 +14,7 @@ import java.time.LocalDateTime;
 @Table(name="application")
 @Getter
 @Builder
+@NoArgsConstructor
 @AllArgsConstructor
 public class Application {
 
@@ -39,8 +41,4 @@ public class Application {
     @Column
     @Builder.Default
     private LocalDateTime createdAt=LocalDateTime.now();
-
-    public Application() {
-
-    }
 }
