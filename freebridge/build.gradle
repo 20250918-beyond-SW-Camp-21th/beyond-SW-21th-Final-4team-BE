@@ -28,6 +28,9 @@ subprojects {
             mavenBom "org.springframework.boot:spring-boot-dependencies:3.4.13"
             mavenBom "software.amazon.awssdk:bom:2.41.24"
         }
+        dependencies {
+            dependency "org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.3"
+        }
     }
 
     java {
