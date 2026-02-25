@@ -11,8 +11,8 @@ pipeline {
         DOCKER_BUILDKIT = '0' // BuildKit 강제 비활성화 (에러 방지)
 
         // 네트워크 안정성을 위한 타임아웃 설정
-        DOCKER_CLIENT_TIMEOUT = '600'
-        COMPOSE_HTTP_TIMEOUT = '600'
+        DOCKER_CLIENT_TIMEOUT = '3000'
+        COMPOSE_HTTP_TIMEOUT = '3000'
 
         // Manifest & Git 설정
         CRED_ID_MANIFEST = 'github-manifest-key'
@@ -52,20 +52,15 @@ pipeline {
             steps {
                 script {
                     withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                        // 대용량 레이어 처리를 위해 타임아웃과 재시도 로직 적용
-                        retry(3) {
-                            timeout(time: 15, unit: 'MINUTES') {
-                                echo "Docker Login 및 Push 시도 중: ${env.IMAGE_TAG}..."
-                                sh """
-                                    echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin
-                                    
-                                    docker push ${env.IMAGE_NAME}:${env.IMAGE_TAG}
-                                    
-                                    docker tag ${env.IMAGE_NAME}:${env.IMAGE_TAG} ${env.IMAGE_NAME}:latest
-                                    docker push ${env.IMAGE_NAME}:latest
-                                """
-                            }
-                        }
+                        echo "Docker Login 및 Push 시도 중: ${env.IMAGE_TAG}..."
+                        sh """
+                            echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin
+                            
+                            docker push ${env.IMAGE_NAME}:${env.IMAGE_TAG}
+                            
+                            docker tag ${env.IMAGE_NAME}:${env.IMAGE_TAG} ${env.IMAGE_NAME}:latest
+                            docker push ${env.IMAGE_NAME}:latest
+                        """
                     }
                 }
             }
