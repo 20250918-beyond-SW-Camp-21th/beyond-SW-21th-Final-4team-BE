@@ -52,14 +52,14 @@ public class JobPosting extends BaseEntity {
     }
 
     public void update(JobPostingUpdateDTO dto) {
-        this.title = dto.title();
-        this.description = dto.description();
+        this.title = dto.title() == null ? this.title : dto.title();
+        this.description = dto.description() == null ? this.description : dto.description();
         this.techStack = dto.techStack() == null
-                ? new ArrayList<>()
+                ? this.techStack
                 : new ArrayList<>(dto.techStack());
-        this.budget = dto.budget();
-        this.duration = dto.duration();
-        this.postingStatus = dto.status();
+        this.budget = dto.budget() == null ? this.budget : dto.budget();
+        this.duration = dto.duration() == null ? this.duration : dto.duration();
+        this.postingStatus = dto.status() == null ? this.postingStatus : dto.status();
     }
 
     private void create(JobPostingCreateDTO dto,
