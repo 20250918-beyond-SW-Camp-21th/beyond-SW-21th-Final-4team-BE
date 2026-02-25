@@ -1,15 +1,18 @@
 package com.fallguys.recruitment.api;
 
 import com.fallguys.common.response.ApiResponse;
-import com.fallguys.recruitment.api.dto.response.FreelancerJobPostingSearchDTO;
+import com.fallguys.recruitment.api.dto.request.JobPostingCreateDTO;
+import com.fallguys.recruitment.api.dto.request.JobPostingUpdateDTO;
+import com.fallguys.recruitment.api.dto.response.JobPostingSearchDTO;
 import com.fallguys.recruitment.api.dto.response.PagedResponseDTO;
 import com.fallguys.recruitment.service.JobPostingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -17,42 +20,47 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/freelancer/jobs")
+@RequestMapping("/api/v1/employer/jobs")
 @RequiredArgsConstructor
-public class JobPostingFreelancerController {
+public class JobPostingEmployerController {
 
     private final JobPostingService jobPostingService;
 
-    @GetMapping
-    public ResponseEntity<ApiResponse<PagedResponseDTO<FreelancerJobPostingSearchDTO>>> searchJobPostings(
-            @RequestParam Long freelancerId,
-            @RequestParam(required = false) String keyword,
-            @RequestParam(name = "liked", defaultValue = "false") boolean liked,
+    @GetMapping("/")
+    public ResponseEntity<ApiResponse<PagedResponseDTO<JobPostingSearchDTO>>> getMyJobPostings(
+            @RequestParam Long employerId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
-        List<FreelancerJobPostingSearchDTO> result =
-                jobPostingService.searchJobPostingsForFreelancer(freelancerId, keyword, liked);
-        PagedResponseDTO<FreelancerJobPostingSearchDTO> paged = toPagedResponse(result, page, size);
-
-        return ResponseEntity.ok(ApiResponse.ok(paged));
+        List<JobPostingSearchDTO> result = jobPostingService.getJobPostings(employerId);
+        return ResponseEntity.ok(ApiResponse.ok(toPagedResponse(result, page, size)));
     }
 
-    @PostMapping("/{jobPostingId}/like")
-    public ResponseEntity<ApiResponse<Void>> addFavorite(
-            @RequestParam Long freelancerId,
-            @PathVariable Long jobPostingId
+    @PostMapping("/post")
+    public ResponseEntity<ApiResponse<Void>> createJobPosting(
+            @RequestParam Long employerId,
+            @RequestBody JobPostingCreateDTO request
     ) {
-        jobPostingService.addFavoriteJobPosting(freelancerId, jobPostingId);
+        jobPostingService.createJobPosting(request, employerId);
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
-    @DeleteMapping("/{jobPostingId}/like")
-    public ResponseEntity<ApiResponse<Void>> removeFavorite(
-            @RequestParam Long freelancerId,
-            @PathVariable Long jobPostingId
+    @PutMapping("/put")
+    public ResponseEntity<ApiResponse<Void>> updateJobPosting(
+            @RequestParam(name = "jobsNumber") Long jobsNumber,
+            @RequestParam Long employerId,
+            @RequestBody JobPostingUpdateDTO request
     ) {
-        jobPostingService.removeFavoriteJobPosting(freelancerId, jobPostingId);
+        jobPostingService.updateJobPosting(request, jobsNumber, employerId);
+        return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    @DeleteMapping("/del")
+    public ResponseEntity<ApiResponse<Void>> deleteJobPosting(
+            @RequestParam(name = "jobsNumber") Long jobsNumber,
+            @RequestParam Long employerId
+    ) {
+        jobPostingService.deleteJobPosting(jobsNumber, employerId);
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 

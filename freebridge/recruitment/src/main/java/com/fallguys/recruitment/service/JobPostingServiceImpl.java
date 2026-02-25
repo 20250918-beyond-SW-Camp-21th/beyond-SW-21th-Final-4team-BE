@@ -159,6 +159,8 @@ public class JobPostingServiceImpl implements JobPostingService {
 
     private JobPostingSearchDTO toJobPostingSearchDto(JobPosting jobPosting) {
         return new JobPostingSearchDTO(
+                jobPosting.getId(),
+                jobPosting.getEmployerName(),
                 jobPosting.getTitle(),
                 jobPosting.getDescription(),
                 new ArrayList<>(jobPosting.getTechStack()),
