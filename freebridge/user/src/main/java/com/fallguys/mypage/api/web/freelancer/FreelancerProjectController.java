@@ -12,7 +12,7 @@ import java.util.List;
 
 @Tag(name = "Freelancer MyPage - Project", description = "프리랜서 프로젝트 지원 및 진행현황 관리")
 @RestController
-@RequestMapping("/api/mypage/freelancer/projects")
+@RequestMapping("/api/freelancer/mypage/projects")
 @RequiredArgsConstructor
 public class FreelancerProjectController {
 
