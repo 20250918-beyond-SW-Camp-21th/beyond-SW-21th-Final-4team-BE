@@ -1,5 +1,5 @@
 # 1단계: 빌드된 통짜 JAR 파일을 추출(Extract)하는 단계
-FROM eclipse-temurin:21-jre-jammy AS builder
+FROM eclipse-temurin:21-jre-alpine AS builder
 WORKDIR /app
 # 빌드된 JAR 파일을 가져옵니다 (경로는 기존과 동일하게 맞춤)
 COPY freebridge/app-main/build/libs/app-main-0.0.1-SNAPSHOT.jar app.jar
