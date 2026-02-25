@@ -5,6 +5,7 @@ import com.fallguys.recruitment.api.dto.request.JobPostingCreateDTO;
 import com.fallguys.recruitment.api.dto.request.JobPostingUpdateDTO;
 import com.fallguys.recruitment.api.dto.response.JobPostingSearchDTO;
 import com.fallguys.recruitment.api.dto.response.PagedResponseDTO;
+import com.fallguys.recruitment.api.util.PagingUtils;
 import com.fallguys.recruitment.service.JobPostingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -31,7 +32,7 @@ public class JobPostingEmployerController {
             @RequestParam(defaultValue = "10") int size
     ) {
         List<JobPostingSearchDTO> result = jobPostingService.getJobPostings(employerId);
-        return ResponseEntity.ok(ApiResponse.ok(toPagedResponse(result, page, size)));
+        return ResponseEntity.ok(ApiResponse.ok(PagingUtils.toPagedResponse(result, page, size)));
     }
 
     @PostMapping("/api/v1/employer/jobs/post")
@@ -60,21 +61,5 @@ public class JobPostingEmployerController {
     ) {
         jobPostingService.deleteJobPosting(jobsNumber, employerId);
         return ResponseEntity.ok(ApiResponse.ok(null));
-    }
-
-    private <T> PagedResponseDTO<T> toPagedResponse(List<T> source, int page, int size) {
-        int safePage = Math.max(page, 0);
-        int safeSize = Math.max(size, 1);
-        int fromIndex = Math.min(safePage * safeSize, source.size());
-        int toIndex = Math.min(fromIndex + safeSize, source.size());
-        int totalPages = (int) Math.ceil((double) source.size() / safeSize);
-
-        return new PagedResponseDTO<>(
-                source.subList(fromIndex, toIndex),
-                safePage,
-                safeSize,
-                source.size(),
-                totalPages
-        );
     }
 }
