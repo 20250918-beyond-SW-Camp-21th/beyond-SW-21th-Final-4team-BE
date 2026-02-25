@@ -26,7 +26,8 @@ public enum ErrorCode {
     JOB_POSTING_NOT_FOUND(404, "JP001", "공고를 찾지 못 했습니다."),
     JOB_POSTING_FORBIDDEN(403, "JP002", "권한이 없습니다."),
     JOB_POSTING_ALREADY_DELETED(409, "JP003", "이미 삭제된 공고입니다."),
-    ONLY_EMPLOYER_ALLOWED(403, "JP004", "employer만 가능합니다.");
+    ONLY_EMPLOYER_ALLOWED(403, "JP004", "employer만 가능합니다."),
+    ONLY_FREELANCER_ALLOWED(403, "JP005", "freelancer만 가능합니다.");
 
     private final int status;
     private final String code;
