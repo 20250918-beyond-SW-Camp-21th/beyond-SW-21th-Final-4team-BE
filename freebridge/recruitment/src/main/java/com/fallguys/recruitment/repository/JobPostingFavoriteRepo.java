@@ -10,7 +10,5 @@ import java.util.List;
 public interface JobPostingFavoriteRepo extends JpaRepository<JobPostingFavorite, Long> {
     List<JobPostingFavorite> findAllByFreelancerId(Long freelancerId);
 
-    boolean existsByFreelancerIdAndJobPostingId(Long freelancerId, Long jobPostingId);
-
     void deleteByFreelancerIdAndJobPostingId(Long freelancerId, Long jobPostingId);
 }

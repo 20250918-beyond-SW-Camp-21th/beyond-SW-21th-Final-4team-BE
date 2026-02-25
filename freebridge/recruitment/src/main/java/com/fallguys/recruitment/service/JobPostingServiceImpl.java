@@ -16,6 +16,7 @@ import com.fallguys.user.entity.Role;
 import com.fallguys.user.entity.User;
 import com.fallguys.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -109,8 +110,10 @@ public class JobPostingServiceImpl implements JobPostingService {
         JobPosting jobPosting = getJobPostingOrThrow(jobPostingId);
         validateNotDeleted(jobPosting);
 
-        if (!jobPostingFavoriteRepo.existsByFreelancerIdAndJobPostingId(freelancerId, jobPostingId)) {
+        try {
             jobPostingFavoriteRepo.save(JobPostingFavorite.of(freelancerId, jobPostingId));
+        } catch (DataIntegrityViolationException ignored) {
+            // Duplicate favorite is treated as idempotent no-op.
         }
     }
 
