@@ -1,32 +1,23 @@
 package com.fallguys.recruitment.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-
 
 @Entity
 @Table(name = "projects")
 @Getter
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class Project {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class Project extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "job_posting_id", nullable = false)
     private JobPosting jobPosting;
 
-    @Column(name = "employer_id", nullable = false, length = 36)
-    private Long employerId;
-
-    @Column(name = "freelancer_id", nullable = false, length = 36)
+    @Column(name = "freelancer_id", nullable = false)
     private Long freelancerId;
 
     @Column(nullable = false)
@@ -40,13 +31,5 @@ public class Project {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    @Builder.Default
-    private ProjectStatus status=ProjectStatus.IN_PROGRESS;
-
-    @Column(nullable = false)
-    @Builder.Default
-    private LocalDateTime createdAt=LocalDateTime.now();
-
-    @Column(nullable = false)
-    private LocalDateTime updatedAt;
+    private ProjectStatus status = ProjectStatus.IN_PROGRESS;
 }

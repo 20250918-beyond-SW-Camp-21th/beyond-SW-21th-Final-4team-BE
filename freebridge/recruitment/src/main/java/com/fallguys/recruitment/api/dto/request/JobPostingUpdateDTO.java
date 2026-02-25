@@ -1,17 +1,13 @@
 package com.fallguys.recruitment.api.dto.request;
 
-import lombok.Getter;
-import lombok.Setter;
-
-import java.time.LocalDateTime;
+import com.fallguys.recruitment.entity.JobPostingStatus;
 import java.util.List;
 
-@Getter
-@Setter
-public class JobPostingUpdateDTO {
-    String title;
-    String description;
-    List<String> techStack;
-    Long budget;
-    Integer duration;
-}
+public record JobPostingUpdateDTO(
+        String title,
+        String description,
+        List<String> techStack,
+        Long budget,
+        Integer duration,
+        JobPostingStatus status
+) {}
