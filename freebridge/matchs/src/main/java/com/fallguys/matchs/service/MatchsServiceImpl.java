@@ -20,7 +20,6 @@ import com.fallguys.user.entity.Role;
 import com.fallguys.user.entity.User;
 import com.fallguys.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -186,21 +185,20 @@ public class MatchsServiceImpl implements MatchsService {
     }
 
     private Long createProjectIfAbsent(Long jobPostingId, Long freelancerId) {
-        JobPosting jobPosting = getOpenJobPostingOrThrow(jobPostingId);
+        JobPosting jobPosting = getOpenJobPostingForUpdateOrThrow(jobPostingId);
         Project existing = projectPostingRepo.findByJobPostingIdAndFreelancerId(jobPostingId, freelancerId).orElse(null);
         if (existing != null) {
             return existing.getId();
         }
 
-        jobPosting.markInProgress();
-        Project project = Project.create(jobPosting, freelancerId);
-        try {
-            return projectPostingRepo.save(project).getId();
-        } catch (DataIntegrityViolationException ignored) {
-            return projectPostingRepo.findByJobPostingIdAndFreelancerId(jobPostingId, freelancerId)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR))
-                    .getId();
+        if (jobPosting.isRecruitmentFull()) {
+            throw new BusinessException(ErrorCode.JOB_POSTING_HEADCOUNT_FULL);
         }
+
+        Project project = Project.create(jobPosting, freelancerId);
+        Long projectId = projectPostingRepo.save(project).getId();
+        jobPosting.matchFreelancer();
+        return projectId;
     }
 
     private Application getApplicationOrThrow(Long applicationId) {
@@ -215,6 +213,15 @@ public class MatchsServiceImpl implements MatchsService {
 
     private JobPosting getOpenJobPostingOrThrow(Long jobPostingId) {
         JobPosting jobPosting = jobPostingRepo.findById(jobPostingId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.JOB_POSTING_NOT_FOUND));
+        if (jobPosting.getStatus() == Status.DELETED) {
+            throw new BusinessException(ErrorCode.JOB_POSTING_ALREADY_DELETED);
+        }
+        return jobPosting;
+    }
+
+    private JobPosting getOpenJobPostingForUpdateOrThrow(Long jobPostingId) {
+        JobPosting jobPosting = jobPostingRepo.findByIdForUpdate(jobPostingId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.JOB_POSTING_NOT_FOUND));
         if (jobPosting.getStatus() == Status.DELETED) {
             throw new BusinessException(ErrorCode.JOB_POSTING_ALREADY_DELETED);

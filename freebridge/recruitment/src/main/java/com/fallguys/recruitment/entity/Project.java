@@ -29,6 +29,9 @@ public class Project extends BaseEntity {
     @Column(nullable = false)
     private String projectName;
 
+    @Column(name = "headcount", nullable = false)
+    private Integer headcount;
+
     @Column
     private LocalDate startDate;
 
@@ -44,6 +47,7 @@ public class Project extends BaseEntity {
         project.jobPosting = jobPosting;
         project.freelancerId = freelancerId;
         project.projectName = jobPosting.getTitle();
+        project.headcount = jobPosting.getHeadcount();
         project.status = ProjectStatus.IN_PROGRESS;
         project.assignEmployer(jobPosting.getEmployerId());
         return project;

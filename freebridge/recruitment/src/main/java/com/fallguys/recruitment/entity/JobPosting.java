@@ -37,6 +37,12 @@ public class JobPosting extends BaseEntity {
     @Column(nullable = false)
     private Integer duration;
 
+    @Column(name = "headcount", nullable = false)
+    private Integer headcount;
+
+    @Column(name = "matched_headcount", nullable = false)
+    private Integer matchedHeadcount = 0;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable=false)
     private Status status=Status.ACTIVE;
@@ -59,7 +65,14 @@ public class JobPosting extends BaseEntity {
                 : new ArrayList<>(dto.techStack());
         this.budget = dto.budget() == null ? this.budget : dto.budget();
         this.duration = dto.duration() == null ? this.duration : dto.duration();
+        if (dto.headcount() != null) {
+            if (dto.headcount() < 1 || dto.headcount() < this.matchedHeadcount) {
+                throw new IllegalArgumentException("invalid headcount");
+            }
+            this.headcount = dto.headcount();
+        }
         this.postingStatus = dto.status() == null ? this.postingStatus : dto.status();
+        syncPostingStatusByHeadcount();
     }
 
     private void create(JobPostingCreateDTO dto,
@@ -73,6 +86,8 @@ public class JobPosting extends BaseEntity {
                 : new ArrayList<>(dto.techStack());
         this.budget = dto.budget();
         this.duration = dto.duration();
+        this.headcount = dto.headcount() == null || dto.headcount() < 1 ? 1 : dto.headcount();
+        this.matchedHeadcount = 0;
         this.postingStatus = JobPostingStatus.OPEN;
         this.status = Status.ACTIVE;
 
@@ -84,7 +99,31 @@ public class JobPosting extends BaseEntity {
         this.status = Status.DELETED;
     }
 
-    public void markInProgress() {
-        this.postingStatus = JobPostingStatus.IN_PROGRESS;
+    public void matchFreelancer() {
+        if (isRecruitmentFull()) {
+            throw new IllegalStateException("job posting headcount already full");
+        }
+        this.matchedHeadcount += 1;
+        syncPostingStatusByHeadcount();
+    }
+
+    public boolean isRecruitmentFull() {
+        return this.matchedHeadcount >= this.headcount;
+    }
+
+    private void syncPostingStatusByHeadcount() {
+        if (isRecruitmentFull()) {
+            this.postingStatus = JobPostingStatus.CLOSED;
+            return;
+        }
+
+        if (this.matchedHeadcount > 0) {
+            this.postingStatus = JobPostingStatus.IN_PROGRESS;
+            return;
+        }
+
+        if (this.postingStatus != JobPostingStatus.COMPLETED) {
+            this.postingStatus = JobPostingStatus.OPEN;
+        }
     }
 }
