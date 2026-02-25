@@ -1,0 +1,16 @@
+# spring.application.name=user
+spring:
+  application:
+    name: user
+
+springdoc:
+  cache:
+    disabled: true
+  api-docs:
+    path: /user/v3/api-docs
+    groups:
+      enabled: true
+  swagger-ui:
+    path: /user/swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha

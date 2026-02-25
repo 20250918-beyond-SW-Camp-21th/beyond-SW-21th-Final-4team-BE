@@ -1,0 +1,32 @@
+#spring.application.name=common
+
+spring:
+  application:
+    name: common
+
+springdoc:
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    config-url: /v3/api-docs/swagger-config
+    urls:
+      - name: user
+        url: /user/v3/api-docs
+      - name: chatting-module
+        url: /fallguys-chatting-module/v3/api-docs
+      - name: common-module
+        url: /fallguys-common-module/v3/api-docs
+      - name: contract-module
+        url: /fallguys-contract-module/v3/api-docs
+      - name: infra-common-module
+        url: /fallguys-infra-common-module/v3/api-docs
+      - name: matches-module
+        url: /fallguys-matches-module/v3/api-docs
+      - name: recruitment-module
+        url: /fallguys-recruitment-module/v3/api-docs
+      - name: review-module
+        url: /fallguys-review-module/v3/api-docs
+      - name: settlement-module
+        url: /fallguys-settlement-module/v3/api-docs
+      - name: subscription-module
+        url: /fallguys-subscription-module/v3/api-docs
