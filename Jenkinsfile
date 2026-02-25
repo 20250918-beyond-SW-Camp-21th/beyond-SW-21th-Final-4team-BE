@@ -23,12 +23,12 @@ pipeline {
     stages {
         stage('Checkout & Gradle Build') {
             steps {
-                cleanWs()
+                // Remove cleanWs() to preserve gradle caches across builds
                 checkout scm
 
                 // 실행 권한 부여 및 bootJar 빌드
                 sh 'chmod +x freebridge/gradlew'
-                sh 'cd freebridge && ./gradlew clean bootJar -x test'
+                sh 'cd freebridge && ./gradlew bootJar -x test'
 
                 script {
                     env.GIT_COMMIT_HASH = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
@@ -43,7 +43,7 @@ pipeline {
                 script {
                     echo "BuildKit을 끄고 레거시 빌더로 빌드를 시작합니다."
                     // DOCKER_BUILDKIT=0을 명시하여 buildx 에러를 우회합니다.
-                    sh "DOCKER_BUILDKIT=0 docker build --no-cache -t ${env.IMAGE_NAME}:${env.IMAGE_TAG} ."
+                    sh "DOCKER_BUILDKIT=0 docker build -t ${env.IMAGE_NAME}:${env.IMAGE_TAG} ."
                 }
             }
         }
@@ -54,13 +54,8 @@ pipeline {
                     withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                         sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
 
-                        // 대용량 레이어 처리를 위해 타임아웃과 재시도 로직 적용
-                        retry(3) {
-                            timeout(time: 15, unit: 'MINUTES') {
-                                echo "Docker Push 시도 중: ${env.IMAGE_TAG}..."
-                                sh "docker push ${env.IMAGE_NAME}:${env.IMAGE_TAG}"
-                            }
-                        }
+                        echo "Docker Push 시도 중: ${env.IMAGE_TAG}..."
+                        sh "docker push ${env.IMAGE_NAME}:${env.IMAGE_TAG}"
 
                         // latest 태그 푸시
                         sh "docker tag ${env.IMAGE_NAME}:${env.IMAGE_TAG} ${env.IMAGE_NAME}:latest"
@@ -129,7 +124,7 @@ pipeline {
             sh "docker rmi ${env.IMAGE_NAME}:${env.IMAGE_TAG} || true"
             sh "docker rmi ${env.IMAGE_NAME}:latest || true"
             sh 'docker image prune -f || true'
-            cleanWs()
+            // Remove cleanWs() here as well to preserve the workspace for future builds
         }
     }
 }
