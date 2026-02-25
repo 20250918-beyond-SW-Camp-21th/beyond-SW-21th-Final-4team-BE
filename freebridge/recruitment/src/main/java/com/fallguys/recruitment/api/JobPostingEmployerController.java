@@ -24,7 +24,7 @@ public class JobPostingEmployerController {
 
     private final JobPostingService jobPostingService;
 
-    @GetMapping("/api/v1/employer/jobs/")
+    @GetMapping("/api/v1/employer/jobs")
     public ResponseEntity<ApiResponse<PagedResponseDTO<JobPostingSearchDTO>>> getMyJobPostings(
             @RequestParam Long employerId,
             @RequestParam(defaultValue = "0") int page,
