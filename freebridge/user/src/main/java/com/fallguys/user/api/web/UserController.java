@@ -1,4 +1,4 @@
-package com.fallguys.user.controller;
+package com.fallguys.user.api.web;
 
 import com.fallguys.user.dto.LoginRequestDto;
 import com.fallguys.user.dto.LoginResponseDto;

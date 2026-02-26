@@ -26,7 +26,14 @@ public class RedisConfig {
 
     @Bean
     public RedisConnectionFactory redisConnectionFactory() {
-        return new LettuceConnectionFactory(properties.getHost(), properties.getPort());
+        org.springframework.data.redis.connection.RedisStandaloneConfiguration redisConfig = new org.springframework.data.redis.connection.RedisStandaloneConfiguration(
+                properties.getHost(), properties.getPort());
+
+        if (properties.getPassword() != null && !properties.getPassword().isBlank()) {
+            redisConfig.setPassword(properties.getPassword());
+        }
+
+        return new LettuceConnectionFactory(redisConfig);
     }
 
     @Bean
