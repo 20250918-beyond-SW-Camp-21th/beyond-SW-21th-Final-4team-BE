@@ -112,14 +112,14 @@ public class ContractService {
     }
 
     @Transactional(readOnly = true)
-    public ContractResponse getContract(Long id, Long userId) {
-        Contract contract = findById(id);
+    public ContractResponse getContract(Long contractId, Long userId) {
+        Contract contract = findByContractId(contractId);
         validateOwnership(contract, userId);
         return toResponse(contract);
     }
 
-    public ContractResponse sign(Long id, String signature, String role, Long userId) {
-        Contract contract = findById(id);
+    public ContractResponse sign(Long contractId, String signature, String role, Long userId) {
+        Contract contract = findByContractId(contractId);
         validateOwnership(contract, userId);
         contract.signBy(role, signature);
 
@@ -138,22 +138,22 @@ public class ContractService {
         return toResponse(contractRepository.save(contract));
     }
 
-    public ContractResponse complete(Long id, Long userId) {
-        Contract contract = findById(id);
+    public ContractResponse complete(Long contractId, Long userId) {
+        Contract contract = findByContractId(contractId);
         validateOwnership(contract, userId);
         contract.complete();
         return toResponse(contractRepository.save(contract));
     }
 
-    public ContractResponse reject(Long id, Long userId) {
-        Contract contract = findById(id);
+    public ContractResponse reject(Long contractId, Long userId) {
+        Contract contract = findByContractId(contractId);
         validateOwnership(contract, userId);
         contract.reject();
         return toResponse(contractRepository.save(contract));
     }
 
-    private Contract findById(Long id) {
-        return contractRepository.findById(id)
+    private Contract findByContractId(Long contractId) {
+        return contractRepository.findByContractId(contractId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.CONTRACT_NOT_FOUND));
     }
 
