@@ -20,10 +20,10 @@ import com.fallguys.user.entity.Role;
 import com.fallguys.user.entity.User;
 import com.fallguys.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -126,12 +126,10 @@ public class MatchsServiceImpl implements MatchsService {
     }
 
     @Override
-    public List<ApplicationResponseDTO> getEmployerApplications(Long employerId) {
+    public Page<ApplicationResponseDTO> getEmployerApplications(Long employerId, Pageable pageable) {
         getUserByRoleOrThrow(employerId, Role.EMPLOYER);
-        return applicationRepo.findAllByEmployerIdOrderByCreatedAtDesc(employerId)
-                .stream()
-                .map(this::toApplicationResponse)
-                .toList();
+        return applicationRepo.findAllByEmployerIdOrderByCreatedAtDesc(employerId, pageable)
+                .map(this::toApplicationResponse);
     }
 
     @Override
@@ -143,6 +141,13 @@ public class MatchsServiceImpl implements MatchsService {
     }
 
     @Override
+    public Page<ProposalResponseDTO> getEmployerProposals(Long employerId, Pageable pageable) {
+        getUserByRoleOrThrow(employerId, Role.EMPLOYER);
+        return proposalRepo.findAllByEmployerIdOrderByCreatedAtDesc(employerId, pageable)
+                .map(this::toProposalResponse);
+    }
+
+    @Override
     public ProposalResponseDTO getEmployerProposal(Long employerId, Long proposalId) {
         getUserByRoleOrThrow(employerId, Role.EMPLOYER);
         Proposal proposal = getProposalOrThrow(proposalId);
@@ -151,12 +156,10 @@ public class MatchsServiceImpl implements MatchsService {
     }
 
     @Override
-    public List<ApplicationResponseDTO> getFreelancerApplications(Long freelancerId) {
+    public Page<ApplicationResponseDTO> getFreelancerApplications(Long freelancerId, Pageable pageable) {
         getUserByRoleOrThrow(freelancerId, Role.FREELANCER);
-        return applicationRepo.findAllByFreelancerIdOrderByCreatedAtDesc(freelancerId)
-                .stream()
-                .map(this::toApplicationResponse)
-                .toList();
+        return applicationRepo.findAllByFreelancerIdOrderByCreatedAtDesc(freelancerId, pageable)
+                .map(this::toApplicationResponse);
     }
 
     @Override
@@ -168,12 +171,10 @@ public class MatchsServiceImpl implements MatchsService {
     }
 
     @Override
-    public List<ProposalResponseDTO> getFreelancerProposals(Long freelancerId) {
+    public Page<ProposalResponseDTO> getFreelancerProposals(Long freelancerId, Pageable pageable) {
         getUserByRoleOrThrow(freelancerId, Role.FREELANCER);
-        return proposalRepo.findAllByFreelancerIdOrderByCreatedAtDesc(freelancerId)
-                .stream()
-                .map(this::toProposalResponse)
-                .toList();
+        return proposalRepo.findAllByFreelancerIdOrderByCreatedAtDesc(freelancerId, pageable)
+                .map(this::toProposalResponse);
     }
 
     @Override

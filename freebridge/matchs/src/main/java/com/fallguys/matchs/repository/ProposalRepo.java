@@ -1,12 +1,12 @@
 package com.fallguys.matchs.repository;
 
 import com.fallguys.matchs.entity.Proposal;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import java.util.List;
-
 public interface ProposalRepo extends JpaRepository<Proposal,Long> {
-    List<Proposal> findAllByEmployerIdOrderByCreatedAtDesc(Long employerId);
+    Page<Proposal> findAllByEmployerIdOrderByCreatedAtDesc(Long employerId, Pageable pageable);
 
-    List<Proposal> findAllByFreelancerIdOrderByCreatedAtDesc(Long freelancerId);
+    Page<Proposal> findAllByFreelancerIdOrderByCreatedAtDesc(Long freelancerId, Pageable pageable);
 }
