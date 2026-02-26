@@ -1,4 +1,4 @@
-package com.fallguys.user.api.shared.dto;
+package com.fallguys.user.api.shared.response;
 
 import lombok.Builder;
 import lombok.Getter;

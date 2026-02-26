@@ -1,6 +1,6 @@
 package com.fallguys.user.api.shared;
 
-import com.fallguys.user.api.shared.dto.ExternalUserResponse;
+import com.fallguys.user.api.shared.response.ExternalUserResponse;
 
 /**
  * 타 모듈에서 User 정보를 조회하기 위해 사용할 인터페이스입니다.

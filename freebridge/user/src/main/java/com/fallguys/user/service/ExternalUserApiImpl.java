@@ -1,7 +1,7 @@
-package com.fallguys.user.api;
+package com.fallguys.user.service;
 
 import com.fallguys.user.api.shared.ExternalUserApi;
-import com.fallguys.user.api.shared.dto.ExternalUserResponse;
+import com.fallguys.user.api.shared.response.ExternalUserResponse;
 import com.fallguys.user.entity.User;
 import com.fallguys.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
