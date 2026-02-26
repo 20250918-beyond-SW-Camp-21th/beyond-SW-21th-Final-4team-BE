@@ -12,9 +12,8 @@ import com.fallguys.recruitment.entity.JobPostingStatus;
 import com.fallguys.recruitment.entity.Status;
 import com.fallguys.recruitment.repository.JobPostingFavoriteRepo;
 import com.fallguys.recruitment.repository.JobPostingRepo;
-import com.fallguys.user.entity.Role;
-import com.fallguys.user.entity.User;
-import com.fallguys.user.repository.UserRepository;
+import com.fallguys.recruitment.service.port.RecruitmentUser;
+import com.fallguys.recruitment.service.port.RecruitmentUserReader;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -33,13 +32,13 @@ public class JobPostingServiceImpl implements JobPostingService {
 
     private final JobPostingRepo jobPostingRepo;
     private final JobPostingFavoriteRepo jobPostingFavoriteRepo;
-    private final UserRepository userRepository;
+    private final RecruitmentUserReader recruitmentUserReader;
 
     @Override
     @Transactional(readOnly = true)
-    public List<JobPostingSearchDTO> getJobPostings(Long userId) {
-        User user = getEmployerOrThrow(userId);
-        return jobPostingRepo.findAllByEmployerIdAndStatusNot(user.getId(), Status.DELETED)
+    public List<JobPostingSearchDTO> getJobPostings(String userEmail) {
+        RecruitmentUser user = recruitmentUserReader.getEmployerByEmailOrThrow(userEmail);
+        return jobPostingRepo.findAllByEmployerIdAndStatusNot(user.id(), Status.DELETED)
                 .stream()
                 .map(this::toJobPostingSearchDto)
                 .toList();
@@ -47,28 +46,28 @@ public class JobPostingServiceImpl implements JobPostingService {
 
     @Override
     @Transactional
-    public void createJobPosting(JobPostingCreateDTO jobPostingCreateDTO, Long userId) {
-        User user = getEmployerOrThrow(userId);
-        JobPosting jobPosting = JobPosting.from(jobPostingCreateDTO, user.getId(), user.getName());
+    public void createJobPosting(JobPostingCreateDTO jobPostingCreateDTO, String userEmail) {
+        RecruitmentUser user = recruitmentUserReader.getEmployerByEmailOrThrow(userEmail);
+        JobPosting jobPosting = JobPosting.from(jobPostingCreateDTO, user.id(), user.name());
         jobPostingRepo.save(jobPosting);
     }
 
     @Override
     @Transactional
-    public void updateJobPosting(JobPostingUpdateDTO jobPostingUpdateDTO, Long jobPostingId, Long userId) {
-        getEmployerOrThrow(userId);
+    public void updateJobPosting(JobPostingUpdateDTO jobPostingUpdateDTO, Long jobPostingId, String userEmail) {
+        RecruitmentUser user = recruitmentUserReader.getEmployerByEmailOrThrow(userEmail);
         JobPosting jobPosting = getJobPostingOrThrow(jobPostingId);
-        validateOwnership(jobPosting, userId);
+        validateOwnership(jobPosting, user.id());
         validateNotDeleted(jobPosting);
         jobPosting.update(jobPostingUpdateDTO);
     }
 
     @Override
     @Transactional
-    public void deleteJobPosting(Long jobPostingId, Long userId) {
-        getEmployerOrThrow(userId);
+    public void deleteJobPosting(Long jobPostingId, String userEmail) {
+        RecruitmentUser user = recruitmentUserReader.getEmployerByEmailOrThrow(userEmail);
         JobPosting jobPosting = getJobPostingOrThrow(jobPostingId);
-        validateOwnership(jobPosting, userId);
+        validateOwnership(jobPosting, user.id());
         validateNotDeleted(jobPosting);
         jobPosting.delete();
     }
@@ -82,8 +81,9 @@ public class JobPostingServiceImpl implements JobPostingService {
     }
 
     @Override
-    public List<FreelancerJobPostingSearchDTO> searchJobPostingsForFreelancer(Long freelancerId, String keyword, boolean favoritesOnly) {
-        getFreelancerOrThrow(freelancerId);
+    public List<FreelancerJobPostingSearchDTO> searchJobPostingsForFreelancer(String userEmail, String keyword, boolean favoritesOnly) {
+        RecruitmentUser user = recruitmentUserReader.getFreelancerByEmailOrThrow(userEmail);
+        Long freelancerId = user.id();
 
         Set<Long> favoriteJobPostingIds = new HashSet<>(
                 jobPostingFavoriteRepo.findAllByFreelancerId(freelancerId)
@@ -104,8 +104,9 @@ public class JobPostingServiceImpl implements JobPostingService {
 
     @Override
     @Transactional
-    public void addFavoriteJobPosting(Long freelancerId, Long jobPostingId) {
-        getFreelancerOrThrow(freelancerId);
+    public void addFavoriteJobPosting(String userEmail, Long jobPostingId) {
+        RecruitmentUser user = recruitmentUserReader.getFreelancerByEmailOrThrow(userEmail);
+        Long freelancerId = user.id();
 
         JobPosting jobPosting = getJobPostingOrThrow(jobPostingId);
         validateNotDeleted(jobPosting);
@@ -119,19 +120,11 @@ public class JobPostingServiceImpl implements JobPostingService {
 
     @Override
     @Transactional
-    public void removeFavoriteJobPosting(Long freelancerId, Long jobPostingId) {
-        getFreelancerOrThrow(freelancerId);
+    public void removeFavoriteJobPosting(String userEmail, Long jobPostingId) {
+        RecruitmentUser user = recruitmentUserReader.getFreelancerByEmailOrThrow(userEmail);
+        Long freelancerId = user.id();
 
         jobPostingFavoriteRepo.deleteByFreelancerIdAndJobPostingId(freelancerId, jobPostingId);
-    }
-
-    private User getEmployerOrThrow(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        if (user.getRole() != Role.EMPLOYER) {
-            throw new BusinessException(ErrorCode.ONLY_EMPLOYER_ALLOWED);
-        }
-        return user;
     }
 
     private JobPosting getJobPostingOrThrow(Long jobPostingId) {
@@ -149,15 +142,6 @@ public class JobPostingServiceImpl implements JobPostingService {
         if (jobPosting.getStatus() == Status.DELETED) {
             throw new BusinessException(ErrorCode.JOB_POSTING_ALREADY_DELETED);
         }
-    }
-
-    private User getFreelancerOrThrow(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        if (user.getRole() != Role.FREELANCER) {
-            throw new BusinessException(ErrorCode.ONLY_FREELANCER_ALLOWED);
-        }
-        return user;
     }
 
     private JobPostingSearchDTO toJobPostingSearchDto(JobPosting jobPosting) {

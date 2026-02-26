@@ -8,25 +8,24 @@ import com.fallguys.recruitment.api.dto.response.JobPostingSearchDTO;
 import java.util.List;
 
 public interface JobPostingService {
-    void createJobPosting(JobPostingCreateDTO jobPostingCreateDTO, Long userId);
+    void createJobPosting(JobPostingCreateDTO jobPostingCreateDTO, String userEmail);
 
-    void updateJobPosting(JobPostingUpdateDTO jobPostingUpdateDTO, Long jobPostingId,Long userId);
+    void updateJobPosting(JobPostingUpdateDTO jobPostingUpdateDTO, Long jobPostingId, String userEmail);
 
-    void deleteJobPosting(Long jobPostingId,Long userId);
+    void deleteJobPosting(Long jobPostingId, String userEmail);
 
-    //TODO:paging
-    List<JobPostingSearchDTO> getJobPostings(Long userId);
+    List<JobPostingSearchDTO> getJobPostings(String userEmail);
 
     List<JobPostingSearchDTO> getAllJobPostings();
 
     List<FreelancerJobPostingSearchDTO> searchJobPostingsForFreelancer(
-            Long freelancerId,
+            String userEmail,
             String keyword,
             boolean favoritesOnly
     );
 
-    void addFavoriteJobPosting(Long freelancerId, Long jobPostingId);
+    void addFavoriteJobPosting(String userEmail, Long jobPostingId);
 
-    void removeFavoriteJobPosting(Long freelancerId, Long jobPostingId);
+    void removeFavoriteJobPosting(String userEmail, Long jobPostingId);
 
 }
