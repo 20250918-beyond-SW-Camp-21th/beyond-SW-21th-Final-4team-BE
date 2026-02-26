@@ -49,7 +49,7 @@ public class MatchsController {
     @PostMapping("/api/v1/employer/proposals")
     public ResponseEntity<ApiResponse<Map<String, Long>>> createProposal(
             @RequestHeader("Authorization") String authorization,
-            @RequestBody ProposalCreateRequest request
+            @Valid @RequestBody ProposalCreateRequest request
     ) {
         Long employerId = tokenUserIdResolver.resolveUserId(authorization);
         Long proposalId = matchsService.createProposal(employerId, request);
