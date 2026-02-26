@@ -1,4 +1,4 @@
-package com.fallguys.settlement.entity;
+package com.fallguys.payment.entity;
 
 public enum FreelancerSettlementStatus {
     PENDING,
