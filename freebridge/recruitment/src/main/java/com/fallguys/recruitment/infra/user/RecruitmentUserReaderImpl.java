@@ -17,8 +17,8 @@ public class RecruitmentUserReaderImpl implements RecruitmentUserReader {
     private final UserRepository userRepository;
 
     @Override
-    public RecruitmentUser getEmployerByEmailOrThrow(String email) {
-        User user = getByEmailOrThrow(email);
+    public RecruitmentUser getEmployerByIdOrThrow(Long userId) {
+        User user = getByIdOrThrow(userId);
         if (user.getRole() != Role.EMPLOYER) {
             throw new BusinessException(ErrorCode.ONLY_EMPLOYER_ALLOWED);
         }
@@ -26,16 +26,16 @@ public class RecruitmentUserReaderImpl implements RecruitmentUserReader {
     }
 
     @Override
-    public RecruitmentUser getFreelancerByEmailOrThrow(String email) {
-        User user = getByEmailOrThrow(email);
+    public RecruitmentUser getFreelancerByIdOrThrow(Long userId) {
+        User user = getByIdOrThrow(userId);
         if (user.getRole() != Role.FREELANCER) {
             throw new BusinessException(ErrorCode.ONLY_FREELANCER_ALLOWED);
         }
         return new RecruitmentUser(user.getId(), user.getName());
     }
 
-    private User getByEmailOrThrow(String email) {
-        return userRepository.findByEmail(email)
+    private User getByIdOrThrow(Long userId) {
+        return userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
     }
 }

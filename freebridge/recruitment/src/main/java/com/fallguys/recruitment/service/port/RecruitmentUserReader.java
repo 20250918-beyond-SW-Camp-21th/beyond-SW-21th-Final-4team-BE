@@ -2,7 +2,7 @@ package com.fallguys.recruitment.service.port;
 
 public interface RecruitmentUserReader {
 
-    RecruitmentUser getEmployerByEmailOrThrow(String email);
+    RecruitmentUser getEmployerByIdOrThrow(Long userId);
 
-    RecruitmentUser getFreelancerByEmailOrThrow(String email);
+    RecruitmentUser getFreelancerByIdOrThrow(Long userId);
 }

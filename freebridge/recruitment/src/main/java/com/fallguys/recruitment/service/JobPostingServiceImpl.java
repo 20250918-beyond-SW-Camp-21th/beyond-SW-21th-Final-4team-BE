@@ -37,8 +37,8 @@ public class JobPostingServiceImpl implements JobPostingService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<JobPostingSearchDTO> getJobPostings(String userEmail) {
-        RecruitmentUser user = recruitmentUserReader.getEmployerByEmailOrThrow(userEmail);
+    public List<JobPostingSearchDTO> getJobPostings(Long userId) {
+        RecruitmentUser user = recruitmentUserReader.getEmployerByIdOrThrow(userId);
         return jobPostingRepo.findAllByEmployerIdAndStatusNot(user.id(), Status.DELETED)
                 .stream()
                 .map(this::toJobPostingSearchDto)
@@ -47,16 +47,16 @@ public class JobPostingServiceImpl implements JobPostingService {
 
     @Override
     @Transactional
-    public void createJobPosting(JobPostingCreateDTO jobPostingCreateDTO, String userEmail) {
-        RecruitmentUser user = recruitmentUserReader.getEmployerByEmailOrThrow(userEmail);
+    public void createJobPosting(JobPostingCreateDTO jobPostingCreateDTO, Long userId) {
+        RecruitmentUser user = recruitmentUserReader.getEmployerByIdOrThrow(userId);
         JobPosting jobPosting = JobPosting.from(jobPostingCreateDTO, user.id(), user.name());
         jobPostingRepo.save(jobPosting);
     }
 
     @Override
     @Transactional
-    public void updateJobPosting(JobPostingUpdateDTO jobPostingUpdateDTO, Long jobPostingId, String userEmail) {
-        RecruitmentUser user = recruitmentUserReader.getEmployerByEmailOrThrow(userEmail);
+    public void updateJobPosting(JobPostingUpdateDTO jobPostingUpdateDTO, Long jobPostingId, Long userId) {
+        RecruitmentUser user = recruitmentUserReader.getEmployerByIdOrThrow(userId);
         JobPosting jobPosting = getJobPostingOrThrow(jobPostingId);
         validateOwnership(jobPosting, user.id());
         validateNotDeleted(jobPosting);
@@ -69,8 +69,8 @@ public class JobPostingServiceImpl implements JobPostingService {
 
     @Override
     @Transactional
-    public void deleteJobPosting(Long jobPostingId, String userEmail) {
-        RecruitmentUser user = recruitmentUserReader.getEmployerByEmailOrThrow(userEmail);
+    public void deleteJobPosting(Long jobPostingId, Long userId) {
+        RecruitmentUser user = recruitmentUserReader.getEmployerByIdOrThrow(userId);
         JobPosting jobPosting = getJobPostingOrThrow(jobPostingId);
         validateOwnership(jobPosting, user.id());
         validateNotDeleted(jobPosting);
@@ -86,8 +86,8 @@ public class JobPostingServiceImpl implements JobPostingService {
     }
 
     @Override
-    public List<FreelancerJobPostingSearchDTO> searchJobPostingsForFreelancer(String userEmail, String keyword, boolean favoritesOnly) {
-        RecruitmentUser user = recruitmentUserReader.getFreelancerByEmailOrThrow(userEmail);
+    public List<FreelancerJobPostingSearchDTO> searchJobPostingsForFreelancer(Long userId, String keyword, boolean favoritesOnly) {
+        RecruitmentUser user = recruitmentUserReader.getFreelancerByIdOrThrow(userId);
         Long freelancerId = user.id();
 
         Set<Long> favoriteJobPostingIds = new HashSet<>(
@@ -112,8 +112,8 @@ public class JobPostingServiceImpl implements JobPostingService {
 
     @Override
     @Transactional
-    public void addFavoriteJobPosting(String userEmail, Long jobPostingId) {
-        RecruitmentUser user = recruitmentUserReader.getFreelancerByEmailOrThrow(userEmail);
+    public void addFavoriteJobPosting(Long userId, Long jobPostingId) {
+        RecruitmentUser user = recruitmentUserReader.getFreelancerByIdOrThrow(userId);
         Long freelancerId = user.id();
 
         JobPosting jobPosting = getJobPostingOrThrow(jobPostingId);
@@ -128,8 +128,8 @@ public class JobPostingServiceImpl implements JobPostingService {
 
     @Override
     @Transactional
-    public void removeFavoriteJobPosting(String userEmail, Long jobPostingId) {
-        RecruitmentUser user = recruitmentUserReader.getFreelancerByEmailOrThrow(userEmail);
+    public void removeFavoriteJobPosting(Long userId, Long jobPostingId) {
+        RecruitmentUser user = recruitmentUserReader.getFreelancerByIdOrThrow(userId);
         Long freelancerId = user.id();
 
         jobPostingFavoriteRepo.deleteByFreelancerIdAndJobPostingId(freelancerId, jobPostingId);
