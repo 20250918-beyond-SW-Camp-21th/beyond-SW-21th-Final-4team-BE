@@ -9,5 +9,6 @@ public record JobPostingUpdateDTO(
         List<String> techStack,
         Long budget,
         Integer duration,
+        Integer headcount,
         JobPostingStatus status
 ) {}

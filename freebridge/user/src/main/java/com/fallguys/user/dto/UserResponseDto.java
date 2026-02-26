@@ -20,7 +20,7 @@ public class UserResponseDto {
     private Boolean emailVerified;
     private LocalDateTime createdAt;
 
-    /**
+    /*
      * User Entity → ResponseDto 변환
      */
     public static UserResponseDto from(User user) {

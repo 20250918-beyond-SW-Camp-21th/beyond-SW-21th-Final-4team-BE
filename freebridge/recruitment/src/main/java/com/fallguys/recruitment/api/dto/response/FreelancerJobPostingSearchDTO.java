@@ -10,6 +10,8 @@ public record FreelancerJobPostingSearchDTO(
         List<String> techStack,
         Long budget,
         Integer duration,
+        Integer headcount,
+        Integer matchedHeadcount,
         boolean favorite
 ) {
 }

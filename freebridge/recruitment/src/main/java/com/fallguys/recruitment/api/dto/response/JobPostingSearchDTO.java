@@ -12,5 +12,7 @@ public record JobPostingSearchDTO(
         List<String> techStack,
         Long budget,
         Integer duration,
+        Integer headcount,
+        Integer matchedHeadcount,
         JobPostingStatus status
 ) {}
