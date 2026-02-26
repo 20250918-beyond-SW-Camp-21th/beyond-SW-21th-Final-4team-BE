@@ -76,7 +76,7 @@ public class ChatRoomController {
         }
 
         CursorPageResponse<ChatMessageResponse> messages = chatMessageService.getPreviousMessages(roomId, cursorDate,
-                size);
+                size, userId);
         return ResponseEntity.ok(messages);
     }
 }

@@ -35,6 +35,12 @@ public class ChatMessageService {
         ChatRoom room = chatRoomRepository.findById(roomId)
                 .orElseThrow(() -> new IllegalArgumentException("채팅방을 찾을 수 없습니다: " + roomId));
 
+        // 보안 체크: senderId가 해당 방의 참여자인지 확인
+        if (!room.getParticipants().contains(senderId)) {
+            log.warn("권한 없는 사용자의 메시지 전송 시도 - roomId: {}, senderId: {}", roomId, senderId);
+            throw new IllegalArgumentException("채팅방에 참여하고 있지 않습니다.");
+        }
+
         // 1. 메시지 도메인 객체 생성
         ChatMessage chatMessage = ChatMessage.builder()
                 .roomId(roomId)
@@ -52,15 +58,17 @@ public class ChatMessageService {
 
         // 3. 채팅방 마지막 메시지 정보 업데이트
         room.updateLastMessage(savedMessage);
-        chatRoomRepository.save(room);
 
-        // 4. 발송자를 제외한 상대방의 안 읽은 캐시 수 증가
+        // 4. 발송자를 제외한 상대방의 안 읽은 캐시 수 증가 (스트림 내부 횟수 오류 수정)
+        room.incrementUnreadCountForOthers(senderId); // 객체의 카운트 상태 1번만 업데이트
+
         room.getParticipants().stream()
                 .filter(participantId -> !participantId.equals(senderId))
                 .forEach(participantId -> {
                     unreadMessageRedisRepository.incrementUnreadCount(roomId, participantId);
-                    room.incrementUnreadCountForOthers(senderId); // 객체 상태도 업데이트
                 });
+
+        chatRoomRepository.save(room);
 
         // 5. Response DTO 생성
         ChatMessageResponse response = ChatMessageResponse.from(savedMessage);
@@ -74,7 +82,16 @@ public class ChatMessageService {
      * 커서 기반 페이징으로 이전 메시지 목록 무한 스크롤 조회
      */
     public com.fallguys.chatting.dto.CursorPageResponse<ChatMessageResponse> getPreviousMessages(String roomId,
-            java.time.LocalDateTime cursorDate, int size) {
+            java.time.LocalDateTime cursorDate, int size, String userId) {
+
+        ChatRoom room = chatRoomRepository.findById(roomId)
+                .orElseThrow(() -> new IllegalArgumentException("채팅방을 찾을 수 없습니다: " + roomId));
+
+        // 보안 체크: 메시지를 요청하는 유저가 해당 방의 참여자인지 확인
+        if (!room.getParticipants().contains(userId)) {
+            log.warn("권한 없는 사용자의 이전 메시지 조회 시도 - roomId: {}, userId: {}", roomId, userId);
+            throw new IllegalArgumentException("채팅방에 접근할 권한이 없습니다.");
+        }
 
         org.springframework.data.domain.PageRequest pageRequest = org.springframework.data.domain.PageRequest.of(0,
                 size);

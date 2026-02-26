@@ -33,7 +33,9 @@ public class StompHandler implements ChannelInterceptor {
                     String token = authHeader.substring(7);
                     try {
                         String userId = chatTokenProvider.getUserIdFromToken(token);
-                        accessor.getSessionAttributes().put("userId", userId);
+                        java.util.Optional.ofNullable(accessor.getSessionAttributes())
+                                .orElseGet(java.util.concurrent.ConcurrentHashMap::new)
+                                .put("userId", userId);
 
                         // Redis 에 온라인 접속 상태 기록
                         chatPresenceService.connectUser(userId);
@@ -47,7 +49,10 @@ public class StompHandler implements ChannelInterceptor {
                     throw new IllegalArgumentException("WebSocket Authorization 헤더가 누락되었습니다.");
                 }
             } else if (StompCommand.DISCONNECT == command) {
-                String userId = (String) accessor.getSessionAttributes().get("userId");
+                java.util.Map<String, Object> sessionAttributes = java.util.Optional
+                        .ofNullable(accessor.getSessionAttributes())
+                        .orElseGet(java.util.concurrent.ConcurrentHashMap::new);
+                String userId = (String) sessionAttributes.get("userId");
                 if (userId != null) {
                     chatPresenceService.disconnectUser(userId);
                     log.info("WebSocket DISCONNECT - User ID: {}", userId);
