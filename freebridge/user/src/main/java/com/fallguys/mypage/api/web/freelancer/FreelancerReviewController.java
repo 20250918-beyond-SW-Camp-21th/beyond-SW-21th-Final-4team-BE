@@ -17,7 +17,7 @@ import java.util.List;
 
 @Tag(name = "Freelancer MyPage - Grade & Review", description = "프리랜서 마이페이지 평점 및 리뷰 API")
 @RestController
-@RequestMapping("/api/freelancer/mypage/reviews")
+@RequestMapping("/api/freelancer/mypage/evaluations")
 @RequiredArgsConstructor
 public class FreelancerReviewController {
 

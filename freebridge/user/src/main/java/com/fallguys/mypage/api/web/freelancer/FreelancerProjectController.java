@@ -26,7 +26,7 @@ public class FreelancerProjectController {
     @Operation(summary = "내 지원 및 진행 프로젝트 목록", description = "상태값을 받아(status파라미터 등) 해당 프로젝트 목록을 조회합니다.")
     @GetMapping
     public ApiResponse<List<FreelancerAppliedProjectListDto>> getMyProjects(@AuthenticationPrincipal String userId,
-                                                                            @RequestParam(required = false) String status) {
+                                                                            @RequestParam(required = false) FreelancerStatus status) {
         return ApiResponse.ok(null);
     }
 }

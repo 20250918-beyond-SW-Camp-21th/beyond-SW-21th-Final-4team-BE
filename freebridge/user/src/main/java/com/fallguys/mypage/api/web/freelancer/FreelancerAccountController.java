@@ -31,7 +31,7 @@ public class FreelancerAccountController {
     @Operation(summary = "비밀번호 변경", description = "해당 계정의 비밀번호를 안전하게 변경합니다.")
     @PutMapping("/password")
     public ApiResponse<Void> updatePassword(@AuthenticationPrincipal String userId,
-                                            @RequestBody UpdatePasswordRequestDto request) { // 고용주 측 DTO 재사용 가능
+                                            @RequestBody UpdatePasswordRequestDto request) {
         return ApiResponse.ok(null);
     }
 }
