@@ -9,6 +9,7 @@ import com.fallguys.matchs.api.dto.response.ProposalResponseDTO;
 import com.fallguys.matchs.service.MatchsService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -33,7 +34,7 @@ public class MatchsController {
     @PostMapping("/api/v1/freelancer/application")
     public ResponseEntity<ApiResponse<Map<String, Long>>> createApplication(
             @RequestParam Long freelancerId,
-            @RequestBody ApplicationCreateRequest request
+            @Valid @RequestBody ApplicationCreateRequest request
     ) {
         Long applicationId = matchsService.createApplication(freelancerId, request);
         return ResponseEntity.ok(ApiResponse.ok(Map.of("applicationId", applicationId)));
