@@ -3,7 +3,7 @@ package com.fallguys.mypage.dto.employer.response;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(description = "고용주 마이페이지 프로필 응답")
-public record EmployerProfileResponse(
+public record EmployerProfileResponseDto(
 
         @Schema(description = "기본 프로필 정보")
         EmployerBasicProfileDto basicProfile,
@@ -15,13 +15,13 @@ public record EmployerProfileResponse(
         EmployerProjectStatusDto projectStatus,
 
         @Schema(description = "CRM 마케팅 알림 정보")
-        CrmAlertsResponse crmAlerts
+        CrmAlertsResponseDto crmAlerts
 
 ) {
 
-    public EmployerProfileResponse {
+    public EmployerProfileResponseDto {
         crmAlerts = crmAlerts == null
-                ? CrmAlertsResponse.defaultValue()
+                ? CrmAlertsResponseDto.defaultValue()
                 : crmAlerts;
     }
 }
