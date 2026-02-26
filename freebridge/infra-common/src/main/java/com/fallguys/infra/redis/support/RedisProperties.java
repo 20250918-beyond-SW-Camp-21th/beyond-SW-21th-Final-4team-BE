@@ -10,5 +10,5 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class RedisProperties {
     private String host;
     private int port;
+    private String password;
 }
-

@@ -84,7 +84,11 @@ public class EmailVerificationService {
 
         if (result == 1) { // SUCCESS
             log.info("이메일 인증 성공 - email: {}", maskEmail(email));
-            // 이벤트 발행 (의존성 역전)
+            // 회원가입 전 인증 상태 유지를 위해 Redis에 30분간 증표 저장
+            String verifiedKey = "email:verified:" + email;
+            redisTemplate.opsForValue().set(verifiedKey, "true", 30, TimeUnit.MINUTES);
+
+            // 이벤트 발행 (기존 회원용)
             applicationEventPublisher.publishEvent(new EmailVerifiedEvent(email));
             return true;
         }
