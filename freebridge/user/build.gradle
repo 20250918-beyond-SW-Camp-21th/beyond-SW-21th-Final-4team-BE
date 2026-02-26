@@ -12,4 +12,5 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.security:spring-security-crypto'
     compileOnly 'org.springdoc:springdoc-openapi-starter-webmvc-ui'
+    compileOnly 'org.springframework.security:spring-security-core'
 }

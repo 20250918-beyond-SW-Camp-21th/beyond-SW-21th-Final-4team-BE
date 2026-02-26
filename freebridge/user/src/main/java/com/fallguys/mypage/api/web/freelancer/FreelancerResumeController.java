@@ -9,7 +9,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 @Tag(name = "Freelancer MyPage - Resume", description = "프리랜서 마이페이지 이력서(학력/경력) API")
 @RestController
@@ -19,7 +18,7 @@ public class FreelancerResumeController {
 
     @Operation(summary = "이력서 (학력/경력) 병합 조회", description = "현재 프리랜서의 모든 학력 및 경력 정보를 조회합니다.")
     @GetMapping
-    public ApiResponse<FreelancerResumeResponseDto> getResume(@AuthenticationPrincipal String userId) {
+    public ApiResponse<FreelancerResumeResponseDto> getResume(@RequestHeader("X-User-Id") String userId) {
         return ApiResponse.ok(null);
     }
     
