@@ -310,12 +310,12 @@ class ContractServiceTest {
     class GetContract {
 
         @Test
-        @DisplayName("ID로 계약을 조회할 수 있다")
-        void getsContractById() {
-            when(contractRepository.findById(1L))
+        @DisplayName("contractId로 계약을 조회할 수 있다")
+        void getsContractByContractId() {
+            when(contractRepository.findByContractId(1001L))
                     .thenReturn(Optional.of(savedContract));
 
-            ContractResponse response = contractService.getContract(1L, 200L);
+            ContractResponse response = contractService.getContract(1001L, 200L);
 
             assertNotNull(response);
             assertEquals(1001L, response.getContractId());
@@ -325,12 +325,12 @@ class ContractServiceTest {
         @Test
         @DisplayName("존재하지 않는 계약 조회 시 CONTRACT_NOT_FOUND 에러가 발생한다")
         void throwsErrorWhenContractNotFound() {
-            when(contractRepository.findById(999L))
+            when(contractRepository.findByContractId(9999L))
                     .thenReturn(Optional.empty());
 
             BusinessException exception = assertThrows(
                     BusinessException.class,
-                    () -> contractService.getContract(999L, 200L)
+                    () -> contractService.getContract(9999L, 200L)
             );
 
             assertEquals(ErrorCode.CONTRACT_NOT_FOUND, exception.getErrorCode());
@@ -345,12 +345,12 @@ class ContractServiceTest {
         @DisplayName("프리랜서가 서명하면 freelancerSignature가 설정된다")
         void freelancerSignsSetsSignature() {
             savedContract.setEmployerSignature("emp_sig");
-            when(contractRepository.findById(1L))
+            when(contractRepository.findByContractId(1001L))
                     .thenReturn(Optional.of(savedContract));
             when(contractRepository.save(any(Contract.class)))
                     .thenAnswer(invocation -> invocation.getArgument(0));
 
-            ContractResponse response = contractService.sign(1L, "free_sig", "FREELANCER", 100L);
+            ContractResponse response = contractService.sign(1001L, "free_sig", "FREELANCER", 100L);
 
             assertNotNull(response.getFreelancerSignature());
             assertEquals("free_sig", response.getFreelancerSignature());
@@ -362,14 +362,14 @@ class ContractServiceTest {
             savedContract.setStatus(ContractStatus.WAITING_SIGNATURE);
             savedContract.setEmployerSignature("emp_sig");
 
-            when(contractRepository.findById(1L))
+            when(contractRepository.findByContractId(1001L))
                     .thenReturn(Optional.of(savedContract));
             when(contractRepository.save(any(Contract.class)))
                     .thenAnswer(invocation -> invocation.getArgument(0));
             when(contractPdfService.generateSignedPdf(any(Contract.class)))
                     .thenReturn("/pdfs/contracts/1001_signed.pdf");
 
-            ContractResponse response = contractService.sign(1L, "free_sig", "FREELANCER", 100L);
+            ContractResponse response = contractService.sign(1001L, "free_sig", "FREELANCER", 100L);
 
             assertEquals("IN_PROGRESS", response.getStatus());
             assertNotNull(response.getSignedDate());
@@ -381,14 +381,14 @@ class ContractServiceTest {
             savedContract.setStatus(ContractStatus.WAITING_SIGNATURE);
             savedContract.setEmployerSignature("emp_sig");
 
-            when(contractRepository.findById(1L))
+            when(contractRepository.findByContractId(1001L))
                     .thenReturn(Optional.of(savedContract));
             when(contractRepository.save(any(Contract.class)))
                     .thenAnswer(invocation -> invocation.getArgument(0));
             when(contractPdfService.generateSignedPdf(any(Contract.class)))
                     .thenReturn("/pdfs/contracts/1001_signed.pdf");
 
-            ContractResponse response = contractService.sign(1L, "free_sig", "FREELANCER", 100L);
+            ContractResponse response = contractService.sign(1001L, "free_sig", "FREELANCER", 100L);
 
             verify(contractPdfService).generateSignedPdf(any(Contract.class));
             assertEquals("/pdfs/contracts/1001_signed.pdf", response.getSignedPdfUrl());
@@ -400,14 +400,14 @@ class ContractServiceTest {
             savedContract.setStatus(ContractStatus.WAITING_SIGNATURE);
             savedContract.setEmployerSignature("emp_sig");
 
-            when(contractRepository.findById(1L))
+            when(contractRepository.findByContractId(1001L))
                     .thenReturn(Optional.of(savedContract));
             when(contractRepository.save(any(Contract.class)))
                     .thenAnswer(invocation -> invocation.getArgument(0));
             when(contractPdfService.generateSignedPdf(any(Contract.class)))
                     .thenReturn("/pdfs/contracts/1001_signed.pdf");
 
-            contractService.sign(1L, "free_sig", "FREELANCER", 100L);
+            contractService.sign(1001L, "free_sig", "FREELANCER", 100L);
 
             verify(eventPublisher).publishEvent(any(ContractActivatedEvent.class));
         }
@@ -415,12 +415,12 @@ class ContractServiceTest {
         @Test
         @DisplayName("한쪽만 서명한 경우 이벤트가 발행되지 않는다")
         void onlyOneSignatureDoesNotPublishEvent() {
-            when(contractRepository.findById(1L))
+            when(contractRepository.findByContractId(1001L))
                     .thenReturn(Optional.of(savedContract));
             when(contractRepository.save(any(Contract.class)))
                     .thenAnswer(invocation -> invocation.getArgument(0));
 
-            contractService.sign(1L, "free_sig", "FREELANCER", 100L);
+            contractService.sign(1001L, "free_sig", "FREELANCER", 100L);
 
             verify(eventPublisher, never()).publishEvent(any());
         }
@@ -435,12 +435,12 @@ class ContractServiceTest {
         void completesInProgressContract() {
             savedContract.setStatus(ContractStatus.IN_PROGRESS);
 
-            when(contractRepository.findById(1L))
+            when(contractRepository.findByContractId(1001L))
                     .thenReturn(Optional.of(savedContract));
             when(contractRepository.save(any(Contract.class)))
                     .thenAnswer(invocation -> invocation.getArgument(0));
 
-            ContractResponse response = contractService.complete(1L, 200L);
+            ContractResponse response = contractService.complete(1001L, 200L);
 
             assertEquals("COMPLETED", response.getStatus());
         }
@@ -450,12 +450,12 @@ class ContractServiceTest {
         void throwsErrorWhenNotInProgress() {
             savedContract.setStatus(ContractStatus.WAITING_SIGNATURE);
 
-            when(contractRepository.findById(1L))
+            when(contractRepository.findByContractId(1001L))
                     .thenReturn(Optional.of(savedContract));
 
             BusinessException exception = assertThrows(
                     BusinessException.class,
-                    () -> contractService.complete(1L, 200L)
+                    () -> contractService.complete(1001L, 200L)
             );
 
             assertEquals(ErrorCode.CONTRACT_NOT_IN_PROGRESS, exception.getErrorCode());
@@ -471,12 +471,12 @@ class ContractServiceTest {
         void rejectsWaitingContract() {
             savedContract.setStatus(ContractStatus.WAITING_SIGNATURE);
 
-            when(contractRepository.findById(1L))
+            when(contractRepository.findByContractId(1001L))
                     .thenReturn(Optional.of(savedContract));
             when(contractRepository.save(any(Contract.class)))
                     .thenAnswer(invocation -> invocation.getArgument(0));
 
-            ContractResponse response = contractService.reject(1L, 200L);
+            ContractResponse response = contractService.reject(1001L, 200L);
 
             assertEquals("REJECTED", response.getStatus());
         }
@@ -486,12 +486,12 @@ class ContractServiceTest {
         void throwsErrorWhenInProgress() {
             savedContract.setStatus(ContractStatus.IN_PROGRESS);
 
-            when(contractRepository.findById(1L))
+            when(contractRepository.findByContractId(1001L))
                     .thenReturn(Optional.of(savedContract));
 
             BusinessException exception = assertThrows(
                     BusinessException.class,
-                    () -> contractService.reject(1L, 200L)
+                    () -> contractService.reject(1001L, 200L)
             );
 
             assertEquals(ErrorCode.CONTRACT_CANNOT_REJECT, exception.getErrorCode());
@@ -502,12 +502,12 @@ class ContractServiceTest {
         void throwsErrorWhenCompleted() {
             savedContract.setStatus(ContractStatus.COMPLETED);
 
-            when(contractRepository.findById(1L))
+            when(contractRepository.findByContractId(1001L))
                     .thenReturn(Optional.of(savedContract));
 
             BusinessException exception = assertThrows(
                     BusinessException.class,
-                    () -> contractService.reject(1L, 200L)
+                    () -> contractService.reject(1001L, 200L)
             );
 
             assertEquals(ErrorCode.CONTRACT_CANNOT_REJECT, exception.getErrorCode());
