@@ -6,5 +6,6 @@ public record JobPostingCreateDTO(
         String description,
         List<String> techStack,
         Long budget,
-        Integer duration
+        Integer duration,
+        Integer headcount
 ) {}

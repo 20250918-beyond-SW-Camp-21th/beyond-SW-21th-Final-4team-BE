@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -59,7 +60,11 @@ public class JobPostingServiceImpl implements JobPostingService {
         JobPosting jobPosting = getJobPostingOrThrow(jobPostingId);
         validateOwnership(jobPosting, user.id());
         validateNotDeleted(jobPosting);
-        jobPosting.update(jobPostingUpdateDTO);
+        try {
+            jobPosting.update(jobPostingUpdateDTO);
+        } catch (IllegalArgumentException e) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
     }
 
     @Override
@@ -94,7 +99,10 @@ public class JobPostingServiceImpl implements JobPostingService {
 
         String normalizedKeyword = keyword == null ? "" : keyword.trim().toLowerCase(Locale.ROOT);
 
-        return jobPostingRepo.findAllByStatusAndPostingStatus(Status.ACTIVE, JobPostingStatus.OPEN)
+        return jobPostingRepo.findAllByStatusAndPostingStatusIn(
+                        Status.ACTIVE,
+                        EnumSet.of(JobPostingStatus.OPEN, JobPostingStatus.IN_PROGRESS)
+                )
                 .stream()
                 .filter(jobPosting -> matchesKeyword(jobPosting, normalizedKeyword))
                 .filter(jobPosting -> !favoritesOnly || favoriteJobPostingIds.contains(jobPosting.getId()))
@@ -153,6 +161,8 @@ public class JobPostingServiceImpl implements JobPostingService {
                 new ArrayList<>(jobPosting.getTechStack()),
                 jobPosting.getBudget(),
                 jobPosting.getDuration(),
+                jobPosting.getHeadcount(),
+                jobPosting.getMatchedHeadcount(),
                 jobPosting.getPostingStatus()
         );
     }
@@ -166,6 +176,8 @@ public class JobPostingServiceImpl implements JobPostingService {
                 new ArrayList<>(jobPosting.getTechStack()),
                 jobPosting.getBudget(),
                 jobPosting.getDuration(),
+                jobPosting.getHeadcount(),
+                jobPosting.getMatchedHeadcount(),
                 favorite
         );
     }
