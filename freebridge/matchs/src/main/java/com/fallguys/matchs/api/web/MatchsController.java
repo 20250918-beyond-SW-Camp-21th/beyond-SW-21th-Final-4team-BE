@@ -68,6 +68,26 @@ public class MatchsController {
         return ResponseEntity.ok(ApiResponse.ok(matchsService.getEmployerProposal(employerId, proposalId)));
     }
 
+    @Operation(summary = "제안 목록 조회(고용주)", description = "고용주가 발송한 제안 목록을 조회합니다.")
+    @GetMapping("/api/v1/employer/proposals")
+    public ResponseEntity<ApiResponse<PagedResponseDTO<ProposalResponseDTO>>> getEmployerProposals(
+            @RequestHeader("Authorization") String authorization,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        int safePage = Math.max(0, page);
+        int safeSize = Math.min(Math.max(1, size), MAX_PAGE_SIZE);
+        Long employerId = tokenUserIdResolver.resolveUserId(authorization);
+        Page<ProposalResponseDTO> result = matchsService.getEmployerProposals(employerId, PageRequest.of(safePage, safeSize));
+        return ResponseEntity.ok(ApiResponse.ok(new PagedResponseDTO<>(
+                result.getContent(),
+                result.getNumber(),
+                result.getSize(),
+                result.getTotalElements(),
+                result.getTotalPages()
+        )));
+    }
+
     @Operation(summary = "지원 목록 조회(고용주)", description = "고용주가 받은 지원 목록을 조회합니다.")
     @GetMapping("/api/v1/employer/applications")
     public ResponseEntity<ApiResponse<PagedResponseDTO<ApplicationResponseDTO>>> getEmployerApplications(

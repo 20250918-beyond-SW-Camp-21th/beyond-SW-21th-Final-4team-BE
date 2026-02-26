@@ -24,6 +24,8 @@ public interface MatchsService {
 
     ApplicationResponseDTO getEmployerApplication(Long employerId, Long applicationId);
 
+    Page<ProposalResponseDTO> getEmployerProposals(Long employerId, Pageable pageable);
+
     ProposalResponseDTO getEmployerProposal(Long employerId, Long proposalId);
 
     Page<ApplicationResponseDTO> getFreelancerApplications(Long freelancerId, Pageable pageable);

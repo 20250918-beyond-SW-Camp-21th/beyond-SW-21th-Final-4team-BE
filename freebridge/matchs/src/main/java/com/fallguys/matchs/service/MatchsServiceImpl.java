@@ -141,6 +141,13 @@ public class MatchsServiceImpl implements MatchsService {
     }
 
     @Override
+    public Page<ProposalResponseDTO> getEmployerProposals(Long employerId, Pageable pageable) {
+        getUserByRoleOrThrow(employerId, Role.EMPLOYER);
+        return proposalRepo.findAllByEmployerIdOrderByCreatedAtDesc(employerId, pageable)
+                .map(this::toProposalResponse);
+    }
+
+    @Override
     public ProposalResponseDTO getEmployerProposal(Long employerId, Long proposalId) {
         getUserByRoleOrThrow(employerId, Role.EMPLOYER);
         Proposal proposal = getProposalOrThrow(proposalId);
