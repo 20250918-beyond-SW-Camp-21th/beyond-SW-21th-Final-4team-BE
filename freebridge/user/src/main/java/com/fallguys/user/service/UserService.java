@@ -11,6 +11,7 @@ import com.fallguys.user.repository.UserRepository;
 import com.fallguys.common.security.JwtTokenProvider;
 import com.fallguys.mypage.repository.freelancer.FreelancerRepository;
 import com.fallguys.mypage.entity.freelancer.Freelancer;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -30,6 +31,7 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final FreelancerRepository freelancerRepository;
+    private final StringRedisTemplate redisTemplate;
 
     @Async
     @EventListener
@@ -54,6 +56,14 @@ public class UserService {
             throw new IllegalArgumentException("이미 사용 중인 이메일입니다.");
         }
 
+        // Redis에서 이메일 인증 완료 증표 확인
+        String verifiedKey = "email:verified:" + request.getEmail();
+        String isVerified = redisTemplate.opsForValue().get(verifiedKey);
+
+        if (!"true".equals(isVerified)) {
+            throw new IllegalArgumentException("이메일 인증이 완료되지 않았습니다.");
+        }
+
         User user = User.builder()
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
@@ -62,6 +72,7 @@ public class UserService {
                 .termsAgreed(request.getTermsAgreed())
                 .privacyAgreed(request.getPrivacyAgreed())
                 .build();
+        user.verifyEmail(); // 가입 시 이메일 인증 완료 처리
 
         User savedUser;
         try {
@@ -71,6 +82,9 @@ public class UserService {
             throw new IllegalArgumentException("이미 사용 중인 이메일입니다.");
         }
         log.info("회원가입 완료 - userId: {}", savedUser.getId());
+
+        // 인증 증표 삭제 (재가입 등 방지)
+        redisTemplate.delete(verifiedKey);
 
         return UserResponseDto.from(savedUser);
     }

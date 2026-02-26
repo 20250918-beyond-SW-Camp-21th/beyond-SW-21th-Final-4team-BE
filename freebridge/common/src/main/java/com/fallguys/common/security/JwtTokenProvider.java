@@ -29,10 +29,10 @@ public class JwtTokenProvider {
 
         return Jwts.builder()
                 .subject(email)
-                .claim("id", id)
+                .claim("id", id) // 저장하는 ID (회원 가입시 식별 ID)
                 .claim("role", role)
                 .claim("name", name)
-                .claim("grade", grade != null ? grade : "")
+                .claim("grade", grade != null ? grade : "") // 회원 등급
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith((javax.crypto.SecretKey) key, Jwts.SIG.HS256)
