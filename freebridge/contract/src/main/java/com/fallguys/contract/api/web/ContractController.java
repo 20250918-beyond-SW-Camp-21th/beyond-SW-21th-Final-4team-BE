@@ -8,8 +8,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.web.bind.annotation.*;
+
 import java.util.List;
 
+@Tag(name = "Contract", description = "계약 관련 API")
 @RestController
 @RequestMapping("/api/v1/contracts")
 @RequiredArgsConstructor
@@ -48,53 +53,53 @@ public class ContractController {
 
 
     // TODO: 로그인 기능 구현 후 mockdata 사용에서 @Authenticated로 바꾸기
-    @GetMapping("/{id}")
+    @GetMapping("/{contractId}")
     public ResponseEntity<ApiResponse<ContractResponse>> getOne(
-            @PathVariable Long id,
+            @PathVariable Long contractId,
             @RequestHeader("X-User-Id") Long userId) {
-        ApiResponse<ContractResponse> apiResponse = ApiResponse.ok(contractService.getContract(id, userId));
+        ApiResponse<ContractResponse> apiResponse = ApiResponse.ok(contractService.getContract(contractId, userId));
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 
     // 서명 후 계약 상태 변환
     // TODO: 로그인 기능 구현 후 mockdata 사용에서 @Authenticated로 바꾸기
-    @PatchMapping("/{id}/sign")
+    @PatchMapping("/{contractId}/sign")
     public ResponseEntity<ApiResponse<ContractResponse>> sign(
-            @PathVariable Long id,
+            @PathVariable Long contractId,
             @RequestBody SignContractRequest request,
             @RequestHeader("X-User-Role") String userRole,
             @RequestHeader("X-User-Id") Long userId) {
 
-        ContractResponse response = contractService.sign(id, request.getSignature(), userRole, userId);
+        ContractResponse response = contractService.sign(contractId, request.getSignature(), userRole, userId);
         ApiResponse<ContractResponse> apiResponse = ApiResponse.ok(response);
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 
     // TODO: 로그인 기능 구현 후 mockdata 사용에서 @Authenticated로 바꾸기
-    @PatchMapping("/{id}/complete")
+    @PatchMapping("/{contractId}/complete")
     public ResponseEntity<ApiResponse<ContractResponse>> complete(
-            @PathVariable Long id,
+            @PathVariable Long contractId,
             @RequestHeader("X-User-Id") Long userId) {
-        ApiResponse<ContractResponse> apiResponse = ApiResponse.ok(contractService.complete(id, userId));
+        ApiResponse<ContractResponse> apiResponse = ApiResponse.ok(contractService.complete(contractId, userId));
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 
     // TODO: 로그인 기능 구현 후 mockdata 사용에서 @Authenticated로 바꾸기
-    @PatchMapping("/{id}/reject")
+    @PatchMapping("/{contractId}/reject")
     public ResponseEntity<ApiResponse<ContractResponse>> reject(
-            @PathVariable Long id,
+            @PathVariable Long contractId,
             @RequestHeader("X-User-Id") Long userId) {
-        ApiResponse<ContractResponse> apiResponse = ApiResponse.ok(contractService.reject(id, userId));
+        ApiResponse<ContractResponse> apiResponse = ApiResponse.ok(contractService.reject(contractId, userId));
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 
     // TODO: AWS에 올리면 E3에서 제대로 된 주소로 반환하게 수정
     // TODO: 로그인 기능 구현 후 mockdata 사용에서 @Authenticated로 바꾸기
-    @GetMapping("/{id}/pdf")
+    @GetMapping("/{contractId}/pdf")
     public ResponseEntity<ApiResponse<String>> getPdf(
-            @PathVariable Long id,
+            @PathVariable Long contractId,
             @RequestHeader("X-User-Id") Long userId) {
-        String pdfUrl = contractService.getContract(id, userId).getContractPdfUrl();
+        String pdfUrl = contractService.getContract(contractId, userId).getContractPdfUrl();
         ApiResponse<String> apiResponse = ApiResponse.ok(pdfUrl);
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
