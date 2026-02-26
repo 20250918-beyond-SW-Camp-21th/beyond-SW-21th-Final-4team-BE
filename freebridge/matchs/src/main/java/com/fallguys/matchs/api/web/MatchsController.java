@@ -31,6 +31,8 @@ import java.util.Map;
 @Tag(name = "Matchs", description = "지원 및 제안 매칭 관리 API")
 public class MatchsController {
 
+    private static final int MAX_PAGE_SIZE = 100;
+
     private final MatchsService matchsService;
     private final TokenUserIdResolver tokenUserIdResolver;
 
@@ -73,8 +75,10 @@ public class MatchsController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
+        int safePage = Math.max(0, page);
+        int safeSize = Math.min(Math.max(1, size), MAX_PAGE_SIZE);
         Long employerId = tokenUserIdResolver.resolveUserId(authorization);
-        Page<ApplicationResponseDTO> result = matchsService.getEmployerApplications(employerId, PageRequest.of(page, size));
+        Page<ApplicationResponseDTO> result = matchsService.getEmployerApplications(employerId, PageRequest.of(safePage, safeSize));
         return ResponseEntity.ok(ApiResponse.ok(new PagedResponseDTO<>(
                 result.getContent(),
                 result.getNumber(),
@@ -123,8 +127,10 @@ public class MatchsController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
+        int safePage = Math.max(0, page);
+        int safeSize = Math.min(Math.max(1, size), MAX_PAGE_SIZE);
         Long freelancerId = tokenUserIdResolver.resolveUserId(authorization);
-        Page<ApplicationResponseDTO> result = matchsService.getFreelancerApplications(freelancerId, PageRequest.of(page, size));
+        Page<ApplicationResponseDTO> result = matchsService.getFreelancerApplications(freelancerId, PageRequest.of(safePage, safeSize));
         return ResponseEntity.ok(ApiResponse.ok(new PagedResponseDTO<>(
                 result.getContent(),
                 result.getNumber(),
@@ -151,8 +157,10 @@ public class MatchsController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
+        int safePage = Math.max(0, page);
+        int safeSize = Math.min(Math.max(1, size), MAX_PAGE_SIZE);
         Long freelancerId = tokenUserIdResolver.resolveUserId(authorization);
-        Page<ProposalResponseDTO> result = matchsService.getFreelancerProposals(freelancerId, PageRequest.of(page, size));
+        Page<ProposalResponseDTO> result = matchsService.getFreelancerProposals(freelancerId, PageRequest.of(safePage, safeSize));
         return ResponseEntity.ok(ApiResponse.ok(new PagedResponseDTO<>(
                 result.getContent(),
                 result.getNumber(),
