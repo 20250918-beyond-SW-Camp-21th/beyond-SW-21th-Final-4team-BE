@@ -9,7 +9,7 @@ import com.fallguys.user.entity.Role;
 import com.fallguys.user.entity.User;
 import com.fallguys.user.repository.UserRepository;
 import com.fallguys.common.security.JwtTokenProvider;
-import com.fallguys.mypage.repository.FreelancerRepository;
+import com.fallguys.mypage.repository.freelancer.FreelancerRepository;
 import com.fallguys.mypage.entity.freelancer.Freelancer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
