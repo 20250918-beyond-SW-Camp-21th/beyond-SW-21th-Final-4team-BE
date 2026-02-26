@@ -11,6 +11,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -20,7 +22,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -66,8 +67,14 @@ public class MatchsController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
-        List<ApplicationResponseDTO> result = matchsService.getEmployerApplications(employerId);
-        return ResponseEntity.ok(ApiResponse.ok(toPagedResponse(result, page, size)));
+        Page<ApplicationResponseDTO> result = matchsService.getEmployerApplications(employerId, PageRequest.of(page, size));
+        return ResponseEntity.ok(ApiResponse.ok(new PagedResponseDTO<>(
+                result.getContent(),
+                result.getNumber(),
+                result.getSize(),
+                result.getTotalElements(),
+                result.getTotalPages()
+        )));
     }
 
     @Operation(summary = "지원 상세 조회(고용주)", description = "고용주가 특정 지원 상세 정보를 조회합니다.")
@@ -106,8 +113,14 @@ public class MatchsController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
-        List<ApplicationResponseDTO> result = matchsService.getFreelancerApplications(freelancerId);
-        return ResponseEntity.ok(ApiResponse.ok(toPagedResponse(result, page, size)));
+        Page<ApplicationResponseDTO> result = matchsService.getFreelancerApplications(freelancerId, PageRequest.of(page, size));
+        return ResponseEntity.ok(ApiResponse.ok(new PagedResponseDTO<>(
+                result.getContent(),
+                result.getNumber(),
+                result.getSize(),
+                result.getTotalElements(),
+                result.getTotalPages()
+        )));
     }
 
     @Operation(summary = "내 지원 상세 조회(프리랜서)", description = "프리랜서가 본인 지원의 상세 정보를 조회합니다.")
@@ -126,8 +139,14 @@ public class MatchsController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
-        List<ProposalResponseDTO> result = matchsService.getFreelancerProposals(freelancerId);
-        return ResponseEntity.ok(ApiResponse.ok(toPagedResponse(result, page, size)));
+        Page<ProposalResponseDTO> result = matchsService.getFreelancerProposals(freelancerId, PageRequest.of(page, size));
+        return ResponseEntity.ok(ApiResponse.ok(new PagedResponseDTO<>(
+                result.getContent(),
+                result.getNumber(),
+                result.getSize(),
+                result.getTotalElements(),
+                result.getTotalPages()
+        )));
     }
 
     @Operation(summary = "받은 제안 상세 조회(프리랜서)", description = "프리랜서가 받은 제안의 상세 정보를 조회합니다.")
@@ -159,22 +178,4 @@ public class MatchsController {
         return ResponseEntity.ok(ApiResponse.ok(Map.of("projectId", projectId)));
     }
 
-    private <T> PagedResponseDTO<T> toPagedResponse(List<T> source, int page, int size) {
-        int safePage = Math.max(page, 0);
-        int safeSize = Math.max(size, 1);
-        long sourceSize = source.size();
-        long startLong = Math.min((long) safePage * (long) safeSize, sourceSize);
-        int fromIndex = (int) startLong;
-        long endLong = Math.min(startLong + (long) safeSize, sourceSize);
-        int toIndex = (int) endLong;
-        int totalPages = (int) Math.ceil((double) source.size() / safeSize);
-
-        return new PagedResponseDTO<>(
-                source.subList(fromIndex, toIndex),
-                safePage,
-                safeSize,
-                source.size(),
-                totalPages
-        );
-    }
 }

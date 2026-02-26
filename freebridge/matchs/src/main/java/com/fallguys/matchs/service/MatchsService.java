@@ -4,8 +4,8 @@ import com.fallguys.matchs.api.dto.request.ApplicationCreateRequest;
 import com.fallguys.matchs.api.dto.request.ProposalCreateRequest;
 import com.fallguys.matchs.api.dto.response.ApplicationResponseDTO;
 import com.fallguys.matchs.api.dto.response.ProposalResponseDTO;
-
-import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 public interface MatchsService {
     Long createApplication(Long freelancerId, ApplicationCreateRequest request);
@@ -20,17 +20,17 @@ public interface MatchsService {
 
     Long rejectProposal(Long freelancerId, Long proposalId);
 
-    List<ApplicationResponseDTO> getEmployerApplications(Long employerId);
+    Page<ApplicationResponseDTO> getEmployerApplications(Long employerId, Pageable pageable);
 
     ApplicationResponseDTO getEmployerApplication(Long employerId, Long applicationId);
 
     ProposalResponseDTO getEmployerProposal(Long employerId, Long proposalId);
 
-    List<ApplicationResponseDTO> getFreelancerApplications(Long freelancerId);
+    Page<ApplicationResponseDTO> getFreelancerApplications(Long freelancerId, Pageable pageable);
 
     ApplicationResponseDTO getFreelancerApplication(Long freelancerId, Long applicationId);
 
-    List<ProposalResponseDTO> getFreelancerProposals(Long freelancerId);
+    Page<ProposalResponseDTO> getFreelancerProposals(Long freelancerId, Pageable pageable);
 
     ProposalResponseDTO getFreelancerProposal(Long freelancerId, Long proposalId);
 }
