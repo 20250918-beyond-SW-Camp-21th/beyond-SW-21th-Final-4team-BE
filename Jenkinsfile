@@ -126,6 +126,11 @@ pipeline {
 
                             # Python AI 배포 파일 적용
                             kubectl apply -f kube-folder/python-ai-deployment.yml
+                            # Python AI 서비스 파일 적용
+                            kubectl apply -f kube-folder/python-ai-service.yml
+
+
+
 
                             # 롤아웃 재시작으로 최신 이미지 반영 강제
                             kubectl rollout restart deployment/backend
