@@ -4,14 +4,17 @@ import com.fallguys.common.exception.BusinessException;
 import com.fallguys.common.exception.ErrorCode;
 import com.fallguys.recruitment.api.dto.request.JobPostingCreateDTO;
 import com.fallguys.recruitment.api.dto.request.JobPostingUpdateDTO;
+import com.fallguys.recruitment.api.dto.response.EmployerProjectSearchDTO;
 import com.fallguys.recruitment.api.dto.response.FreelancerJobPostingSearchDTO;
 import com.fallguys.recruitment.api.dto.response.JobPostingSearchDTO;
 import com.fallguys.recruitment.entity.JobPostingFavorite;
 import com.fallguys.recruitment.entity.JobPosting;
 import com.fallguys.recruitment.entity.JobPostingStatus;
+import com.fallguys.recruitment.entity.Project;
 import com.fallguys.recruitment.entity.Status;
 import com.fallguys.recruitment.repository.JobPostingFavoriteRepo;
 import com.fallguys.recruitment.repository.JobPostingRepo;
+import com.fallguys.recruitment.repository.ProjectPostingRepo;
 import com.fallguys.recruitment.service.port.RecruitmentUser;
 import com.fallguys.recruitment.service.port.RecruitmentUserReader;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +36,7 @@ public class JobPostingServiceImpl implements JobPostingService {
 
     private final JobPostingRepo jobPostingRepo;
     private final JobPostingFavoriteRepo jobPostingFavoriteRepo;
+    private final ProjectPostingRepo projectPostingRepo;
     private final RecruitmentUserReader recruitmentUserReader;
 
     @Override
@@ -82,6 +86,15 @@ public class JobPostingServiceImpl implements JobPostingService {
         return jobPostingRepo.findAllByStatusNot(Status.DELETED)
                 .stream()
                 .map(this::toJobPostingSearchDto)
+                .toList();
+    }
+
+    @Override
+    public List<EmployerProjectSearchDTO> getEmployerProjects(Long userId) {
+        RecruitmentUser user = recruitmentUserReader.getEmployerByIdOrThrow(userId);
+        return projectPostingRepo.findAllByEmployerIdOrderByCreatedAtDesc(user.id())
+                .stream()
+                .map(this::toEmployerProjectSearchDto)
                 .toList();
     }
 
@@ -179,6 +192,19 @@ public class JobPostingServiceImpl implements JobPostingService {
                 jobPosting.getHeadcount(),
                 jobPosting.getMatchedHeadcount(),
                 favorite
+        );
+    }
+
+    private EmployerProjectSearchDTO toEmployerProjectSearchDto(Project project) {
+        return new EmployerProjectSearchDTO(
+                project.getId(),
+                project.getJobPosting().getId(),
+                project.getFreelancerId(),
+                project.getProjectName(),
+                project.getHeadcount(),
+                project.getStartDate(),
+                project.getEndDate(),
+                project.getStatus()
         );
     }
 

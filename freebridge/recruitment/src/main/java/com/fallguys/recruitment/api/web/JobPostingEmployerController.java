@@ -1,8 +1,9 @@
-package com.fallguys.recruitment.api;
+package com.fallguys.recruitment.api.web;
 
 import com.fallguys.common.response.ApiResponse;
 import com.fallguys.recruitment.api.dto.request.JobPostingCreateDTO;
 import com.fallguys.recruitment.api.dto.request.JobPostingUpdateDTO;
+import com.fallguys.recruitment.api.dto.response.EmployerProjectSearchDTO;
 import com.fallguys.recruitment.api.dto.response.JobPostingSearchDTO;
 import com.fallguys.recruitment.api.dto.response.PagedResponseDTO;
 import com.fallguys.recruitment.api.support.TokenUserIdResolver;
@@ -41,6 +42,18 @@ public class JobPostingEmployerController {
     ) {
         Long userId = tokenUserIdResolver.resolveUserId(authorization);
         List<JobPostingSearchDTO> result = jobPostingService.getJobPostings(userId);
+        return ResponseEntity.ok(ApiResponse.ok(PagingUtils.toPagedResponse(result, page, size)));
+    }
+
+    @Operation(summary = "고용주: 자신의 프로젝트 조회", description = "고용주의 프로젝트 목록을 조회합니다.")
+    @GetMapping("/api/v1/employer/project")
+    public ResponseEntity<ApiResponse<PagedResponseDTO<EmployerProjectSearchDTO>>> getMyProjects(
+            @RequestHeader("Authorization") String authorization,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        Long userId = tokenUserIdResolver.resolveUserId(authorization);
+        List<EmployerProjectSearchDTO> result = jobPostingService.getEmployerProjects(userId);
         return ResponseEntity.ok(ApiResponse.ok(PagingUtils.toPagedResponse(result, page, size)));
     }
 
