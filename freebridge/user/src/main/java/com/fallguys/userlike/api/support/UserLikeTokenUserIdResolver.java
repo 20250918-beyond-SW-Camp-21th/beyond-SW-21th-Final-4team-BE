@@ -25,10 +25,14 @@ public class UserLikeTokenUserIdResolver {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
 
-        Number userIdValue = jwtTokenProvider.getClaimsFromToken(token).get("id", Number.class);
-        if (userIdValue == null) {
+        String subject = jwtTokenProvider.getClaimsFromToken(token).getSubject();
+        if (!StringUtils.hasText(subject)) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
-        return userIdValue.longValue();
+        try {
+            return Long.parseLong(subject);
+        } catch (NumberFormatException ex) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
     }
 }
