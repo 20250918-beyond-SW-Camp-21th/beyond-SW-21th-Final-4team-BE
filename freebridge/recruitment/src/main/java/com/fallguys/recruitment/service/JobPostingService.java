@@ -2,6 +2,7 @@ package com.fallguys.recruitment.service;
 
 import com.fallguys.recruitment.api.dto.request.JobPostingCreateDTO;
 import com.fallguys.recruitment.api.dto.request.JobPostingUpdateDTO;
+import com.fallguys.recruitment.api.dto.response.EmployerProjectSearchDTO;
 import com.fallguys.recruitment.api.dto.response.FreelancerJobPostingSearchDTO;
 import com.fallguys.recruitment.api.dto.response.JobPostingSearchDTO;
 
@@ -17,6 +18,8 @@ public interface JobPostingService {
     List<JobPostingSearchDTO> getJobPostings(Long userId);
 
     List<JobPostingSearchDTO> getAllJobPostings();
+
+    List<EmployerProjectSearchDTO> getEmployerProjects(Long userId);
 
     List<FreelancerJobPostingSearchDTO> searchJobPostingsForFreelancer(
             Long userId,
