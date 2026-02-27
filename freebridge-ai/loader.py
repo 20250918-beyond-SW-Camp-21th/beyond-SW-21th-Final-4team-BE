@@ -22,7 +22,7 @@ def sync_maria_to_chroma(conn=None, vectorstore=None):
         should_close = True
 
     try:
-        # 중복 방지를 위해 p.id를 추가로 조회
+        # 중복 방지를 위해 p.id를 명시적으로 가져옴
         query = """
         SELECT 
             p.id as project_id,
@@ -48,8 +48,9 @@ def sync_maria_to_chroma(conn=None, vectorstore=None):
         doc_ids = []
 
         for _, row in df.iterrows():
-            # [개선] Null/None 처리: 기술 스택이 없으면 "없음"으로 대체
-            requirement = row['job_requirement'] if row['job_requirement'] else "없음"
+            # [수정] pandas NaN 처리: 데이터가 없으면 "없음"으로 표시
+            raw_req = row['job_requirement']
+            requirement = str(raw_req).strip() if pd.notna(raw_req) and raw_req else "없음"
             
             text = f"프로젝트 제목: {row['job_title']}\n" \
                    f"프로젝트 내용: {row['job_description']}\n" \
@@ -61,11 +62,11 @@ def sync_maria_to_chroma(conn=None, vectorstore=None):
                 metadata={"freelancer_id": row['freelancer_id'], "type": "completed_project"}
             )
             documents.append(doc)
-            # [개선] 중복 방지를 위해 고유 ID (project:ID) 사용
+            # [수정] 고유 ID 부여로 여러 번 실행해도 중복 생성 방지
             doc_ids.append(f"project:{row['project_id']}")
 
         if documents:
-            # ids를 전달하여 같은 프로젝트가 다시 들어와도 덮어쓰도록 함
+            # ids 인자를 사용하여 기존 데이터를 업데이트(Upsert) 함
             vectorstore.add_documents(documents, ids=doc_ids)
             print(f"Successfully synced {len(documents)} records.")
 

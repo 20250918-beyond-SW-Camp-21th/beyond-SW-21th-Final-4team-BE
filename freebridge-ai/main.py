@@ -51,7 +51,7 @@ async def lifespan(app: FastAPI):
         logger.info("RAG System Initialized.")
     except Exception as e:
         logger.error(f"Critical Init Error: {e}")
-        # [개선] 초기화 실패 시 서버 구동을 중단하여 잘못된 상태로 서비스되는 것을 방지
+        # [수정] 서버가 잘못된 상태로 뜨는 것을 방지하기 위해 종료
         sys.exit(1)
     yield
 
@@ -65,7 +65,7 @@ async def recommend(query: Query):
     if not rag_chain:
         raise HTTPException(status_code=503, detail="System not ready")
     try:
-        # [개선] 비동기 ainvoke 사용으로 논블로킹 처리
+        # [수정] 비동기 ainvoke 사용
         response = await rag_chain.ainvoke({"input": query.question})
         return {"answer": response}
     except Exception as e:
