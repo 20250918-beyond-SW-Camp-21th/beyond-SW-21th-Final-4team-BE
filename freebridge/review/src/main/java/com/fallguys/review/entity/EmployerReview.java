@@ -79,4 +79,26 @@ public class EmployerReview {
     protected void onUpdate() {
         this.updatedAt = LocalDateTime.now();
     }
+
+    public void update(
+            Integer language,
+            Integer framework,
+            Integer debugging,
+            Integer communication,
+            Integer schedule,
+            Integer dispute,
+            String description
+    ) {
+        this.language = language == null ? this.language : language;
+        this.framework = framework == null ? this.framework : framework;
+        this.debugging = debugging == null ? this.debugging : debugging;
+        this.communication = communication == null ? this.communication : communication;
+        this.schedule = schedule == null ? this.schedule : schedule;
+        this.dispute = dispute == null ? this.dispute : dispute;
+        this.description = description == null ? this.description : description;
+    }
+
+    public void softDelete() {
+        this.deleted = true;
+    }
 }

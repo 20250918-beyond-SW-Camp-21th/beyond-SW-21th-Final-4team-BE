@@ -70,4 +70,20 @@ public class FreelancerReview {
     protected void onUpdate() {
         this.updatedAt = LocalDateTime.now();
     }
+
+    public void update(
+            Integer atmosphere,
+            Integer requirementDetail,
+            Integer schedule,
+            String description
+    ) {
+        this.atmosphere = atmosphere == null ? this.atmosphere : atmosphere;
+        this.requirementDetail = requirementDetail == null ? this.requirementDetail : requirementDetail;
+        this.schedule = schedule == null ? this.schedule : schedule;
+        this.description = description == null ? this.description : description;
+    }
+
+    public void softDelete() {
+        this.deleted = true;
+    }
 }
