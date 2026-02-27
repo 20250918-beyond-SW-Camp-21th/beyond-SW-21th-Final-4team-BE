@@ -5,6 +5,15 @@ spring:
     password: '7276'
     driver-class-name: org.mariadb.jdbc.Driver
 
+  data:
+    mongodb:
+      host: beyond21.iptime.org
+      port: 4006
+      database: freebridge
+      username: fbmongo
+      password: '7276'
+      authentication-database: admin
+
   jpa:
     hibernate:
       ddl-auto: update
@@ -17,8 +26,8 @@ spring:
   mail:
     host: smtp.gmail.com
     port: 587
-    username: ${GMAIL_USERNAME:}
-    password: ${GMAIL_APP_PASSWORD:}
+    username: 
+    password:
     properties:
       mail:
         smtp:
@@ -32,8 +41,9 @@ spring:
 
 fallguys:
   redis:
-    host: ${REDIS_HOST:localhost}
-    port: ${REDIS_PORT:6379}
+    host: beyond21.iptime.org
+    port: 4005
+    password: '7276'
   rabbitmq:
     host: ${RABBIT_HOST:localhost}
     port: ${RABBIT_PORT:5672}
