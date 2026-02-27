@@ -1,4 +1,4 @@
-package com.fallguys.recruitment.api;
+package com.fallguys.recruitment.api.web;
 
 import com.fallguys.common.response.ApiResponse;
 import com.fallguys.recruitment.api.support.TokenUserIdResolver;
