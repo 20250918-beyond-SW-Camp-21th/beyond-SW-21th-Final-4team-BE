@@ -132,7 +132,7 @@ public class UserService {
             grade = employerRepository.findByUserId(user.getId())
                     .map(com.fallguys.mypage.entity.employer.Employer::getScale)
                     .map(Enum::name)
-                    .orElseThrow(() -> new IllegalStateException("고용주 규모(Scale) 정보가 존재하지 않습니다."));
+                    .orElse("UNKNOWN");
         }
 
         String accessToken = jwtTokenProvider.generateToken(
