@@ -50,12 +50,10 @@ public class UserController {
     @PostMapping("/login")
     public ResponseEntity<Map<String, Object>> login(@Valid @RequestBody LoginRequestDto request) {
         try {
-            System.out.println("asdadsaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
             LoginResponseDto loginResponse = userService.login(request);
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "로그인 성공");
-            System.out.println("asdads");
             response.put("data", loginResponse);
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
