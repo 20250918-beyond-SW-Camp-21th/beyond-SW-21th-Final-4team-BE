@@ -68,7 +68,7 @@ public class FreelancerReviewController {
     }
 
     @Operation(summary = "프리랜서가 작성한 리뷰 삭제", description = "프리랜서가 작성한 리뷰를 삭제합니다.")
-    @DeleteMapping("/api/v1/reviews/{reviewId}")
+    @DeleteMapping("/api/v1/freelancer/reviews/{reviewId}")
     public ResponseEntity<ApiResponse<Void>> deleteFreelancerReview(
             @RequestHeader("Authorization") String authorization,
             @PathVariable Long reviewId
