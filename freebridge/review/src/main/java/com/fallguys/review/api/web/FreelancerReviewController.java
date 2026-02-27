@@ -25,7 +25,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-@RestController
+@RestController("reviewFreelancerReviewController")
 @RequiredArgsConstructor
 @Tag(name = "Review - Freelancer", description = "프리랜서 리뷰 조회 및 작성/수정/삭제 API")
 public class FreelancerReviewController {
