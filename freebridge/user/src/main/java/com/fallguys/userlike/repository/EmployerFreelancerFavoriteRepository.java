@@ -10,11 +10,5 @@ import java.util.Optional;
 @Repository
 public interface EmployerFreelancerFavoriteRepository extends JpaRepository<EmployerFreelancerFavorite, Long> {
 
-    boolean existsByEmployerIdAndFreelancerId(Long employerId, Long freelancerId);
-
-    Optional<EmployerFreelancerFavorite> findByEmployerIdAndFreelancerId(Long employerId, Long freelancerId);
-
-    List<EmployerFreelancerFavorite> findAllByEmployerIdOrderByCreatedAtDesc(Long employerId);
-
     void deleteByEmployerIdAndFreelancerId(Long employerId, Long freelancerId);
 }

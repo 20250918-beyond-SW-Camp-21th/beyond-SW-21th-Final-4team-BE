@@ -13,5 +13,6 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     implementation 'org.springframework.security:spring-security-crypto'
     compileOnly 'org.springdoc:springdoc-openapi-starter-webmvc-ui'
+    compileOnly 'io.jsonwebtoken:jjwt-api:0.13.0'
     compileOnly 'org.springframework.security:spring-security-core'
 }
