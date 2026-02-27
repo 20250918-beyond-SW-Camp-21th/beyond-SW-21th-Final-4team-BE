@@ -1,8 +1,8 @@
 package com.fallguys.mypage.api.web.freelancer;
 
 import com.fallguys.common.response.ApiResponse;
-import com.fallguys.mypage.dto.freelancer.response.FreelancerAppliedProjectListDto;
-import com.fallguys.mypage.dto.freelancer.response.FreelancerProjectStatusStatsDto;
+import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerAppliedProjectListDto;
+import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerProjectStatusStatsDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

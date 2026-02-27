@@ -1,7 +1,7 @@
 package com.fallguys.mypage.api.web.freelancer;
 
 import com.fallguys.common.response.ApiResponse;
-import com.fallguys.mypage.dto.resume.FreelancerResumeResponseDto;
+import com.fallguys.mypage.api.web.dto.resume.FreelancerResumeResponseDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

@@ -1,10 +1,10 @@
 package com.fallguys.mypage.api.web.employer;
 
 import com.fallguys.common.response.ApiResponse;
-import com.fallguys.mypage.dto.employer.response.EmployerNotificationSettingsDto;
-import com.fallguys.mypage.dto.employer.request.UpdatePasswordRequestDto;
-import com.fallguys.mypage.dto.employer.request.UpdateSubscriptionRequestDto;
-import com.fallguys.mypage.dto.employer.response.EmployerSubscriptionResponseDto;
+import com.fallguys.mypage.api.web.dto.employer.response.EmployerNotificationSettingsDto;
+import com.fallguys.mypage.api.web.dto.employer.request.UpdatePasswordRequestDto;
+import com.fallguys.mypage.api.web.dto.employer.request.UpdateSubscriptionRequestDto;
+import com.fallguys.mypage.api.web.dto.employer.response.EmployerSubscriptionResponseDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

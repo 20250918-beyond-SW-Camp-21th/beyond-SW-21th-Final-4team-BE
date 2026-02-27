@@ -2,9 +2,9 @@ package com.fallguys.mypage.api.web.employer;
 
 
 import com.fallguys.common.response.ApiResponse;
-import com.fallguys.mypage.dto.employer.response.EmployerReputationAiResponseDto;
-import com.fallguys.mypage.dto.employer.response.EmployerReviewListResponseDto;
-import com.fallguys.mypage.dto.employer.response.EmployerReviewSummaryResponseDto;
+import com.fallguys.mypage.api.web.dto.employer.response.EmployerReputationAiResponseDto;
+import com.fallguys.mypage.api.web.dto.employer.response.EmployerReviewListResponseDto;
+import com.fallguys.mypage.api.web.dto.employer.response.EmployerReviewSummaryResponseDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;

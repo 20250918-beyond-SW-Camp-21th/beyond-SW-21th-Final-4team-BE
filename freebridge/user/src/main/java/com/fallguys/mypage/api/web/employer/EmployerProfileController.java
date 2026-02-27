@@ -1,9 +1,9 @@
 package com.fallguys.mypage.api.web.employer;
 
 import com.fallguys.common.response.ApiResponse;
-import com.fallguys.mypage.dto.employer.request.EmployerProfileUpdateRequestDto;
-import com.fallguys.mypage.dto.employer.response.CrmAlertsResponseDto;
-import com.fallguys.mypage.dto.employer.response.EmployerProfileResponseDto;
+import com.fallguys.mypage.api.web.dto.employer.request.EmployerProfileUpdateRequestDto;
+import com.fallguys.mypage.api.web.dto.employer.response.CrmAlertsResponseDto;
+import com.fallguys.mypage.api.web.dto.employer.response.EmployerBasicProfileDto;
 import com.fallguys.mypage.service.employer.EmployerProfileService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -19,9 +19,9 @@ public class EmployerProfileController {
 
     EmployerProfileService employerProfileService;
 
-    @Operation(summary = "고용주 프로필 조회", description = "고용주 프로필 정보(평점, 프로젝트 현황 포함)를 조회합니다.")
+    @Operation(summary = "고용주 프로필 조회", description = "고용주 프로필 정보 조회합니다.")
     @GetMapping
-    public ApiResponse<EmployerProfileResponseDto> getProfile(@RequestHeader("X-User-Id") String userId) {
+    public ApiResponse<EmployerBasicProfileDto> getProfile(@RequestHeader("X-User-Id") String userId) {
         return ApiResponse.ok(employerProfileService.getEmployerProfile(userId));
     }
 
