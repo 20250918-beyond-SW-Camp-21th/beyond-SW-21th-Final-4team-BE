@@ -1,20 +1,18 @@
 import os
-from dotenv import load_dotenv
+import sys
 import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from operator import itemgetter
+from dotenv import load_dotenv
 
-load_dotenv()
-
-# LangChain 버전에 따른 호환성 보장을 위한 import
 from langchain_upstage import ChatUpstage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnablePassthrough
 from database import get_vectorstore
 
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -28,7 +26,6 @@ async def lifespan(app: FastAPI):
         vectorstore = get_vectorstore()
         llm = ChatUpstage(api_key=os.getenv("UPSTAGE_API_KEY"))
         
-        # 추천을 위한 프롬프트로 수정
         prompt = ChatPromptTemplate.from_template("""
         당신은 IT 프리랜서 매칭 전문가입니다.
         새로운 프로젝트 공고 내용(Question)이 주어지면, 과거에 수행된 유사한 프로젝트 정보(Context)를 참고하여 가장 적합한 프리랜서를 추천하세요.
@@ -43,7 +40,7 @@ async def lifespan(app: FastAPI):
         def format_docs(docs):
             return "\n\n".join(doc.page_content for doc in docs)
 
-        retriever = vectorstore.as_retriever(search_kwargs={"k": 3}) # 유사도 높은 3명 추출
+        retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
         rag_chain = (
             {"context": itemgetter("input") | retriever | format_docs, "input": itemgetter("input")}
             | prompt
@@ -53,7 +50,9 @@ async def lifespan(app: FastAPI):
         
         logger.info("RAG System Initialized.")
     except Exception as e:
-        logger.error(f"Init Error: {e}")
+        logger.error(f"Critical Init Error: {e}")
+        # [개선] 초기화 실패 시 서버 구동을 중단하여 잘못된 상태로 서비스되는 것을 방지
+        sys.exit(1)
     yield
 
 app = FastAPI(lifespan=lifespan)
@@ -61,12 +60,13 @@ app = FastAPI(lifespan=lifespan)
 class Query(BaseModel):
     question: str
 
-@app.post("/api/ai/recommend") # 추천 전용 엔드포인트 예시
+@app.post("/api/ai/recommend")
 async def recommend(query: Query):
     if not rag_chain:
         raise HTTPException(status_code=503, detail="System not ready")
     try:
-        response = rag_chain.invoke({"input": query.question})
+        # [개선] 비동기 ainvoke 사용으로 논블로킹 처리
+        response = await rag_chain.ainvoke({"input": query.question})
         return {"answer": response}
     except Exception as e:
         logger.exception("Error during invocation")

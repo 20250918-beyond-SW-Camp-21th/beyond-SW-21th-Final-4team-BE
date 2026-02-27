@@ -1,7 +1,7 @@
 import os
-from dotenv import load_dotenv
-import pymysql
 import pandas as pd
+import pymysql
+from dotenv import load_dotenv
 from database import get_vectorstore
 from langchain_core.documents import Document
 
@@ -9,7 +9,6 @@ load_dotenv()
 
 def sync_maria_to_chroma(conn=None, vectorstore=None):
     should_close = False
-    # 외부에서 연결을 주지 않으면 새로 생성 (기존 로직 유지)
     if conn is None:
         conn = pymysql.connect(
             host=os.getenv("DB_HOST", "localhost"),
@@ -23,9 +22,10 @@ def sync_maria_to_chroma(conn=None, vectorstore=None):
         should_close = True
 
     try:
-        # 공고(Job Posting)와 계약(Contract) 데이터를 합치는 쿼리
+        # 중복 방지를 위해 p.id를 추가로 조회
         query = """
         SELECT 
+            p.id as project_id,
             p.freelancer_id,
             u.name as freelancer_name,
             j.title as job_title,
@@ -45,12 +45,15 @@ def sync_maria_to_chroma(conn=None, vectorstore=None):
             vectorstore = get_vectorstore()
             
         documents = []
+        doc_ids = []
 
         for _, row in df.iterrows():
-            # 검색의 정확도를 위해 '프로젝트 내용'을 가장 앞에 배치
+            # [개선] Null/None 처리: 기술 스택이 없으면 "없음"으로 대체
+            requirement = row['job_requirement'] if row['job_requirement'] else "없음"
+            
             text = f"프로젝트 제목: {row['job_title']}\n" \
                    f"프로젝트 내용: {row['job_description']}\n" \
-                   f"사용 기술: {row['job_requirement']}\n" \
+                   f"사용 기술: {requirement}\n" \
                    f"수행 프리랜서: {row['freelancer_name']}"
             
             doc = Document(
@@ -58,9 +61,12 @@ def sync_maria_to_chroma(conn=None, vectorstore=None):
                 metadata={"freelancer_id": row['freelancer_id'], "type": "completed_project"}
             )
             documents.append(doc)
+            # [개선] 중복 방지를 위해 고유 ID (project:ID) 사용
+            doc_ids.append(f"project:{row['project_id']}")
 
         if documents:
-            vectorstore.add_documents(documents)
+            # ids를 전달하여 같은 프로젝트가 다시 들어와도 덮어쓰도록 함
+            vectorstore.add_documents(documents, ids=doc_ids)
             print(f"Successfully synced {len(documents)} records.")
 
     finally:
