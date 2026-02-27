@@ -33,8 +33,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             if (StringUtils.hasText(jwt) && jwtTokenProvider.validateToken(jwt)) {
                 var claims = jwtTokenProvider.getClaimsFromToken(jwt);
-                String userIdStr = claims.getSubject();
-                Long userId = userIdStr != null ? Long.parseLong(userIdStr) : null;
+                Long userId = resolveUserId(claims);
                 String email = claims.get("email", String.class);
                 String role = claims.get("role", String.class);
 
@@ -71,6 +70,30 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String bearerToken = request.getHeader("Authorization");
         if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
             return bearerToken.substring(7);
+        }
+        return null;
+    }
+
+    private Long resolveUserId(io.jsonwebtoken.Claims claims) {
+        String subject = claims.getSubject();
+        if (StringUtils.hasText(subject)) {
+            try {
+                return Long.parseLong(subject);
+            } catch (NumberFormatException ignored) {
+                // fallback for legacy token format
+            }
+        }
+
+        Object idClaim = claims.get("id");
+        if (idClaim instanceof Number number) {
+            return number.longValue();
+        }
+        if (idClaim instanceof String str && StringUtils.hasText(str)) {
+            try {
+                return Long.parseLong(str);
+            } catch (NumberFormatException ignored) {
+                // handled below
+            }
         }
         return null;
     }

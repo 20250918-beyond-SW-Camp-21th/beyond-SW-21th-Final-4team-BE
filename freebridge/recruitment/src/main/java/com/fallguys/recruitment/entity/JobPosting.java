@@ -44,7 +44,7 @@ public class JobPosting extends BaseEntity {
     private Integer matchedHeadcount = 0;
 
     @Convert(converter = StatusConverter.class)
-    @Column(nullable=false)
+    @Column(nullable=false, length = 20, columnDefinition = "varchar(20)")
     private Status status=Status.ACTIVE;
 
     @Enumerated(EnumType.STRING)

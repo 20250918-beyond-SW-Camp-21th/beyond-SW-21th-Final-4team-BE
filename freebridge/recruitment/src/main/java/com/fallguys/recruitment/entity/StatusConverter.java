@@ -11,10 +11,7 @@ public class StatusConverter implements AttributeConverter<Status, String> {
         if (attribute == null) {
             return null;
         }
-        return switch (attribute) {
-            case ACTIVE -> "OPEN";
-            case DELETED -> "CLOSED";
-        };
+        return attribute.name();
     }
 
     @Override
@@ -23,6 +20,8 @@ public class StatusConverter implements AttributeConverter<Status, String> {
             return null;
         }
         return switch (dbData) {
+            case "ACTIVE" -> Status.ACTIVE;
+            case "DELETED" -> Status.DELETED;
             case "CLOSED" -> Status.DELETED;
             case "OPEN", "IN_PROGRESS", "COMPLETED" -> Status.ACTIVE;
             default -> throw new IllegalArgumentException("Unknown status value: " + dbData);
