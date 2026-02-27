@@ -120,6 +120,10 @@ pipeline {
                             kubectl apply -f kube-folder/backend-deployment.yml
                             kubectl apply -f kube-folder/backend-service.yml
 
+                            # Python AI 설정 및 비밀번호 배포
+                            kubectl apply -f kube-folder/python-ai-configmap.yml
+                            kubectl apply -f kube-folder/python-ai-secret.yml
+
                             # Python AI 배포 파일 적용
                             kubectl apply -f kube-folder/python-ai-deployment.yml
 
