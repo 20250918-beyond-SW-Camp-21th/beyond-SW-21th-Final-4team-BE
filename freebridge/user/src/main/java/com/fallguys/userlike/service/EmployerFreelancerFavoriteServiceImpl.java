@@ -35,7 +35,7 @@ public class EmployerFreelancerFavoriteServiceImpl implements EmployerFreelancer
     public void removeFavorite(Long employerId, Long freelancerId) {
         favoriteRepository.deleteByEmployerIdAndFreelancerId(employerId, freelancerId);
     }
-
+    //중복 입력 조절
     private boolean isDuplicateKeyViolation(Throwable throwable) {
         Throwable current = throwable;
         while (current != null) {
