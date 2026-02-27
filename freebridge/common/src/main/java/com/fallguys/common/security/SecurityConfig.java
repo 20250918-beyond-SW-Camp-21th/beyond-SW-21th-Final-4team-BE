@@ -25,8 +25,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // 세션 사용하지
                                                                                                               // 않음
                 .authorizeHttpRequests(auth -> auth
-                        // 일단 모든 API 요청을 인증 없이도 통과시킵니다. (테스트 목적)
-                        // Filter는 동작하여 토큰이 있으면 유효성 검사 및 SecurityContext에 세팅은 해줌
+                        .requestMatchers("/api/v1/employer/**").hasRole("EMPLOYER")
                         .anyRequest().permitAll())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
