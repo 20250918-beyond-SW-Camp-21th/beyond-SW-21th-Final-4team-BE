@@ -1,5 +1,7 @@
 package com.fallguys.mypage.service.employer;
 
+import com.fallguys.common.port.FileStorage;
+import com.fallguys.mypage.dto.employer.request.EmployerProfileUpdateRequestDto;
 import com.fallguys.mypage.dto.employer.response.CrmAlertsResponseDto;
 import com.fallguys.mypage.dto.employer.response.EmployerProfileResponseDto;
 import com.fallguys.mypage.dto.employer.response.EmployerBasicProfileDto;
@@ -12,41 +14,66 @@ import com.fallguys.mypage.repository.employer.ProjectRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class EmployerProfileService {
 
     private final EmployerRepository employerRepository;
     private final ProjectRepository projectRepository;
 
-    public EmployerProfileResponseDto getEmployerProfile(String userIdStr) {
-        Long userId = Long.parseLong(userIdStr);
-        Employer employer = employerRepository.findByUserId(userId)
-                .orElseThrow(() -> new IllegalArgumentException("고용주를 찾을 수 없습니다."));
+    @Transactional(readOnly = true)
+    public EmployerProfileResponseDto getEmployerProfile(String userId) {
+        Long parsedUserId = Long.parseLong(userId); // TODO: 적절한 예외 처리 필요
 
-        // Dummy DTO values for other sections
+        Employer employer = employerRepository.findByUserId(parsedUserId)
+                .orElseThrow(() -> new RuntimeException("고용주 정보를 찾을 수 없습니다. userId=" + userId));
+
+        // 1. Basic Profile
         EmployerBasicProfileDto basicProfile = new EmployerBasicProfileDto(
-                employer.getCompanyName(), 
-                employer.getIndustry(), 
-                employer.getScale().name(), 
-                employer.getLocation(), 
-                employer.getWebsiteUrl(), 
+                employer.getCompanyName(),
+                employer.getIndustry(),
+                employer.getScale() != null ? employer.getScale().name() : null,
+                employer.getLocation(),
+                employer.getWebsiteUrl(),
                 employer.getDescription(),
                 employer.getLogoUrl(),
-                employer.getStatus().name()
+                employer.getStatus() != null ? employer.getStatus().name() : null
         );
-        EmployerRatingDto ratings = new EmployerRatingDto(0.0, 0.0, 0.0, 0.0);
-        EmployerProjectStatusDto projectStatus = new EmployerProjectStatusDto(0, 0, 0, 0);
 
-        // CRM Flag 계산: FREE 플랜이고 완료된 프로젝트가 1건 이상일 때 프리미엄 업셀 알림 true
+        // 2. Project Status
         int completedProjects = projectRepository.countCompletedProjectsByEmployerId(employer.getEmployerId());
-        boolean isPremiumUpsellEligible = (employer.getSubscription() == Subscription.BASIC || employer.getSubscription() == Subscription.BASIC)
-                && completedProjects >= 1;
+        int inProgressProjects = projectRepository.countInProgressProjectsByEmployerId(employer.getEmployerId());
 
-        CrmAlertsResponseDto crmAlerts = new CrmAlertsResponseDto(isPremiumUpsellEligible);
+        EmployerProjectStatusDto projectStatus = new EmployerProjectStatusDto(
+                0, // recruitingProjects (추후 연동 필요)
+                0, // reviewingProjects (추후 연동 필요)
+                inProgressProjects,
+                completedProjects
+        );
 
-        return new EmployerProfileResponseDto(basicProfile, ratings, projectStatus, crmAlerts);
+        // 3. Ratings (추후 Review 도메인과 연동 필요)
+        EmployerRatingDto ratings = new EmployerRatingDto(
+                0.0, // averageRate
+                0.0, // atmosphereRate
+                0.0, // salarySatisfactionRate
+                0.0  // scheduleAdherenceRate
+        );
+
+        return new EmployerProfileResponseDto(basicProfile, ratings, projectStatus);
+    }
+
+    @Transactional(readOnly = true)
+    public CrmAlertsResponseDto getCrmAlerts(String userId) {
+        Long parsedUserId = Long.parseLong(userId);
+
+        Employer employer = employerRepository.findByUserId(parsedUserId)
+                .orElseThrow(() -> new RuntimeException("고용주 정보를 찾을 수 없습니다. userId=" + userId));
+
+        int completedProjects = projectRepository.countCompletedProjectsByEmployerId(employer.getEmployerId());
+
+        boolean isUpsellEligible = (employer.getSubscription() == Subscription.BASIC) && (completedProjects > 0);
+        return new CrmAlertsResponseDto(isUpsellEligible);
     }
 }

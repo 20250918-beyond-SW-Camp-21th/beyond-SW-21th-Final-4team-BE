@@ -9,4 +9,5 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface ProjectRepository {
     int countCompletedProjectsByEmployerId(Long employerId);
+    int countInProgressProjectsByEmployerId(Long employerId);
 }

@@ -2,7 +2,9 @@ package com.fallguys.mypage.api.web.employer;
 
 import com.fallguys.common.response.ApiResponse;
 import com.fallguys.mypage.dto.employer.request.EmployerProfileUpdateRequestDto;
+import com.fallguys.mypage.dto.employer.response.CrmAlertsResponseDto;
 import com.fallguys.mypage.dto.employer.response.EmployerProfileResponseDto;
+import com.fallguys.mypage.service.employer.EmployerProfileService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -15,11 +17,18 @@ import org.springframework.web.multipart.MultipartFile;
 @RequiredArgsConstructor
 public class EmployerProfileController {
 
+    EmployerProfileService employerProfileService;
+
     @Operation(summary = "고용주 프로필 조회", description = "고용주 프로필 정보(평점, 프로젝트 현황 포함)를 조회합니다.")
     @GetMapping
     public ApiResponse<EmployerProfileResponseDto> getProfile(@RequestHeader("X-User-Id") String userId) {
-        // TODO: myPageService.getEmployerProfile(userId);
-        return ApiResponse.ok(null);
+        return ApiResponse.ok(employerProfileService.getEmployerProfile(userId));
+    }
+
+    @Operation(summary = "고용주 CRM 마케팅 알림 조회", description = "프리미엄 요금제 업셀링 대상 여부 등을 조회합니다.")
+    @GetMapping("/crm-alerts")
+    public ApiResponse<CrmAlertsResponseDto> getCrmAlerts(@RequestHeader("X-User-Id") String userId) {
+        return ApiResponse.ok(employerProfileService.getCrmAlerts(userId));
     }
 
     @Operation(summary = "고용주 프로필 수정", description = "고용주 프로필 정보를 수정합니다.")

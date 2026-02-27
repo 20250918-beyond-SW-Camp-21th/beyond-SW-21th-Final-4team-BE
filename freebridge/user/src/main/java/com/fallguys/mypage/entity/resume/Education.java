@@ -17,7 +17,7 @@ public class Education {
     private String schoolType;
     private String schoolName;
     private String major;
-    private String status;
+    private EduStatus eduStatus;
     private LocalDate entranceDate;
     private LocalDate graduationDate;
 }

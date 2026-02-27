@@ -6,6 +6,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDate;
+
 @Embeddable
 @Getter
 @NoArgsConstructor
@@ -14,5 +16,5 @@ public class Certification {
 
     private String name;
     private String issuer;
-    private String acquisitionDate;
+    private LocalDate acquisitionDate;
 }
