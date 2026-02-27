@@ -19,12 +19,12 @@ public class ChatTokenProviderImpl implements ChatTokenProvider {
 
         Claims claims = jwtTokenProvider.getClaimsFromToken(token);
 
-        // 클레임에서 id (Long)을 가져올 때 Integer/Long 형 변환 에러 방지용으로 Number로 받음
-        Number idObj = claims.get("id", Number.class);
-        if (idObj == null) {
-            throw new IllegalArgumentException("토큰에 'id' 클레임이 존재하지 않습니다.");
+        // 토큰의 Subject에서 id를 가져옴 (String -> Long 변환)
+        String subject = claims.getSubject();
+        if (subject == null || subject.isBlank()) {
+            throw new IllegalArgumentException("토큰에 'subject(id)'가 존재하지 않습니다.");
         }
-        Long id = idObj.longValue();
+        Long id = Long.parseLong(subject);
 
         String role = claims.get("role", String.class);
         if (role == null) {

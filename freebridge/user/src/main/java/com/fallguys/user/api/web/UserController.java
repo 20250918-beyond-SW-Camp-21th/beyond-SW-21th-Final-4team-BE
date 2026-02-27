@@ -117,4 +117,35 @@ public class UserController {
             return ResponseEntity.badRequest().body(response);
         }
     }
+
+    /*
+     * JWT 필터 해독 엔드포인트
+     * GET /api/users/me/test
+     */
+    @GetMapping("/me/test")
+    public ResponseEntity<Map<String, Object>> testJwtFilter(
+            @org.springframework.security.core.annotation.AuthenticationPrincipal com.fallguys.common.security.CustomUserDetails user) {
+
+        Map<String, Object> response = new HashMap<>();
+        if (user == null) {
+            response.put("success", false);
+            response.put("message", "인증 정보가 없습니다. (토큰 없음 또는 만료)");
+            return ResponseEntity.status(401).body(response);
+        }
+
+        response.put("success", true);
+        response.put("message", "JWT 필터 해독 성공!");
+
+        // CustomUserDetails 안에 있는 모든 데이터를 보여줌
+        Map<String, Object> userData = new HashMap<>();
+        userData.put("id", user.getId());
+        userData.put("email", user.getEmail());
+        userData.put("name", user.getName());
+        userData.put("role", user.getRole());
+        userData.put("grade", user.getGrade());
+
+        response.put("data", userData);
+
+        return ResponseEntity.ok(response);
+    }
 }
