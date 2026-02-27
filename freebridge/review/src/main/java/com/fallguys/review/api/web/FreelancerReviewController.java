@@ -3,6 +3,8 @@ package com.fallguys.review.api.web;
 import com.fallguys.common.response.ApiResponse;
 import com.fallguys.review.api.dto.request.FreelancerReviewCreateRequest;
 import com.fallguys.review.api.dto.request.FreelancerReviewUpdateRequest;
+import com.fallguys.review.api.dto.response.EmployerReviewResponseDTO;
+import com.fallguys.review.api.dto.response.FreelancerReviewResponseDTO;
 import com.fallguys.review.api.dto.response.PagedResponseDTO;
 import com.fallguys.review.api.support.ReviewTokenUserIdResolver;
 import com.fallguys.review.entity.EmployerReview;
@@ -24,6 +26,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController("reviewFreelancerReviewController")
 @RequiredArgsConstructor
@@ -80,7 +84,7 @@ public class FreelancerReviewController {
 
     @Operation(summary = "프리랜서가 받은 전체 리뷰 조회", description = "고용주가 프리랜서에게 작성한 리뷰 목록을 조회합니다.")
     @GetMapping("/api/v1/freelancer/reviews")
-    public ResponseEntity<ApiResponse<PagedResponseDTO<EmployerReview>>> getFreelancerReceivedReviews(
+    public ResponseEntity<ApiResponse<PagedResponseDTO<EmployerReviewResponseDTO>>> getFreelancerReceivedReviews(
             @RequestHeader("Authorization") String authorization,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
@@ -90,8 +94,13 @@ public class FreelancerReviewController {
         Long freelancerId = reviewTokenUserIdResolver.resolveUserId(authorization);
 
         Page<EmployerReview> result = reviewService.getFreelancerReceivedReviews(freelancerId, PageRequest.of(safePage, safeSize));
+        List<EmployerReviewResponseDTO> content = result.getContent()
+                .stream()
+                .map(EmployerReviewResponseDTO::from)
+                .toList();
+
         return ResponseEntity.ok(ApiResponse.ok(new PagedResponseDTO<>(
-                result.getContent(),
+                content,
                 result.getNumber(),
                 result.getSize(),
                 result.getTotalElements(),
@@ -101,7 +110,7 @@ public class FreelancerReviewController {
 
     @Operation(summary = "프리랜서가 작성한 전체 리뷰 조회", description = "프리랜서가 고용주에게 작성한 리뷰 목록을 조회합니다.")
     @GetMapping("/api/v1/freelancer/reviews/written")
-    public ResponseEntity<ApiResponse<PagedResponseDTO<FreelancerReview>>> getFreelancerWrittenReviews(
+    public ResponseEntity<ApiResponse<PagedResponseDTO<FreelancerReviewResponseDTO>>> getFreelancerWrittenReviews(
             @RequestHeader("Authorization") String authorization,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
@@ -111,8 +120,13 @@ public class FreelancerReviewController {
         Long freelancerId = reviewTokenUserIdResolver.resolveUserId(authorization);
 
         Page<FreelancerReview> result = reviewService.getFreelancerWrittenReviews(freelancerId, PageRequest.of(safePage, safeSize));
+        List<FreelancerReviewResponseDTO> content = result.getContent()
+                .stream()
+                .map(FreelancerReviewResponseDTO::from)
+                .toList();
+
         return ResponseEntity.ok(ApiResponse.ok(new PagedResponseDTO<>(
-                result.getContent(),
+                content,
                 result.getNumber(),
                 result.getSize(),
                 result.getTotalElements(),
