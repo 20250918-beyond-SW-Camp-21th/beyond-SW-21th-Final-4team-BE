@@ -3,6 +3,7 @@ package com.fallguys.contract.api.web;
 import com.fallguys.common.exception.BusinessException;
 import com.fallguys.common.exception.ErrorCode;
 import com.fallguys.common.response.ApiResponse;
+import com.fallguys.common.security.CustomUserDetails;
 import com.fallguys.contract.api.web.dto.*;
 import com.fallguys.contract.service.ContractService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -14,7 +15,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
 @Tag(name = "Contract", description = "계약 관련 API")
 @RestController
@@ -28,17 +28,18 @@ public class ContractController {
     @PostMapping
     public ResponseEntity<ApiResponse<ContractResponse>> create(
             @Valid @RequestBody CreateContractRequest request,
-            @AuthenticationPrincipal Map<String, Object> principal) {
+            @AuthenticationPrincipal CustomUserDetails principal) {
 
-        Long userId = ((Number) principal.get("id")).longValue();
-        String role = (String) principal.get("role");
+        Long userId = principal.getId();
+        String role = principal.getRole();
 
         // Only EMPLOYER can create contracts
         if (!"EMPLOYER".equalsIgnoreCase(role)) {
-            throw new BusinessException(ErrorCode.ONLY_EMPLOYER_ALLOWED);
+            throw new BusinessException(ErrorCode.CONTRACT_FORBIDDEN);
         }
 
         ContractResponse response = contractService.createContract(request, userId);
+        response = contractService.sign(request.getFreelancerId(), request.getEmployerSignature(), role, userId);
         ApiResponse<ContractResponse> apiResponse = ApiResponse.created(response);
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
@@ -46,14 +47,14 @@ public class ContractController {
     @Operation(summary = "계약 목록 조회", description = "로그인한 사용자의 계약 목록을 페이지네이션으로 조회합니다. EMPLOYER/FREELANCER 역할에 따라 본인과 관련된 계약만 반환됩니다. status 파라미터로 복수 상태 필터링 가능합니다.")
     @GetMapping
     public ResponseEntity<ApiResponse<ContractListResponse>> list(
-            @AuthenticationPrincipal Map<String, Object> principal,
+            @AuthenticationPrincipal CustomUserDetails principal,
             @RequestParam(required = false) List<String> status,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int limit) {
 
-        Long userId = ((Number) principal.get("id")).longValue();
-        String userRole = (String) principal.get("role");
+        Long userId = principal.getId();
+        String userRole = principal.getRole();
 
         ContractListResponse response = contractService.listContracts(
                 userId, userRole, status, search, page, limit);
@@ -66,9 +67,9 @@ public class ContractController {
     @GetMapping("/{contractId}")
     public ResponseEntity<ApiResponse<ContractResponse>> getOne(
             @PathVariable Long contractId,
-            @AuthenticationPrincipal Map<String, Object> principal) {
+            @AuthenticationPrincipal CustomUserDetails principal) {
 
-        Long userId = ((Number) principal.get("id")).longValue();
+        Long userId = principal.getId();
 
         ApiResponse<ContractResponse> apiResponse = ApiResponse.ok(contractService.getContract(contractId, userId));
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
@@ -79,10 +80,10 @@ public class ContractController {
     public ResponseEntity<ApiResponse<ContractResponse>> sign(
             @PathVariable Long contractId,
             @RequestBody SignContractRequest request,
-            @AuthenticationPrincipal Map<String, Object> principal) {
+            @AuthenticationPrincipal CustomUserDetails principal) {
 
-        Long userId = ((Number) principal.get("id")).longValue();
-        String userRole = (String) principal.get("role");
+        Long userId = principal.getId();
+        String userRole = principal.getRole();
 
         ContractResponse response = contractService.sign(contractId, request.getSignature(), userRole, userId);
         ApiResponse<ContractResponse> apiResponse = ApiResponse.ok(response);
@@ -93,10 +94,10 @@ public class ContractController {
     @PatchMapping("/{contractId}/complete")
     public ResponseEntity<ApiResponse<ContractResponse>> complete(
             @PathVariable Long contractId,
-            @AuthenticationPrincipal Map<String, Object> principal) {
+            @AuthenticationPrincipal CustomUserDetails principal) {
 
-        Long userId = ((Number) principal.get("id")).longValue();
-        String role = (String) principal.get("role");
+        Long userId = principal.getId();
+        String role = principal.getRole();
 
         // Only EMPLOYER can complete contracts
         if (!"EMPLOYER".equalsIgnoreCase(role)) {
@@ -111,9 +112,9 @@ public class ContractController {
     @PatchMapping("/{contractId}/reject")
     public ResponseEntity<ApiResponse<ContractResponse>> reject(
             @PathVariable Long contractId,
-            @AuthenticationPrincipal Map<String, Object> principal) {
+            @AuthenticationPrincipal CustomUserDetails principal) {
 
-        Long userId = ((Number) principal.get("id")).longValue();
+        Long userId = principal.getId();
 
         ApiResponse<ContractResponse> apiResponse = ApiResponse.ok(contractService.reject(contractId, userId));
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
@@ -124,9 +125,9 @@ public class ContractController {
     @GetMapping("/{contractId}/pdf")
     public ResponseEntity<ApiResponse<String>> getPdf(
             @PathVariable Long contractId,
-            @AuthenticationPrincipal Map<String, Object> principal) {
+            @AuthenticationPrincipal CustomUserDetails principal) {
 
-        Long userId = ((Number) principal.get("id")).longValue();
+        Long userId = principal.getId();
 
         String pdfUrl = contractService.getContract(contractId, userId).getContractPdfUrl();
         ApiResponse<String> apiResponse = ApiResponse.ok(pdfUrl);
