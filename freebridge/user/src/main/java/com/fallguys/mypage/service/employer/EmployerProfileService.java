@@ -18,15 +18,6 @@ public class EmployerProfileService {
         Employer employer = employerRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 유저의 고용주 프로필을 찾을 수 없습니다."));
 
-        return new EmployerBasicProfileDto(
-                employer.getCompanyName(),
-                employer.getIndustry(),
-                employer.getScale() != null ? employer.getScale().name() : null,
-                employer.getLocation(),
-                employer.getWebsiteUrl(),
-                employer.getDescription(),
-                employer.getLogoUrl(),
-                employer.getStatus() != null ? employer.getStatus().name() : null
-        );
+        return EmployerBasicProfileDto.from(employer);
     }
 }

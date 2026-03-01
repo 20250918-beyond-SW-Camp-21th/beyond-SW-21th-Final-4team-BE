@@ -15,4 +15,6 @@ dependencies {
     compileOnly 'org.springdoc:springdoc-openapi-starter-webmvc-ui'
     compileOnly 'io.jsonwebtoken:jjwt-api:0.13.0'
     compileOnly 'org.springframework.security:spring-security-core'
+    testImplementation 'org.springframework.security:spring-security-test'
+    testImplementation 'org.springframework.security:spring-security-core'
 }
