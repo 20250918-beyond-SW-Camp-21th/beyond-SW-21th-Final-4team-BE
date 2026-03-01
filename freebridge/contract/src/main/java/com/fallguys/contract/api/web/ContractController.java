@@ -39,7 +39,7 @@ public class ContractController {
         }
 
         ContractResponse response = contractService.createContract(request, userId);
-        response = contractService.sign(request.getFreelancerId(), request.getEmployerSignature(), role, userId);
+        response = contractService.sign(response.getContractId(), request.getEmployerSignature(), role, userId);
         ApiResponse<ContractResponse> apiResponse = ApiResponse.created(response);
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
