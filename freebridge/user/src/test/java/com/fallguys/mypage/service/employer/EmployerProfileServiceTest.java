@@ -53,7 +53,7 @@ class EmployerProfileServiceTest {
                 "TDD Company",
                 Scale.S10_29
         );
-        
+
         mockEmployer.updateProfile(
                 "TDD Company",
                 "IT/Platform",
@@ -77,6 +77,45 @@ class EmployerProfileServiceTest {
         assertThat(result.scale()).isEqualTo(Scale.S10_29.name());
         assertThat(result.location()).isEqualTo("Pangyo");
         assertThat(result.status()).isEqualTo("POTENTIAL"); // 초기 가입 상태 확인
+    }
+
+    @Test
+    @DisplayName("[TDD] 3. 고용주 프로필 업데이트 시 Repository 조회 및 데이터 변경 검증")
+    void verify_profile_update_mapping_and_interaction() {
+        // given
+        Long userId = 300L;
+        Employer mockEmployer = Employer.create(
+                userId,
+                Subscription.BASIC,
+                "Old Company",
+                Scale.S1_4
+        );
+        given(employerRepository.findByUserId(userId)).willReturn(Optional.of(mockEmployer));
+
+        com.fallguys.mypage.api.web.dto.employer.request.EmployerProfileUpdateRequestDto requestDto =
+                new com.fallguys.mypage.api.web.dto.employer.request.EmployerProfileUpdateRequestDto(
+                        "New Company",
+                        "FinTech",
+                        "S30_99",
+                        "Yeouido",
+                        "https://new.com",
+                        "Updated Description"
+                );
+
+        // when
+        employerProfileService.updateProfile(userId, requestDto);
+
+        // then
+        // 1. findByUserId 호출 검증
+        org.mockito.Mockito.verify(employerRepository, org.mockito.Mockito.times(1)).findByUserId(userId);
+        
+        // 2. Entity 내부의 필드가 RequestDto 값으로 정상 편경되었는지 상태 검증 (더티 체킹 발생 여부 테스트)
+        assertThat(mockEmployer.getCompanyName()).isEqualTo("New Company");
+        assertThat(mockEmployer.getIndustry()).isEqualTo("FinTech");
+        assertThat(mockEmployer.getScale().name()).isEqualTo("S30_99");
+        assertThat(mockEmployer.getLocation()).isEqualTo("Yeouido");
+        assertThat(mockEmployer.getWebsiteUrl()).isEqualTo("https://new.com");
+        assertThat(mockEmployer.getDescription()).isEqualTo("Updated Description");
     }
 }
 

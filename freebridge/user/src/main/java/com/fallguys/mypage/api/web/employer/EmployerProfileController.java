@@ -28,18 +28,11 @@ public class EmployerProfileController {
         return ApiResponse.ok(result);
     }
 
-    @Operation(summary = "고용주 CRM 마케팅 알림 조회", description = "프리미엄 요금제 업셀링 대상 여부 등을 조회합니다.")
-    @GetMapping("/crm-alerts")
-    public ApiResponse<CrmAlertsResponseDto> getCrmAlerts(@AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ApiResponse.ok(null);
-    }
-
     @Operation(summary = "고용주 프로필 수정", description = "고용주 프로필 정보를 수정합니다.")
     @PutMapping
-    public ApiResponse<Void> updateProfile(@RequestHeader("X-User-Id") String userId,
+    public void updateProfile(@AuthenticationPrincipal CustomUserDetails userDetails,
                                            @RequestBody EmployerProfileUpdateRequestDto request) {
-        // TODO: myPageService.updateEmployerProfile(userId, request);
-        return ApiResponse.ok(null);
+        employerProfileService.updateProfile(userDetails.getId(), request);
     }
 
     @Operation(summary = "로고 이미지 수정", description = "고용주 로고 이미지를 업로드하고 반환합니다.")
@@ -48,5 +41,11 @@ public class EmployerProfileController {
                                           @RequestPart("file") MultipartFile file) {
         // TODO: s3Service.upload(file) ...
         return ApiResponse.ok("image_url_string");
+    }
+
+    @Operation(summary = "고용주 CRM 마케팅 알림 조회", description = "프리미엄 요금제 업셀링 대상 여부 등을 조회합니다.")
+    @GetMapping("/crm-alerts")
+    public ApiResponse<CrmAlertsResponseDto> getCrmAlerts(@AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ApiResponse.ok(null);
     }
 }
