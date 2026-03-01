@@ -37,10 +37,10 @@ public class EmployerProfileController {
 
     @Operation(summary = "로고 이미지 수정", description = "고용주 로고 이미지를 업로드하고 반환합니다.")
     @PostMapping("/logo")
-    public ApiResponse<String> uploadLogo(@RequestHeader("X-User-Id") String userId,
+    public ApiResponse<String> uploadLogo(@AuthenticationPrincipal CustomUserDetails userDetails,
                                           @RequestPart("file") MultipartFile file) {
-        // TODO: s3Service.upload(file) ...
-        return ApiResponse.ok("image_url_string");
+        String uploadedLogoUrl = employerProfileService.updateLogoUrl(userDetails.getId(), file);
+        return ApiResponse.ok(uploadedLogoUrl);
     }
 
     @Operation(summary = "고용주 CRM 마케팅 알림 조회", description = "프리미엄 요금제 업셀링 대상 여부 등을 조회합니다.")

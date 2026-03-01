@@ -26,6 +26,9 @@ class EmployerProfileServiceTest {
     @Mock
     private EmployerRepository employerRepository;
 
+    @Mock
+    private com.fallguys.common.port.FileStorage fileStorage;
+
     @Test
     @DisplayName("[TDD] 1. 고용주 프로필 조회 시 Repository 호출 여부 검증")
     void verify_repository_interaction_when_fetching_profile() {
@@ -108,7 +111,7 @@ class EmployerProfileServiceTest {
         // then
         // 1. findByUserId 호출 검증
         org.mockito.Mockito.verify(employerRepository, org.mockito.Mockito.times(1)).findByUserId(userId);
-        
+
         // 2. Entity 내부의 필드가 RequestDto 값으로 정상 편경되었는지 상태 검증 (더티 체킹 발생 여부 테스트)
         assertThat(mockEmployer.getCompanyName()).isEqualTo("New Company");
         assertThat(mockEmployer.getIndustry()).isEqualTo("FinTech");
@@ -116,6 +119,45 @@ class EmployerProfileServiceTest {
         assertThat(mockEmployer.getLocation()).isEqualTo("Yeouido");
         assertThat(mockEmployer.getWebsiteUrl()).isEqualTo("https://new.com");
         assertThat(mockEmployer.getDescription()).isEqualTo("Updated Description");
+    }
+    @Test
+    @DisplayName("[TDD] 4. 고용주 로고 이미지 파일 S3 업로드 및 Entity 변경 검증")
+    void verify_logo_upload_and_update_interaction() throws java.io.IOException {
+        // given
+        Long userId = 400L;
+        Employer mockEmployer = Employer.create(
+                userId,
+                Subscription.BASIC,
+                "Logo Company",
+                Scale.S1_4
+        );
+        given(employerRepository.findByUserId(userId)).willReturn(Optional.of(mockEmployer));
+
+        // Mock MultipartFile
+        org.springframework.mock.web.MockMultipartFile mockFile =
+                new org.springframework.mock.web.MockMultipartFile("file", "logo.png", "image/png", "dummy image content".getBytes());
+
+        // Mock FileStorage (S3 Upload)
+        String uploadedS3Url = "employers/logo/mock-uuid.png";
+        given(fileStorage.upload(
+                org.mockito.ArgumentMatchers.any(byte[].class),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.eq("image/png")
+        )).willReturn(uploadedS3Url);
+
+        // when
+        String resultUrl = employerProfileService.updateLogoUrl(userId, mockFile);
+
+        // then
+        org.mockito.Mockito.verify(employerRepository, org.mockito.Mockito.times(1)).findByUserId(userId);
+        org.mockito.Mockito.verify(fileStorage, org.mockito.Mockito.times(1)).upload(
+                org.mockito.ArgumentMatchers.any(byte[].class),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.eq("image/png")
+        );
+        
+        assertThat(resultUrl).isEqualTo(uploadedS3Url);
+        assertThat(mockEmployer.getLogoUrl()).isEqualTo(uploadedS3Url);
     }
 }
 

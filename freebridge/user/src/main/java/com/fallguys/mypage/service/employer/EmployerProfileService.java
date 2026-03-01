@@ -1,10 +1,16 @@
 package com.fallguys.mypage.service.employer;
 
+import com.fallguys.common.port.FileStorage;
 import com.fallguys.mypage.api.web.dto.employer.response.EmployerBasicProfileDto;
 import com.fallguys.mypage.api.web.dto.employer.request.EmployerProfileUpdateRequestDto;
 import com.fallguys.mypage.entity.employer.Employer;
 import com.fallguys.mypage.repository.employer.EmployerRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+import java.io.IOException;
+import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class EmployerProfileService {
 
     private final EmployerRepository employerRepository;
+    private final FileStorage fileStorage;
 
     @Transactional(readOnly = true)
     public EmployerBasicProfileDto getProfile(Long userId) {
@@ -36,5 +43,39 @@ public class EmployerProfileService {
                 request.description(),
                 employer.getLogoUrl() // 기존 로고는 유지 (로고 수정 API 분리됨)
         );
+    }
+
+    @Transactional
+    public String updateLogoUrl(Long userId, MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("업로드할 파일이 없습니다.");
+        }
+
+        Employer employer = employerRepository.findByUserId(userId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 유저의 고용주 프로필을 찾을 수 없습니다."));
+
+        try {
+            // S3 키(경로) 생성 (예: employers/logo/uuid_filename)
+            String extension = getExtension(file.getOriginalFilename());
+            String key = "employers/logo/" + UUID.randomUUID() + extension;
+            
+            // S3 FileStorage 인터페이스를 통한 업로드 실제 수행
+            // 반환되는 key는 S3에 저장된 경로
+            String uploadedUrl = fileStorage.upload(file.getBytes(), key, file.getContentType());
+            
+            // DB 엔티티 업데이트
+            employer.updateLogoUrl(uploadedUrl);
+            
+            return uploadedUrl;
+        } catch (IOException e) {
+            throw new RuntimeException("파일 업로드 중 오류가 발생했습니다.", e);
+        }
+    }
+
+    private String getExtension(String filename) {
+        if (filename == null || !filename.contains(".")) {
+            return "";
+        }
+        return filename.substring(filename.lastIndexOf("."));
     }
 }
