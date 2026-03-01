@@ -3,7 +3,6 @@ package com.fallguys.mypage.api.web.employer;
 
 import com.fallguys.common.response.ApiResponse;
 import com.fallguys.mypage.api.web.dto.employer.response.EmployerReputationAiResponseDto;
-import com.fallguys.mypage.api.web.dto.employer.response.EmployerReviewListResponseDto;
 import com.fallguys.mypage.api.web.dto.employer.response.EmployerReviewSummaryResponseDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -24,12 +23,6 @@ public class EmployerReviewController {
     @Operation(summary = "평판 요약 조회", description = "고용주가 받은 평가들의 항목별 요약 평균을 조회합니다.")
     @GetMapping("/reviews/summary")
     public ApiResponse<EmployerReviewSummaryResponseDto> getReviewSummary(@RequestHeader("X-User-Id") String userId) {
-        return ApiResponse.ok(null);
-    }
-
-    @Operation(summary = "내게 남긴 리뷰 조회", description = "프리랜서가 남긴 리뷰 목록을 조회합니다.")
-    @GetMapping("/reviews")
-    public ApiResponse<List<EmployerReviewListResponseDto>> getReviewList(@RequestHeader("X-User-Id") String userId) {
         return ApiResponse.ok(null);
     }
 
