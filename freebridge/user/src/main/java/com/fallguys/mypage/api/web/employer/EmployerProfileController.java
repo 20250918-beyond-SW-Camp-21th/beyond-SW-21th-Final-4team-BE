@@ -46,6 +46,7 @@ public class EmployerProfileController {
     @Operation(summary = "고용주 CRM 마케팅 알림 조회", description = "프리미엄 요금제 업셀링 대상 여부 등을 조회합니다.")
     @GetMapping("/crm-alerts")
     public ApiResponse<CrmAlertsResponseDto> getCrmAlerts(@AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ApiResponse.ok(null);
+        CrmAlertsResponseDto result = employerProfileService.getCrmAlerts(userDetails.getId()); // boolean임
+        return ApiResponse.ok(result);
     }
 }

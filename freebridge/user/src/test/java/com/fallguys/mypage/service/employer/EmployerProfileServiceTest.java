@@ -155,9 +155,31 @@ class EmployerProfileServiceTest {
                 org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.eq("image/png")
         );
-        
+
         assertThat(resultUrl).isEqualTo(uploadedS3Url);
         assertThat(mockEmployer.getLogoUrl()).isEqualTo(uploadedS3Url);
+    }
+    @Test
+    @DisplayName("[TDD] 5. 고용주 CRM 알림 조회 시 요금제 기반 업셀링 여부 검증")
+    void verify_crm_alerts_based_on_subscription() {
+        // given
+        Long userId = 500L;
+        Employer mockEmployer = Employer.create(
+                userId,
+                Subscription.BASIC, // BASIC 요금제는 업셀링 대상
+                "Alert Company",
+                Scale.S1_4
+        );
+        given(employerRepository.findByUserId(userId)).willReturn(Optional.of(mockEmployer));
+
+        // when
+        com.fallguys.mypage.api.web.dto.employer.response.CrmAlertsResponseDto result = 
+                employerProfileService.getCrmAlerts(userId);
+
+        // then
+        org.mockito.Mockito.verify(employerRepository, org.mockito.Mockito.times(1)).findByUserId(userId);
+        assertThat(result).isNotNull();
+        assertThat(result.isPremiumUpsellEligible()).isTrue(); // BASIC이므로 true여야 함
     }
 }
 

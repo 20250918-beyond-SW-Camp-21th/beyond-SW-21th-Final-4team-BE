@@ -5,14 +5,15 @@ import com.fallguys.mypage.api.web.dto.employer.response.EmployerBasicProfileDto
 import com.fallguys.mypage.api.web.dto.employer.request.EmployerProfileUpdateRequestDto;
 import com.fallguys.mypage.entity.employer.Employer;
 import com.fallguys.mypage.repository.employer.EmployerRepository;
+import com.fallguys.mypage.api.web.dto.employer.response.CrmAlertsResponseDto;
+import com.fallguys.mypage.entity.employer.Subscription;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.util.UUID;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+
 
 @Service
 @RequiredArgsConstructor
@@ -77,5 +78,16 @@ public class EmployerProfileService {
             return "";
         }
         return filename.substring(filename.lastIndexOf("."));
+    }
+
+    @Transactional(readOnly = true)
+    public com.fallguys.mypage.api.web.dto.employer.response.CrmAlertsResponseDto getCrmAlerts(Long userId) {
+        Employer employer = employerRepository.findByUserId(userId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 유저의 고용주 프로필을 찾을 수 없습니다."));
+        
+        // BASIC 요금제인 경우 업셀링 대상으로 간주
+        boolean isPremiumUpsellEligible = (employer.getSubscription() == Subscription.BASIC);
+
+        return new CrmAlertsResponseDto(isPremiumUpsellEligible);
     }
 }
