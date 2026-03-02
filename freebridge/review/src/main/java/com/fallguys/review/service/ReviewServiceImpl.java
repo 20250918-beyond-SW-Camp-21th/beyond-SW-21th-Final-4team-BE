@@ -14,6 +14,7 @@ import com.fallguys.review.repository.FreelancerReviewRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -70,7 +71,11 @@ public class ReviewServiceImpl implements ReviewService {
                 .description(request.description())
                 .build();
 
-        return employerReviewRepository.save(review).getId();
+        try {
+            return employerReviewRepository.save(review).getId();
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
     }
 
     @Override
@@ -148,7 +153,11 @@ public class ReviewServiceImpl implements ReviewService {
                 .description(request.description())
                 .build();
 
-        return freelancerReviewRepository.save(review).getId();
+        try {
+            return freelancerReviewRepository.save(review).getId();
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
     }
 
     @Override
