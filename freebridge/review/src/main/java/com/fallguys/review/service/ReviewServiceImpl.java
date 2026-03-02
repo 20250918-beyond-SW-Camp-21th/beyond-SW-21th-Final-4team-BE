@@ -18,6 +18,9 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.sql.SQLException;
+import java.util.Locale;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -74,6 +77,9 @@ public class ReviewServiceImpl implements ReviewService {
         try {
             return employerReviewRepository.save(review).getId();
         } catch (DataIntegrityViolationException e) {
+            if (!isDuplicateKeyViolation(e)) {
+                throw e;
+            }
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
     }
@@ -156,6 +162,9 @@ public class ReviewServiceImpl implements ReviewService {
         try {
             return freelancerReviewRepository.save(review).getId();
         } catch (DataIntegrityViolationException e) {
+            if (!isDuplicateKeyViolation(e)) {
+                throw e;
+            }
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
     }
@@ -188,5 +197,28 @@ public class ReviewServiceImpl implements ReviewService {
                 )
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INPUT_VALUE));
         review.softDelete();
+    }
+
+    private boolean isDuplicateKeyViolation(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof SQLException sqlException) {
+                String sqlState = sqlException.getSQLState();
+                if ("23505".equals(sqlState)) {
+                    return true;
+                }
+                if (sqlException.getErrorCode() == 1062) {
+                    return true;
+                }
+            }
+
+            String message = current.getMessage();
+            if (message != null && message.toLowerCase(Locale.ROOT).contains("duplicate")) {
+                return true;
+            }
+
+            current = current.getCause();
+        }
+        return false;
     }
 }
