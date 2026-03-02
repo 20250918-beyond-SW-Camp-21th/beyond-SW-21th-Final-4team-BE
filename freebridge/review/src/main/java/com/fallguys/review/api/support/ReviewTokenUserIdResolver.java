@@ -25,10 +25,29 @@ public class ReviewTokenUserIdResolver {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
 
-        Number userIdValue = jwtTokenProvider.getClaimsFromToken(token).get("id", Number.class);
-        if (userIdValue == null) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        var claims = jwtTokenProvider.getClaimsFromToken(token);
+
+        String subject = claims.getSubject();
+        if (StringUtils.hasText(subject)) {
+            try {
+                return Long.parseLong(subject);
+            } catch (NumberFormatException ignored) {
+                // fallback to legacy id claim
+            }
         }
-        return userIdValue.longValue();
+
+        Object idClaim = claims.get("id");
+        if (idClaim instanceof Number number) {
+            return number.longValue();
+        }
+        if (idClaim instanceof String str && StringUtils.hasText(str)) {
+            try {
+                return Long.parseLong(str);
+            } catch (NumberFormatException ignored) {
+                // handled below
+            }
+        }
+
+        throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
     }
 }
