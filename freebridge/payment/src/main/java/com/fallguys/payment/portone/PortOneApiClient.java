@@ -1,0 +1,98 @@
+package com.fallguys.payment.portone;
+
+import com.fallguys.common.exception.BusinessException;
+import com.fallguys.common.exception.ErrorCode;
+import com.fallguys.payment.config.PortOneProperties;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
+/**
+ * PortOne V2 REST API 클라이언트
+ * WebClient를 사용해 포트원 API를 직접 호출합니다.
+ *
+ * 테스트 모드: PORTONE_API_SECRET 환경변수에 v2_test_... 키를 설정하면
+ * 테스트 카드(예: 4111 1111 1111 1111)로 실제 돈 없이 결제 흐름을 체험할 수 있습니다.
+ */
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class PortOneApiClient {
+
+    @Qualifier("portOneWebClient")
+    private final WebClient webClient;
+
+    private final PortOneProperties portOneProperties;
+
+    /**
+     * 결제 정보 단건 조회
+     * GET /payments/{paymentId}
+     */
+    public PortOnePaymentInfo getPayment(String paymentId) {
+        try {
+            return webClient.get()
+                    .uri("/payments/{paymentId}", paymentId)
+                    .retrieve()
+                    .onStatus(HttpStatus.NOT_FOUND::equals,
+                            response -> response.bodyToMono(String.class)
+                                    .map(body -> new BusinessException(ErrorCode.PAYMENT_NOT_FOUND)))
+                    .bodyToMono(PortOnePaymentInfo.class)
+                    .block();
+        } catch (WebClientResponseException e) {
+            log.error("PortOne getPayment 오류: paymentId={}, status={}, body={}",
+                    paymentId, e.getStatusCode(), e.getResponseBodyAsString());
+            if (e.getStatusCode() == HttpStatus.NOT_FOUND) {
+                throw new BusinessException(ErrorCode.PAYMENT_NOT_FOUND);
+            }
+            throw new BusinessException(ErrorCode.PAYMENT_FAILED);
+        }
+    }
+
+    /**
+     * 빌링키로 즉시 결제
+     * POST /payments/{paymentId}/billing-key
+     *
+     * 테스트 모드에서는 테스트 빌링키를 사용하며 실제 결제가 발생하지 않습니다.
+     * channelKey를 명시하여 테스트 채널로 정확히 라우팅합니다.
+     */
+    public PortOnePaymentInfo chargeBillingKey(String billingKey, long amount,
+                                                String orderName, String customerId) {
+        String paymentId = "sub-" + UUID.randomUUID();
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("billingKey", billingKey);
+        body.put("orderName", orderName);
+        body.put("amount", Map.of("total", amount));
+        body.put("currency", "KRW");
+        body.put("customer", Map.of("id", customerId));
+
+        // 테스트/라이브 채널 명시 — application.yml의 portone.channel-key 사용
+        String channelKey = portOneProperties.getChannelKey();
+        if (channelKey != null && !channelKey.isBlank()) {
+            body.put("channelKey", channelKey);
+        }
+
+        log.info("PortOne 빌링키 결제 요청: paymentId={}, amount={}, customerId={}", paymentId, amount, customerId);
+
+        try {
+            return webClient.post()
+                    .uri("/payments/{paymentId}/billing-key", paymentId)
+                    .bodyValue(body)
+                    .retrieve()
+                    .bodyToMono(PortOnePaymentInfo.class)
+                    .block();
+        } catch (WebClientResponseException e) {
+            log.error("PortOne chargeBillingKey 오류: billingKey={}, status={}, body={}",
+                    billingKey, e.getStatusCode(), e.getResponseBodyAsString());
+            throw new BusinessException(ErrorCode.PAYMENT_FAILED);
+        }
+    }
+}

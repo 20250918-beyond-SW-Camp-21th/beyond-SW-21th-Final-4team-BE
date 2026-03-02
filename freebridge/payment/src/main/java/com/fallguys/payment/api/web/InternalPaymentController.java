@@ -10,11 +10,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * Internal API consumed by the Subscription module.
- * Called when an employer upgrades their subscription plan (cheaper → more expensive).
- * The Subscription module sends the PortOne imp_uid after the employer completes payment on the frontend.
+ * 구독 결제 처리 API (프론트엔드 → 백엔드 직접 호출)
+ *
+ * [테스트 모드 결제 흐름]
+ * 1. 프론트: PortOne SDK로 빌링키 발급 (테스트 카드: 4111 1111 1111 1111 / 유효기간: 임의 미래 / CVC: 임의)
+ * 2. 프론트: 발급된 billingKey + planType을 아래 /subscription 엔드포인트로 전송
+ * 3. 백엔드: PortOne 테스트 API로 즉시 결제 → BillingKey DB 저장 → PLATFORM_REVENUE 지갑 크레딧
+ * 4. 이후 스케줄러가 매월 1일 저장된 빌링키로 자동 재결제 (chargeScheduled 사용)
  */
-@Tag(name = "Internal Payment", description = "내부 결제 처리 API (구독 모듈 전용)")
+@Tag(name = "Internal Payment", description = "구독 결제 처리 API")
 @RestController
 @RequestMapping("/api/v1/internal/payments")
 @RequiredArgsConstructor
@@ -22,12 +26,18 @@ public class InternalPaymentController {
 
     private final SubscriptionPaymentService subscriptionPaymentService;
 
-    @Operation(summary = "[Internal] 구독 업그레이드 결제 처리",
+    @Operation(summary = "구독 결제 처리",
             description = """
-                    구독 모듈이 호출하는 결제 처리 API.
-                    PortOne imp_uid를 검증하고 SubscriptionBilling을 생성하며 PLATFORM_REVENUE 지갑에 크레딧합니다.
-                    성공 시 구독 모듈이 planType을 업데이트하고, 실패 시 플랜 변경을 롤백해야 합니다.
-                    멱등성 보장: 동일 imp_uid 재호출 시 기존 결과 반환.
+                    프론트엔드에서 PortOne SDK로 빌링키를 발급받은 후 호출합니다.
+
+                    [테스트 모드]
+                    - 테스트 카드 번호: 4111 1111 1111 1111 (VISA)
+                    - 유효기간: 임의의 미래 날짜 (예: 12/26)
+                    - CVC: 임의 3자리
+                    - 실제 결제 없이 PortOne 테스트 서버에서 처리됩니다.
+
+                    성공 시 BillingKey가 DB에 저장되고 매월 1일 자동 재결제됩니다.
+                    실패 시 구독 플랜 변경을 롤백해야 합니다.
                     """)
     @PostMapping("/subscription")
     public ResponseEntity<ApiResponse<SubscriptionPaymentResponse>> processSubscriptionPayment(

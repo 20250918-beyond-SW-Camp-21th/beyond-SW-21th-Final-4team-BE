@@ -92,7 +92,7 @@ public class EmployerSettlementController {
             @RequestHeader("X-User-Id") Long userId) {
 
         VerifyPaymentResponse response =
-                employerSettlementService.verifyContractPayment(request.getImpUid(), request.getContractId(), userId);
+                employerSettlementService.verifyContractPayment(request.getPaymentId(), request.getContractId(), userId);
         ApiResponse<VerifyPaymentResponse> apiResponse = ApiResponse.ok(response);
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }

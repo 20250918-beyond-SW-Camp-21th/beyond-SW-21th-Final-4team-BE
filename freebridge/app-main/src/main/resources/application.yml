@@ -39,6 +39,14 @@ spring:
           timeout: 5000
           write-timeout: 5000
 
+portone:
+  api-secret: ${PORTONE_API_SECRET:test_secret}
+  channel-key: ${PORTONE_CHANNEL_KEY:test_channel_key}
+  subscription:
+    plan:
+      pro: ${PORTONE_SUBSCRIPTION_PLAN_PRO:29900}
+      prime: ${PORTONE_SUBSCRIPTION_PLAN_PRIME:59900}
+
 fallguys:
   redis:
     host: beyond21.iptime.org
