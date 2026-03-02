@@ -1,7 +1,5 @@
 package com.fallguys.payment.service;
 
-import com.fallguys.common.exception.BusinessException;
-import com.fallguys.common.exception.ErrorCode;
 import com.fallguys.payment.api.web.dto.*;
 import com.fallguys.payment.entity.TransactionReferenceType;
 import com.fallguys.payment.entity.Wallet;
@@ -43,7 +41,10 @@ public class WalletService {
             Long employerId, String referenceType, int page, int size) {
 
         Wallet wallet = walletRepository.findByOwnerIdAndWalletType(employerId, WalletType.EMPLOYER)
-                .orElseThrow(() -> new BusinessException(ErrorCode.WALLET_NOT_FOUND));
+                .orElse(null);
+        if (wallet == null) {
+            return new PageResponse<>(List.of(), 0L, 0, page);
+        }
 
         Pageable pageable = PageRequest.of(Math.max(0, page - 1), size,
                 Sort.by(Sort.Direction.DESC, "createdAt"));
@@ -81,7 +82,10 @@ public class WalletService {
     @Transactional(readOnly = true)
     public PageResponse<WalletTransactionItem> getFreelancerTransactions(Long freelancerId, int page, int size) {
         Wallet wallet = walletRepository.findByOwnerIdAndWalletType(freelancerId, WalletType.FREELANCER)
-                .orElseThrow(() -> new BusinessException(ErrorCode.WALLET_NOT_FOUND));
+                .orElse(null);
+        if (wallet == null) {
+            return new PageResponse<>(List.of(), 0L, 0, page);
+        }
 
         Pageable pageable = PageRequest.of(Math.max(0, page - 1), size,
                 Sort.by(Sort.Direction.DESC, "createdAt"));

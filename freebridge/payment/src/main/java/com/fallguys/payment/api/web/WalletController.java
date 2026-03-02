@@ -1,12 +1,14 @@
 package com.fallguys.payment.api.web;
 
 import com.fallguys.common.response.ApiResponse;
+import com.fallguys.common.security.CustomUserDetails;
 import com.fallguys.payment.api.web.dto.*;
 import com.fallguys.payment.service.WalletService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "Wallet", description = "지갑 및 거래 내역 API")
@@ -19,55 +21,51 @@ public class WalletController {
 
     // ─── Employer ───────────────────────────────────────────────────────────
 
-    // TODO: 로그인 기능 구현 후 @Authenticated로 변경
     @Operation(summary = "고용주 지갑 요약 조회", description = "총 지출액 및 거래 건수")
     @GetMapping("/employer/summary")
     public ResponseEntity<ApiResponse<EmployerWalletSummaryResponse>> employerSummary(
-            @RequestHeader("X-User-Id") Long userId) {
+            @AuthenticationPrincipal CustomUserDetails user) {
 
-        EmployerWalletSummaryResponse response = walletService.getEmployerSummary(userId);
+        EmployerWalletSummaryResponse response = walletService.getEmployerSummary(user.getId());
         ApiResponse<EmployerWalletSummaryResponse> apiResponse = ApiResponse.ok(response);
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 
-    // TODO: 로그인 기능 구현 후 @Authenticated로 변경
     @Operation(summary = "고용주 거래 내역 조회", description = "계약 결제, 구독 결제, 환불 내역 페이지네이션 조회")
     @GetMapping("/employer/transactions")
     public ResponseEntity<ApiResponse<PageResponse<WalletTransactionItem>>> employerTransactions(
-            @RequestHeader("X-User-Id") Long userId,
+            @AuthenticationPrincipal CustomUserDetails user,
             @RequestParam(defaultValue = "ALL") String referenceType,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size) {
 
         PageResponse<WalletTransactionItem> response =
-                walletService.getEmployerTransactions(userId, referenceType, page, size);
+                walletService.getEmployerTransactions(user.getId(), referenceType, page, size);
         ApiResponse<PageResponse<WalletTransactionItem>> apiResponse = ApiResponse.ok(response);
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 
     // ─── Freelancer ──────────────────────────────────────────────────────────
 
-    // TODO: 로그인 기능 구현 후 @Authenticated로 변경
     @Operation(summary = "프리랜서 지갑 요약 조회", description = "총 수령액, 지급 예정 금액 및 거래 건수")
     @GetMapping("/freelancer/summary")
     public ResponseEntity<ApiResponse<FreelancerWalletSummaryResponse>> freelancerSummary(
-            @RequestHeader("X-User-Id") Long userId) {
+            @AuthenticationPrincipal CustomUserDetails user) {
 
-        FreelancerWalletSummaryResponse response = walletService.getFreelancerSummary(userId);
+        FreelancerWalletSummaryResponse response = walletService.getFreelancerSummary(user.getId());
         ApiResponse<FreelancerWalletSummaryResponse> apiResponse = ApiResponse.ok(response);
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 
-    // TODO: 로그인 기능 구현 후 @Authenticated로 변경
     @Operation(summary = "프리랜서 거래 내역 조회", description = "지급 내역 페이지네이션 조회")
     @GetMapping("/freelancer/transactions")
     public ResponseEntity<ApiResponse<PageResponse<WalletTransactionItem>>> freelancerTransactions(
-            @RequestHeader("X-User-Id") Long userId,
+            @AuthenticationPrincipal CustomUserDetails user,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size) {
 
         PageResponse<WalletTransactionItem> response =
-                walletService.getFreelancerTransactions(userId, page, size);
+                walletService.getFreelancerTransactions(user.getId(), page, size);
         ApiResponse<PageResponse<WalletTransactionItem>> apiResponse = ApiResponse.ok(response);
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }

@@ -2,6 +2,8 @@ package com.fallguys.payment.service;
 
 import com.fallguys.common.exception.BusinessException;
 import com.fallguys.common.exception.ErrorCode;
+import com.fallguys.payment.api.shared.SubscriptionPaymentQuery;
+import com.fallguys.payment.api.shared.SubscriptionPaymentResult;
 import com.fallguys.payment.api.web.dto.*;
 import com.fallguys.payment.entity.*;
 import com.fallguys.payment.portone.PortOneApiClient;
@@ -17,7 +19,7 @@ import java.time.LocalDate;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class SubscriptionPaymentService {
+public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
 
     private final SubscriptionBillingRepository subscriptionBillingRepository;
     private final BillingKeyRepository billingKeyRepository;
@@ -194,5 +196,28 @@ public class SubscriptionPaymentService {
                 billing.getId(), billing.getPlanType().name(),
                 billing.getAmount(), billing.getStatus().name(),
                 billing.getBillingDate(), billing.getPaidDate());
+    }
+
+    /**
+     * 타 모듈용 구독 결제 처리 (SubscriptionPaymentQuery 구현)
+     * 멤버십 변경 시 subscription 모듈에서 호출합니다.
+     */
+    @Override
+    @Transactional
+    public SubscriptionPaymentResult processSubscriptionPayment(
+            Long employerId, String planType, long amount, String billingKey) {
+
+        SubscriptionPaymentRequest request = new SubscriptionPaymentRequest(employerId, planType, amount, billingKey);
+        SubscriptionPaymentResponse response = processPayment(request);
+
+        return new SubscriptionPaymentResult(
+                response.success(),
+                response.billingId(),
+                response.planType(),
+                response.amount(),
+                response.status(),
+                response.errorCode(),
+                response.message()
+        );
     }
 }

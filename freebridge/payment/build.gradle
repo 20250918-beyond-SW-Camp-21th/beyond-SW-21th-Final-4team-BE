@@ -10,7 +10,9 @@ dependencies {
 
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
+    runtimeOnly 'io.netty:netty-resolver-dns-native-macos::osx-aarch64'
     // Swagger 설정 템플릿 참조용 (필수)
     compileOnly 'org.springdoc:springdoc-openapi-starter-webmvc-ui'
 }
