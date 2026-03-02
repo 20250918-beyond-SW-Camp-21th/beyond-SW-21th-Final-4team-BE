@@ -35,4 +35,29 @@ public class EmployerProjectService {
             return EmployerProjectStatsResponseDto.empty();
         }
     }
+
+    public java.util.List<com.fallguys.mypage.api.web.dto.employer.response.EmployerProjectListResponseDto> getMyProjects(Long employerId, String statusFilter) {
+        String redisKey = "employer:project:list:" + employerId;
+        
+        try {
+            Object rawData = redisTemplate.opsForValue().get(redisKey);
+            
+            if (rawData == null) {
+                return java.util.Collections.emptyList();
+            }
+
+            @SuppressWarnings("unchecked")
+            java.util.List<Map<String, Object>> rawProjectList = (java.util.List<Map<String, Object>>) rawData;
+
+            return rawProjectList.stream()
+                    .map(com.fallguys.mypage.api.web.dto.employer.response.EmployerProjectListResponseDto::from)
+                    .filter(dto -> dto != null)
+                    .filter(dto -> statusFilter == null || statusFilter.isBlank() || dto.status().equals(statusFilter))
+                    .toList();
+
+        } catch (Exception e) {
+            log.error("Failed to parse employer project list from Redis for employerId: {}", employerId, e);
+            return java.util.Collections.emptyList();
+        }
+    }
 }

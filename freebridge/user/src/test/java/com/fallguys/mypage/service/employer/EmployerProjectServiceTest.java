@@ -56,7 +56,7 @@ class EmployerProjectServiceTest {
     }
 
     @Test
-    @DisplayName("고용주 프로젝트 통계 조회: Redis 값이 없거나 null인 경우 0으로 채워진 DTO를 반환한다 (Fallback)")
+    @DisplayName("고용주 프로젝트 목록 조회: Redis 값이 없거나 null인 경우 빈 0으로 채워진 DTO를 반환한다 (Fallback)")
     void getProjectStats_Empty() {
         // Given
         Long employerId = 2L;
@@ -72,5 +72,46 @@ class EmployerProjectServiceTest {
         assertEquals(0, result.totalProjects());
         assertEquals(0, result.activeApplicants());
         assertEquals(0, result.contractedFreelancers());
+    }
+
+    @Test
+    @DisplayName("고용주 프로젝트 목록 조회: Redis에서 목록을 정상적으로 파싱하고 상태 필터링까지 성공한다")
+    void getMyProjects_Success_And_Filtered() {
+        // Given
+        Long employerId = 1L;
+        String redisKey = "employer:project:list:" + employerId;
+
+        java.util.List<Map<String, Object>> mockRedisList = java.util.List.of(
+            Map.of("projectId", 101, "title", "A", "status", "모집중", "applicantCount", 5, "createdAt", "2026-03-01T10:00:00", "deadline", "2026-03-15T23:59:59"),
+            Map.of("projectId", 102, "title", "B", "status", "진행중", "applicantCount", 12, "createdAt", "2026-02-15T09:00:00", "deadline", "2026-02-28T23:59:59")
+        );
+
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get(redisKey)).thenReturn(mockRedisList);
+
+        // When
+        java.util.List<com.fallguys.mypage.api.web.dto.employer.response.EmployerProjectListResponseDto> result = employerProjectService.getMyProjects(employerId, "모집중");
+
+        // Then
+        assertEquals(1, result.size());
+        assertEquals(101L, result.get(0).projectId());
+        assertEquals("모집중", result.get(0).status());
+    }
+
+    @Test
+    @DisplayName("고용주 프로젝트 목록 조회: Redis 값이 없거나 null이면 빈 리스트를 반환한다")
+    void getMyProjects_Empty() {
+        // Given
+        Long employerId = 2L;
+        String redisKey = "employer:project:list:" + employerId;
+
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get(redisKey)).thenReturn(null);
+
+        // When
+        java.util.List<com.fallguys.mypage.api.web.dto.employer.response.EmployerProjectListResponseDto> result = employerProjectService.getMyProjects(employerId, null);
+
+        // Then
+        assertEquals(0, result.size());
     }
 }
