@@ -1,4 +1,6 @@
 spring:
+  application:
+    name: freebridge
   datasource:
     url: jdbc:mariadb://beyond21.iptime.org:4003/freebridge
     username: fiveguys
@@ -26,8 +28,8 @@ spring:
   mail:
     host: smtp.gmail.com
     port: 587
-    username: 
-    password:
+    username: yusk000@gmail.com
+    password: waqu qszg ytdc fabq
     properties:
       mail:
         smtp:

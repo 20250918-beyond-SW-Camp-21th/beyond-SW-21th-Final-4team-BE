@@ -1,4 +1,4 @@
-package com.fallguys.recruitment.api.support;
+package com.fallguys.userlike.api.support;
 
 import com.fallguys.common.exception.BusinessException;
 import com.fallguys.common.exception.ErrorCode;
@@ -7,9 +7,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
-@Component("recruitmentTokenUserIdResolver")
+@Component("userLikeTokenUserIdResolver")
 @RequiredArgsConstructor
-public class TokenUserIdResolver {
+public class UserLikeTokenUserIdResolver {
 
     private static final String BEARER_PREFIX = "Bearer ";
 
