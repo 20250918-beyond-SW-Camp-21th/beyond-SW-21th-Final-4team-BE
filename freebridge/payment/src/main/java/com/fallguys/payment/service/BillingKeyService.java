@@ -1,15 +1,36 @@
 package com.fallguys.payment.service;
 
 import com.fallguys.payment.entity.BillingKey;
+import com.fallguys.payment.repository.BillingKeyRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
 
-public interface BillingKeyService {
+@Service
+@RequiredArgsConstructor
+public class BillingKeyService {
 
-    Optional<BillingKey> getActiveBillingKey(Long employerId);
+    private final BillingKeyRepository billingKeyRepository;
 
-    List<BillingKey> getAllActiveBillingKeys();
+    @Transactional(readOnly = true)
+    public Optional<BillingKey> getActiveBillingKey(Long employerId) {
+        return billingKeyRepository.findByEmployerIdAndActiveTrue(employerId);
+    }
 
-    void deactivateBillingKey(Long employerId);
+    @Transactional(readOnly = true)
+    public List<BillingKey> getAllActiveBillingKeys() {
+        return billingKeyRepository.findByActiveTrue();
+    }
+
+    @Transactional
+    public void deactivateBillingKey(Long employerId) {
+        billingKeyRepository.findByEmployerIdAndActiveTrue(employerId)
+                .ifPresent(bk -> {
+                    bk.deactivate();
+                    billingKeyRepository.save(bk);
+                });
+    }
 }
