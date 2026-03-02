@@ -11,16 +11,24 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+import com.fallguys.mypage.service.employer.EmployerProjectService;
+import com.fallguys.common.security.CustomUserDetails;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 @Tag(name = "Employer MyPage - Project", description = "고용주 마이페이지 프로젝트 및 지원자 관리 API")
 @RestController
 @RequestMapping("/api/employer/mypage/projects")
 @RequiredArgsConstructor
 public class EmployerProjectController {
 
+    private final EmployerProjectService employerProjectService;
+
     @Operation(summary = "내 프로젝트 통계 조회", description = "누적 프로젝트 수, 현재 지원자 수 등의 통계를 조회합니다.")
     @GetMapping("/stats")
-    public ApiResponse<EmployerProjectStatsResponseDto> getProjectStats(@RequestHeader("X-User-Id") String userId) {
-        return ApiResponse.ok(null);
+    public ApiResponse<EmployerProjectStatsResponseDto> getProjectStats(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        
+        EmployerProjectStatsResponseDto response = employerProjectService.getProjectStats(userDetails.getId());
+        return ApiResponse.ok(response);
     }
 
     @Operation(summary = "내 프로젝트 목록 조회", description = "마이페이지에서 노출할 내 프로젝트 리스트를 조회합니다.")
