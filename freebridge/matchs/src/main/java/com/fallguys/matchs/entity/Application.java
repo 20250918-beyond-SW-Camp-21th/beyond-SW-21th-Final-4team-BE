@@ -36,6 +36,7 @@ public class Application {
 
     @Column(nullable=false)
     @Builder.Default
+    @Enumerated(EnumType.STRING)
     private MatchsStatus status=MatchsStatus.PENDING;
 
     @Column
