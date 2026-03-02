@@ -27,14 +27,16 @@ public class EmployerReviewController {
     @GetMapping("/reviews/summary")
     public ApiResponse<EmployerReviewSummaryResponseDto> getReviewSummary(
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        
         EmployerReviewSummaryResponseDto response = employerReviewService.getReputationSummary(userDetails.getId());
         return ApiResponse.ok(response);
     }
 
     @Operation(summary = "AI 신뢰도 점수 및 리포트 조회", description = "PRIME 요금제에서 제공되는 AI 평판 리포트를 조회합니다.")
     @GetMapping("/reputation/ai")
-    public ApiResponse<EmployerReputationAiResponseDto> getAiReputation(@RequestHeader("X-User-Id") String userId) {
-        return ApiResponse.ok(null);
+    public ApiResponse<EmployerReputationAiResponseDto> getAiReputation(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        
+        EmployerReputationAiResponseDto response = employerReviewService.getAiReputation(userDetails.getId());
+        return ApiResponse.ok(response);
     }
 }

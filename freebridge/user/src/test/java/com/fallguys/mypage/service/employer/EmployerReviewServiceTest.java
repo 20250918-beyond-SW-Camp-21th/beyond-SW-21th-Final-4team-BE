@@ -1,5 +1,7 @@
 package com.fallguys.mypage.service.employer;
 
+import com.fallguys.common.ai.port.ReviewEngine;
+import com.fallguys.mypage.api.web.dto.employer.response.EmployerReputationAiResponseDto;
 import com.fallguys.mypage.api.web.dto.employer.response.EmployerReviewSummaryResponseDto;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -24,6 +26,9 @@ class EmployerReviewServiceTest {
 
     @Mock
     private ValueOperations<String, Object> valueOperations;
+
+    @Mock
+    private ReviewEngine reviewEngine;
 
     @InjectMocks
     private EmployerReviewService employerReviewService;
@@ -82,5 +87,53 @@ class EmployerReviewServiceTest {
         assertEquals(0.0, result.requirementsDetailRate());
         assertEquals(0.0, result.scheduleAdherenceRate());
         assertEquals(0.0, result.averageRate());
+    }
+
+    @Test
+    @DisplayName("AI 신뢰도 점수 및 리포트 조회: ReviewEngine 연동 성공")
+    void getAiReputation_Success() {
+        // Given
+        Long userId = 1L;
+        // Mocking the data passed to AI
+        List<Integer> mockScores = List.of(5, 4, 3, 5);
+        List<String> mockReviews = List.of("좋아요", "그냥 그래요", "별로예요", "최고에요");
+
+        Map<String, Object> mockAiResult = Map.of(
+                "summary", "전체적으로 우수한 평가를 받고 있습니다.",
+                "positive_keywords", List.of("신속함", "정확함"),
+                "negative_keywords", List.of("의사소통")
+        );
+
+        when(reviewEngine.analyzeReputation(anyList(), anyList())).thenReturn(mockAiResult);
+
+        // When
+        var result = employerReviewService.getAiReputation(userId);
+
+        // Then
+        assertEquals("전체적으로 우수한 평가를 받고 있습니다.", result.aiSummary());
+        assertEquals(2, result.positiveKeywords().size());
+        assertEquals(1, result.negativeKeywords().size());
+        assertEquals("신속함", result.positiveKeywords().get(0));
+
+        verify(reviewEngine, times(1)).analyzeReputation(anyList(), anyList());
+    }
+
+    @Test
+    @DisplayName("AI 신뢰도 점수 및 리포트 조회: ReviewEngine 예외 발생 시 안전하게 빈 DTO 반환 (Fallback)")
+    void getAiReputation_Fallback() {
+        // Given
+        Long userId = 2L;
+
+        when(reviewEngine.analyzeReputation(anyList(), anyList()))
+                .thenThrow(new RuntimeException("AI 분석 서비스 응답 오류"));
+
+        // When
+        var result = employerReviewService.getAiReputation(userId);
+
+        // Then
+        // Should return a default empty structure instead of crashing
+        assertEquals("AI 리포트를 불러올 수 없습니다.", result.aiSummary());
+        assertEquals(0, result.positiveKeywords().size());
+        assertEquals(0, result.negativeKeywords().size());
     }
 }
