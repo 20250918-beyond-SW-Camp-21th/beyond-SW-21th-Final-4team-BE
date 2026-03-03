@@ -5,10 +5,13 @@ import org.springframework.stereotype.Component;
 
 import com.fallguys.mypage.api.web.dto.employer.response.EmployerSubscriptionResponseDto;
 import com.fallguys.mypage.api.web.dto.employer.response.EmployerNotificationSettingsDto;
-
+import com.fallguys.mypage.entity.employer.Employer;
+import com.fallguys.mypage.repository.employer.EmployerRepository;
 import com.fallguys.user.api.shared.ExternalUserApi;
 import com.fallguys.user.api.shared.response.ExternalUserResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.transaction.annotation.Transactional;
+import java.time.LocalDateTime;
 
 @Slf4j
 @Component
@@ -16,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 public class SharedMypageApiImpl implements SharedMypageApi {
 
     private final ExternalUserApi externalUserApi;
+    private final EmployerRepository employerRepository;
 
     @Override
     public void updatePassword(Long userId, String updatedPassword) {
@@ -24,21 +28,36 @@ public class SharedMypageApiImpl implements SharedMypageApi {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public EmployerSubscriptionResponseDto getSubscription(Long userId) {
-        log.info("SharedMypageApi: 외부 모듈에 구독 정보 조회 요청 전달 (userId: {})", userId);
-        return new EmployerSubscriptionResponseDto("BASIC", null, null);
+        log.info("SharedMypageApi: 내부 EmployerRepository를 통해 구독 정보 조회 (userId: {})", userId);
+        Employer employer = employerRepository.findByUserId(userId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 고용주입니다."));
+        
+        String planName = employer.getSubscription() != null ? employer.getSubscription().name() : "BASIC";
+        return new EmployerSubscriptionResponseDto(planName, null, LocalDateTime.now().plusMonths(1));
     }
 
     @Override
+    @Transactional
     public void updateSubscription(Long userId, String targetPlan) {
-        log.info("SharedMypageApi: 외부 모듈에 구독 변경 요청 전달 (userId: {}, plan: {})", userId, targetPlan);
+        log.info("SharedMypageApi: 내부 EmployerRepository를 통해 구독 변경 요청 (userId: {}, plan: {})", userId, targetPlan);
+        Employer employer = employerRepository.findByUserId(userId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 고용주입니다."));
+                
+        employer.changeSubscription(com.fallguys.mypage.entity.employer.Subscription.valueOf(targetPlan.toUpperCase()));
     }
 
     @Override
     public EmployerNotificationSettingsDto getNotificationSettings(Long userId) {
         log.info("SharedMypageApi: 외부 모듈에 알림 설정 조회 요청 전달 (userId: {})", userId);
         ExternalUserResponse response = externalUserApi.getUserById(userId);
-        return new EmployerNotificationSettingsDto(response.getEmailEnabled());
+        
+        boolean isEmailEnabled = (response != null && response.getEmailEnabled() != null) 
+                                 ? response.getEmailEnabled() 
+                                 : false;
+                                 
+        return new EmployerNotificationSettingsDto(isEmailEnabled);
     }
 
     @Override
