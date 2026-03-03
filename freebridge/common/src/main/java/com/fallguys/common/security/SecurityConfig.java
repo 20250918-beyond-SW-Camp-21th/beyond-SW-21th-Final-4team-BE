@@ -25,7 +25,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // 세션 사용하지
                                                                                                               // 않음
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/employer/**").hasRole("EMPLOYER")
+                        .requestMatchers("/api/employer/**").hasRole("EMPLOYER")
                         .anyRequest().permitAll())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
