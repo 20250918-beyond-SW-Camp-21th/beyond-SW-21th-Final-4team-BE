@@ -1,6 +1,7 @@
 package com.fallguys.recruitment.api.web;
 
 import com.fallguys.common.response.ApiResponse;
+import com.fallguys.recruitment.api.dto.response.AiRecommendationResponseDTO;
 import com.fallguys.recruitment.api.support.TokenUserIdResolver;
 import com.fallguys.recruitment.api.dto.response.FreelancerJobPostingSearchDTO;
 import com.fallguys.recruitment.api.dto.response.PagedResponseDTO;

@@ -3,6 +3,7 @@ package com.fallguys.recruitment.api.web;
 import com.fallguys.common.response.ApiResponse;
 import com.fallguys.recruitment.api.dto.request.JobPostingCreateDTO;
 import com.fallguys.recruitment.api.dto.request.JobPostingUpdateDTO;
+import com.fallguys.recruitment.api.dto.response.AiRecommendationResponseDTO;
 import com.fallguys.recruitment.api.dto.response.EmployerProjectSearchDTO;
 import com.fallguys.recruitment.api.dto.response.JobPostingSearchDTO;
 import com.fallguys.recruitment.api.dto.response.PagedResponseDTO;
@@ -16,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -89,5 +91,18 @@ public class JobPostingEmployerController {
         Long userId = tokenUserIdResolver.resolveUserId(authorization);
         jobPostingService.deleteJobPosting(jobsNumber, userId);
         return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    @Operation(summary = "공고 맞춤 프리랜서 추천", description = "공고 내용을 분석하여 적합한 프리랜서 7명을 추천합니다.")
+    @GetMapping("/api/v1/employer/jobs/{jobPostingId}/recommendations")
+    public ResponseEntity<ApiResponse<List<AiRecommendationResponseDTO>>> getFreelancerRecommendations(
+            @RequestHeader("Authorization") String authorization,
+            @PathVariable Long jobPostingId
+    ) {
+        Long userId = tokenUserIdResolver.resolveUserId(authorization);
+
+        List<AiRecommendationResponseDTO> recommendations = jobPostingService.getRecommendedFreelancers(jobPostingId, userId);
+
+        return ResponseEntity.ok(ApiResponse.ok(recommendations));
     }
 }
