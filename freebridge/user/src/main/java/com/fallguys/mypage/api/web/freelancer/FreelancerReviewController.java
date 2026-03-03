@@ -1,11 +1,10 @@
 package com.fallguys.mypage.api.web.freelancer;
 
 import com.fallguys.common.response.ApiResponse;
-import com.fallguys.mypage.dto.freelancer.response.FreelancerEvaluationSummaryDto;
-import com.fallguys.mypage.dto.freelancer.response.FreelancerReviewListDto;
+import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerEvaluationSummaryDto;
+import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerReviewListDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import lombok.RequiredArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -14,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-@Tag(name = "Freelancer MyPage - Grade & Review", description = "프리랜서 마이페이지 평점 및 리뷰 API")
+@Tag(name = "9. Freelancer MyPage - Grade & Review", description = "프리랜서 마이페이지 평점 및 리뷰 API")
 @RestController
 @RequestMapping("/api/freelancer/mypage/reviews")
 @RequiredArgsConstructor

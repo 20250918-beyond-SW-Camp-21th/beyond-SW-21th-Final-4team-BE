@@ -38,9 +38,14 @@ public class ExternalUserApiImpl implements ExternalUserApi {
 
     @Override
     @Transactional
-    public void updatePassword(Long userId, String newPassword) {
+    public void updatePassword(Long userId, String currentPassword, String newPassword) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다. ID: " + userId));
+                
+        if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
+            throw new IllegalArgumentException("현재 비밀번호가 일치하지 않습니다.");
+        }
+        
         user.updatePassword(passwordEncoder.encode(newPassword));
     }
 
@@ -63,6 +68,7 @@ public class ExternalUserApiImpl implements ExternalUserApi {
                 // Enum 대신 String으로 전달하여 타 모듈에서의 역직렬화 및 강결합 문제 방지
                 .role(user.getRole() != null ? user.getRole().name() : null)
                 .emailVerified(user.getEmailVerified())
+                .emailEnabled(user.getEmailEnabled())
                 .createdAt(user.getCreatedAt())
                 .build();
     }
