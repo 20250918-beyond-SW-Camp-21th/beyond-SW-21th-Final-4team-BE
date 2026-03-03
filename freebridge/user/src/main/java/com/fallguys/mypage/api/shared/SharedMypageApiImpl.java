@@ -62,6 +62,10 @@ public class SharedMypageApiImpl implements SharedMypageApi {
 
     @Override
     public void updateNotificationSettings(Long userId, Boolean emailEnabled) {
+        if (emailEnabled == null) {
+            log.warn("SharedMypageApi: 알림 설정 변경 요청 실패 - emailEnabled 값이 null입니다. (userId: {})", userId);
+            throw new IllegalArgumentException("이메일 알림 설정 값은 null일 수 없습니다.");
+        }
         log.info("SharedMypageApi: 외부 모듈에 알림 설정 변경 요청 전달 (userId: {}, emailEnabled: {})", userId, emailEnabled);
         externalUserApi.updateEmailNotificationSetting(userId, emailEnabled);
     }
