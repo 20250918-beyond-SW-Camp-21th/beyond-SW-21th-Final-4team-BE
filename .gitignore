@@ -416,7 +416,6 @@ application-dev.yaml
 application-prod.yml
 application-prod.yaml
 application-*.properties
-application.yml
 
 ### Python env ###
 .env.*
