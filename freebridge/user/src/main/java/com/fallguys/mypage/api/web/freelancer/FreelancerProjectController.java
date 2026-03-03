@@ -1,8 +1,8 @@
 package com.fallguys.mypage.api.web.freelancer;
 
 import com.fallguys.common.response.ApiResponse;
-import com.fallguys.mypage.dto.freelancer.response.FreelancerAppliedProjectListDto;
-import com.fallguys.mypage.dto.freelancer.response.FreelancerProjectStatusStatsDto;
+import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerAppliedProjectListDto;
+import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerProjectStatusStatsDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@Tag(name = "Freelancer MyPage - Project", description = "프리랜서 프로젝트 지원 및 진행현황 관리")
+@Tag(name = "7. Freelancer MyPage - Project", description = "프리랜서 프로젝트 지원 및 진행현황 관리")
 @RestController
 @RequestMapping("/api/freelancer/mypage/projects")
 @RequiredArgsConstructor

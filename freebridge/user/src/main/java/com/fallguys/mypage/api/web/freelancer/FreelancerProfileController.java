@@ -1,15 +1,15 @@
 package com.fallguys.mypage.api.web.freelancer;
 
 import com.fallguys.common.response.ApiResponse;
-import com.fallguys.mypage.dto.freelancer.request.FreelancerProfileUpdateRequestDto;
-import com.fallguys.mypage.dto.freelancer.response.FreelancerProfileResponseDto;
+import com.fallguys.mypage.api.web.dto.freelancer.request.FreelancerProfileUpdateRequestDto;
+import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerProfileResponseDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-@Tag(name = "Freelancer MyPage - Profile", description = "프리랜서 마이페이지 프로필 관련 API")
+@Tag(name = "6. Freelancer MyPage - Profile", description = "프리랜서 마이페이지 프로필 관련 API")
 @RestController
 @RequestMapping("/api/freelancer/mypage/profile")
 @RequiredArgsConstructor

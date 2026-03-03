@@ -31,4 +31,22 @@ public interface ExternalUserApi {
      * @return 존재할 경우 true, 그렇지 않으면 false
      */
     boolean existsById(Long userId);
+
+    /**
+     * 사용자 ID로 비밀번호를 변경합니다.
+     * 
+     * @param userId 변경할 대상 사용자의 고유 ID
+     * @param currentPassword 현재 비밀번호
+     * @param newPassword 변경할 새로운 비밀번호 (평문 비밀번호, 내부에서 인코딩됨)
+     */
+    void updatePassword(Long userId, String currentPassword, String newPassword);
+
+    /**
+     * 사용자 ID로 이메일 알림 수신 동의 설정을 변경합니다.
+     * 
+     * @param userId 변경할 대상 사용자의 고유 ID
+     * 
+     * @param emailEnabled 이메일 알림 수신 여부
+     */
+    void updateEmailNotificationSetting(Long userId, boolean emailEnabled);
 }

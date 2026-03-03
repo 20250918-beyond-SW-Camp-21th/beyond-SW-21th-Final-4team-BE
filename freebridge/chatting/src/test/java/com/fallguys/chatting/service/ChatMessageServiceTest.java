@@ -88,7 +88,7 @@ class ChatMessageServiceTest {
 
                 // when
                 com.fallguys.chatting.dto.CursorPageResponse<ChatMessageResponse> response = chatMessageService
-                                .getPreviousMessages("room1", null, 20, "e1");
+                                .getPreviousMessages("room1", null, null, 20, "e1");
 
                 // then
                 assertThat(response.getItems()).hasSize(2);

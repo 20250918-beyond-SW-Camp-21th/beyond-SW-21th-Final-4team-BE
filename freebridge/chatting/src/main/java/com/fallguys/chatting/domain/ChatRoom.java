@@ -67,11 +67,11 @@ public class ChatRoom {
         }
     }
 
-    /**
+    /*
      * 비즈니스 로직 - 객체 캡슐화 (POJO 지향)
      */
 
-    // 1. 방에 새 메시지 수신 시 마지막 메시지 갱신
+    // 1. 채팅방에 새 메시지 수신 시 마지막 메시지 갱신
     public void updateLastMessage(ChatMessage message) {
         this.lastMessage = message;
         this.updatedAt = LocalDateTime.now();
