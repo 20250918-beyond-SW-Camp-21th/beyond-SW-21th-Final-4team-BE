@@ -20,10 +20,12 @@ import com.fallguys.recruitment.repository.ProjectPostingRepo;
 import com.fallguys.recruitment.service.port.RecruitmentUser;
 import com.fallguys.recruitment.service.port.RecruitmentUserReader;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionSynchronization;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashSet;
@@ -31,6 +33,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -228,7 +231,7 @@ public class JobPostingServiceImpl implements JobPostingService {
         return source != null && source.toLowerCase(Locale.ROOT).contains(keyword);
     }
 
-    @Override
+    @Override   // 기업용
     public List<AiRecommendationResponseDTO> getRecommendedFreelancers(Long jobPostingId, Long userId) {
         JobPosting jobPosting = getJobPostingOrThrow(jobPostingId);
 
@@ -236,12 +239,76 @@ public class JobPostingServiceImpl implements JobPostingService {
 
         validateOwnership(jobPosting, userId);
 
-        // 4. FastAPI 호출
         return recommendationEngine.recommendFreelancers(
                 jobPosting.getId(),
                 jobPosting.getTitle(),
                 jobPosting.getDescription(),
                 AiRecommendationResponseDTO.class
         );
+    }
+
+    @Override     // 프리랜서용 추천
+    public List<AiRecommendationResponseDTO> getRecommendedJobsForFreelancer(Long userId) {
+        // 1. 프리랜서 정보 조회
+        RecruitmentUser freelancer = recruitmentUserReader.getFreelancerByIdOrThrow(userId);
+
+        // 2. 추천에 필요한 텍스트 가공
+        String skills = (freelancer.skills() == null || freelancer.skills().isBlank())
+                ? "없음" : freelancer.skills().trim();
+        String experience = (freelancer.experience() == null || freelancer.experience().isBlank())
+                ? "없음" : freelancer.experience().trim();
+
+        // 3. AI 서버 호출
+        return recommendationEngine.recommendJobs(
+                userId,
+                skills,
+                experience,
+                AiRecommendationResponseDTO.class
+        );
+    }
+
+    @Transactional
+    public void completeProject(Long projectId, Long userId) {
+        Project project = projectPostingRepo.findById(projectId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.PROJECT_NOT_FOUND));
+
+        if (!project.getJobPosting().getEmployerId().equals(userId)) {
+            throw new BusinessException(ErrorCode.JOB_POSTING_FORBIDDEN); // 권한 없음 에러
+        }
+
+        try{
+            project.complete();
+        } catch (IllegalStateException e) {
+            throw new BusinessException(ErrorCode.PROJECT_ALREADY_COMPLETED);
+        }
+
+        Long freelancerId = project.getFreelancerId();
+        RecruitmentUser freelancer = recruitmentUserReader.getFreelancerByIdOrThrow(freelancerId);
+        String syncContent = String.format("프로젝트 완료: %s", project.getProjectName());
+
+        Runnable syncTask = () -> {
+            try {
+                recommendationEngine.syncToAiServer(
+                        freelancer.id(),
+                        "experience",
+                        syncContent,
+                        freelancer.status()
+                );
+            } catch (Exception e) {
+                log.error("프로젝트 완료 후 AI 서버 동기화 실패 - 프리랜서 ID: {}, 내용: {}", freelancer.id(), syncContent, e);
+            }
+        };
+
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    syncTask.run();
+                }
+            });
+        } else {
+            log.warn("활성화된 트랜잭션이 없어 즉시 AI 동기화를 실행합니다. 프로젝트 ID: {}", projectId);
+            syncTask.run();
+        }
     }
 }
