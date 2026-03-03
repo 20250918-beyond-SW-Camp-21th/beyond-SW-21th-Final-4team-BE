@@ -10,16 +10,19 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
-@Tag(name = "Employer MyPage - Account", description = "고용주 마이페이지 계정 관리 API")
+@Tag(name = "4. Employer MyPage - Account", description = "고용주 마이페이지 계정 관리 API")
 @RestController
 @RequestMapping("/api/employer/mypage/account")
 @RequiredArgsConstructor
 public class EmployerAccountController {
 
+    private final com.fallguys.mypage.service.employer.EmployerAccountService employerAccountService;
+
     @Operation(summary = "현재 구독 정보 조회", description = "현재 이용 중인 플랜 정보를 조회합니다.")
     @GetMapping("/subscription")
-    public ApiResponse<EmployerSubscriptionResponseDto> getSubscription(@RequestHeader("X-User-Id") String userId) {
-        return ApiResponse.ok(null);
+    public ApiResponse<EmployerSubscriptionResponseDto> getSubscription(@org.springframework.security.core.annotation.AuthenticationPrincipal com.fallguys.common.security.CustomUserDetails userDetails) {
+        EmployerSubscriptionResponseDto response = employerAccountService.getSubscription(userDetails.getId());
+        return ApiResponse.ok(response);
     }
 
     @Operation(summary = "구독 플랜 변경 신청", description = "프라임 멤버십 등 다른 플랜으로 변경을 요청합니다.")

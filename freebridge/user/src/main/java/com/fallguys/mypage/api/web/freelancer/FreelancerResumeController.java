@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name = "Freelancer MyPage - Resume", description = "프리랜서 마이페이지 이력서(학력/경력) API")
+@Tag(name = "8. Freelancer MyPage - Resume", description = "프리랜서 마이페이지 이력서(학력/경력) API")
 @RestController
 @RequestMapping("/api/freelancer/mypage/resume")
 @RequiredArgsConstructor

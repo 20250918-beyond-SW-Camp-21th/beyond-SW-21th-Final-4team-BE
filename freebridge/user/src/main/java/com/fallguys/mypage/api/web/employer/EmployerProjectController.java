@@ -14,7 +14,7 @@ import java.util.List;
 import com.fallguys.mypage.service.employer.EmployerProjectService;
 import com.fallguys.common.security.CustomUserDetails;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-@Tag(name = "Employer MyPage - Project", description = "고용주 마이페이지 프로젝트 및 지원자 관리 API")
+@Tag(name = "2. Employer MyPage - Project", description = "고용주 마이페이지 프로젝트 및 지원자 관리 API")
 @RestController
 @RequestMapping("/api/employer/mypage/projects")
 @RequiredArgsConstructor

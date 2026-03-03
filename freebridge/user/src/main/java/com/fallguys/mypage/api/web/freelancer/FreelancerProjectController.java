@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@Tag(name = "Freelancer MyPage - Project", description = "프리랜서 프로젝트 지원 및 진행현황 관리")
+@Tag(name = "7. Freelancer MyPage - Project", description = "프리랜서 프로젝트 지원 및 진행현황 관리")
 @RestController
 @RequestMapping("/api/freelancer/mypage/projects")
 @RequiredArgsConstructor

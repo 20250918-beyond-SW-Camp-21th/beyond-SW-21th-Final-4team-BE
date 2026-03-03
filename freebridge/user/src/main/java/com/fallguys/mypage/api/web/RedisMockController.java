@@ -48,6 +48,23 @@ public class RedisMockController {
         );
         redisTemplate.opsForValue().set(applicantsKey2, mockApplicants102);
 
+        // 5. Employer Subscription Data
+        String subscriptionKey1 = "employer:subscription:1";
+        java.util.Map<String, Object> mockSubscription1 = java.util.Map.of(
+            "currentPlan", "PRIME",
+            "features", java.util.List.of("인재풀 무제한 열람", "프로젝트 상단 노출", "수수료 면제", "전담 매니저 배정"),
+            "nextBillingDate", "2026-04-03T12:00:00"
+        );
+        redisTemplate.opsForValue().set(subscriptionKey1, mockSubscription1);
+
+        String subscriptionKey2 = "employer:subscription:2";
+        java.util.Map<String, Object> mockSubscription2 = java.util.Map.of(
+            "currentPlan", "BASIC",
+            "features", java.util.List.of("기본 프로젝트 등록", "지원자 열람"),
+            "nextBillingDate", "2026-03-15T12:00:00"
+        );
+        redisTemplate.opsForValue().set(subscriptionKey2, mockSubscription2);
+
         return "Successfully injected mock data for User ID 1 into Cloud Redis!";
     }
 }

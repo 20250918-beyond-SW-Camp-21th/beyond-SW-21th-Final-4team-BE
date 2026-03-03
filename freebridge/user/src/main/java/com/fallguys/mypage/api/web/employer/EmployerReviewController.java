@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name = "Employer MyPage - Review", description = "고용주 마이페이지 리뷰 및 평판 API")
+@Tag(name = "3. Employer MyPage - Review", description = "고용주 마이페이지 리뷰 및 평판 API")
 @RestController
 @RequestMapping("/api/employer/mypage")
 @RequiredArgsConstructor

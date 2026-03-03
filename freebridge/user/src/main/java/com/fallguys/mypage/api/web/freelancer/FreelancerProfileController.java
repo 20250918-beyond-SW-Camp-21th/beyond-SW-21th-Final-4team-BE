@@ -9,7 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-@Tag(name = "Freelancer MyPage - Profile", description = "프리랜서 마이페이지 프로필 관련 API")
+@Tag(name = "6. Freelancer MyPage - Profile", description = "프리랜서 마이페이지 프로필 관련 API")
 @RestController
 @RequestMapping("/api/freelancer/mypage/profile")
 @RequiredArgsConstructor

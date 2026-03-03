@@ -8,7 +8,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
-@Tag(name = "Freelancer MyPage - Account", description = "프리랜서 마이페이지 계정 관리 API")
+@Tag(name = "5. Freelancer MyPage - Account", description = "프리랜서 마이페이지 계정 관리 API")
 @RestController
 @RequestMapping("/api/freelancer/mypage/account")
 @RequiredArgsConstructor

@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import com.fallguys.common.security.CustomUserDetails;
 
-@Tag(name = "Employer MyPage - Profile", description = "고용주 마이페이지 프로필 관리 API")
+@Tag(name = "1. Employer MyPage - Profile", description = "고용주 마이페이지 프로필 관리 API")
 @RestController
 @RequestMapping("/api/employer/mypage/profile")
 @RequiredArgsConstructor
