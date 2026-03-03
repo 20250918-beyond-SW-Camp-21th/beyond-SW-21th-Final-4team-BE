@@ -57,25 +57,86 @@ public class Resume {
         this.freelancerId = freelancerId;
     }
 
-    public void update(String name, LocalDate birthDate, String phone, String email, String address,
-                       List<Education> educations, List<Career> careers, List<Certification> certifications) {
+    /** 기본 인적사항 수정 */
+    public void updateBasicInfo(String name, LocalDate birthDate, String phone, String email, String address) {
         this.name = name;
         this.birthDate = birthDate;
         this.phone = phone;
         this.email = email;
         this.address = address;
+    }
 
+    /** 전체 덮어쓰기 (Full Replace) */
+    public void update(String name, LocalDate birthDate, String phone, String email, String address,
+                       List<Education> educations, List<Career> careers, List<Certification> certifications) {
+        updateBasicInfo(name, birthDate, phone, email, address);
         this.educations.clear();
-        if (educations != null) {
-            this.educations.addAll(educations);
-        }
+        if (educations != null) this.educations.addAll(educations);
         this.careers.clear();
-        if (careers != null) {
-            this.careers.addAll(careers);
-        }
+        if (careers != null) this.careers.addAll(careers);
         this.certifications.clear();
-        if (certifications != null) {
-            this.certifications.addAll(certifications);
+        if (certifications != null) this.certifications.addAll(certifications);
+    }
+
+    // ─── 학력 CUD ─────────────────────────────────────────────────
+
+    public void addEducation(Education education) {
+        if (education == null) throw new IllegalArgumentException("학력 정보가 없습니다.");
+        if (this.educations == null) this.educations = new ArrayList<>();
+        this.educations.add(education);
+    }
+
+    public void updateEducation(int index, Education education) {
+        validateIndex(index, this.educations, "학력");
+        this.educations.set(index, education);
+    }
+
+    public void removeEducation(int index) {
+        validateIndex(index, this.educations, "학력");
+        this.educations.remove(index);
+    }
+
+    // ─── 경력 CUD ─────────────────────────────────────────────────
+
+    public void addCareer(Career career) {
+        if (career == null) throw new IllegalArgumentException("경력 정보가 없습니다.");
+        if (this.careers == null) this.careers = new ArrayList<>();
+        this.careers.add(career);
+    }
+
+    public void updateCareerEntry(int index, Career career) {
+        validateIndex(index, this.careers, "경력");
+        this.careers.set(index, career);
+    }
+
+    public void removeCareer(int index) {
+        validateIndex(index, this.careers, "경력");
+        this.careers.remove(index);
+    }
+
+    // ─── 자격증 CUD ───────────────────────────────────────────────
+
+    public void addCertification(Certification certification) {
+        if (certification == null) throw new IllegalArgumentException("자격증 정보가 없습니다.");
+        if (this.certifications == null) this.certifications = new ArrayList<>();
+        this.certifications.add(certification);
+    }
+
+    public void updateCertification(int index, Certification certification) {
+        validateIndex(index, this.certifications, "자격증");
+        this.certifications.set(index, certification);
+    }
+
+    public void removeCertification(int index) {
+        validateIndex(index, this.certifications, "자격증");
+        this.certifications.remove(index);
+    }
+
+    // ─── 내부 유효성 검사 ──────────────────────────────────────────
+
+    private void validateIndex(int index, List<?> list, String typeName) {
+        if (list == null || index < 0 || index >= list.size()) {
+            throw new IllegalArgumentException("유효하지 않은 " + typeName + " 인덱스입니다: " + index);
         }
     }
 }
