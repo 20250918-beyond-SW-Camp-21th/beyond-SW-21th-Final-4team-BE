@@ -30,6 +30,7 @@ public class Proposal {
     private String message;
 
     @Column(nullable=false)
+    @Enumerated(EnumType.STRING)
     @Builder.Default
     private MatchsStatus status=MatchsStatus.PENDING;
 
