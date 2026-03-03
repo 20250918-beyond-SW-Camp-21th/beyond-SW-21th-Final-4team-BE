@@ -16,9 +16,9 @@ public record EmployerProjectStatsResponseDto(
             return empty();
         }
         return new EmployerProjectStatsResponseDto(
-                stats.getOrDefault("totalProjects", 0),
-                stats.getOrDefault("activeApplicants", 0),
-                stats.getOrDefault("contractedFreelancers", 0)
+                java.util.Optional.ofNullable(stats.get("totalProjects")).orElse(0),
+                java.util.Optional.ofNullable(stats.get("activeApplicants")).orElse(0),
+                java.util.Optional.ofNullable(stats.get("contractedFreelancers")).orElse(0)
         );
     }
 }

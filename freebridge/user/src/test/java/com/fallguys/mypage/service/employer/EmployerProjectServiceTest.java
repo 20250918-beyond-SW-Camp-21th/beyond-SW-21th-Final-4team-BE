@@ -132,7 +132,7 @@ class EmployerProjectServiceTest {
         when(valueOperations.get(redisKey)).thenReturn(mockRedisList);
 
         // When
-        java.util.List<EmployerApplicantStatusResponseDto> result = employerProjectService.getApplicantStatus(projectId);
+        java.util.List<EmployerApplicantStatusResponseDto> result = employerProjectService.getApplicantStatus(1L, projectId);
 
         // Then
         assertEquals(2, result.size());
@@ -153,7 +153,7 @@ class EmployerProjectServiceTest {
         when(valueOperations.get(redisKey)).thenReturn(null);
 
         // When
-        java.util.List<EmployerApplicantStatusResponseDto> result = employerProjectService.getApplicantStatus(projectId);
+        java.util.List<EmployerApplicantStatusResponseDto> result = employerProjectService.getApplicantStatus(1L, projectId);
 
         // Then
         assertEquals(0, result.size());

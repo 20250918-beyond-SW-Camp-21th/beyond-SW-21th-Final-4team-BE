@@ -36,6 +36,9 @@ public class EmployerAccountService {
 
     @Transactional
     public void updateSubscription(Long userId, UpdateSubscriptionRequestDto request) {
+        if (request == null || request.targetPlan() == null || request.targetPlan().isBlank()) {
+            throw new IllegalArgumentException("변경할 구독 플랜 값이 필요합니다.");
+        }
         sharedMypageApi.updateSubscription(userId, request.targetPlan().toUpperCase());
     }
 

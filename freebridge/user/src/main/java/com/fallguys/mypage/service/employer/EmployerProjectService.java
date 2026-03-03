@@ -52,8 +52,8 @@ public class EmployerProjectService {
 
             return rawProjectList.stream()
                     .map(com.fallguys.mypage.api.web.dto.employer.response.EmployerProjectListResponseDto::from)
-                    .filter(dto -> dto != null)
-                    .filter(dto -> statusFilter == null || statusFilter.isBlank() || dto.status().equals(statusFilter))
+                    .filter(java.util.Objects::nonNull)
+                    .filter(dto -> statusFilter == null || statusFilter.isBlank() || java.util.Objects.equals(dto.status(), statusFilter))
                     .toList();
 
         } catch (Exception e) {
@@ -62,7 +62,8 @@ public class EmployerProjectService {
         }
     }
 
-    public java.util.List<com.fallguys.mypage.api.web.dto.employer.response.EmployerApplicantStatusResponseDto> getApplicantStatus(Long projectId) {
+    public java.util.List<com.fallguys.mypage.api.web.dto.employer.response.EmployerApplicantStatusResponseDto> getApplicantStatus(Long employerId, Long projectId) {
+        // TODO: In a real DB scenario, verify that the project actually belongs to employerId
         String redisKey = "employer:project:applicants:" + projectId;
         
         try {

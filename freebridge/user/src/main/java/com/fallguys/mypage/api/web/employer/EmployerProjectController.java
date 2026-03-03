@@ -47,7 +47,7 @@ public class EmployerProjectController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long projectId) {
         
-        List<EmployerApplicantStatusResponseDto> response = employerProjectService.getApplicantStatus(projectId);
+        List<EmployerApplicantStatusResponseDto> response = employerProjectService.getApplicantStatus(userDetails.getId(), projectId);
         return ApiResponse.ok(response);
     }
 }

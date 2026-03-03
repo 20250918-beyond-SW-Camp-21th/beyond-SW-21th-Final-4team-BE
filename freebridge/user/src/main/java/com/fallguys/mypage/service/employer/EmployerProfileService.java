@@ -13,6 +13,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.util.UUID;
+import java.util.Set;
+import com.fallguys.mypage.entity.employer.Scale;
 
 
 @Service
@@ -38,7 +40,7 @@ public class EmployerProfileService {
         employer.updateProfile(
                 request.companyName(),
                 request.industry(),
-                request.scale() != null ? com.fallguys.mypage.entity.employer.Scale.valueOf(request.scale()) : null,
+                parseScale(request.scale()),
                 request.location(),
                 request.websiteUrl(),
                 request.description(),
@@ -46,10 +48,28 @@ public class EmployerProfileService {
         );
     }
 
+    private Scale parseScale(String scaleStr) {
+        if (scaleStr == null || scaleStr.isBlank()) {
+            return null;
+        }
+        try {
+            return Scale.valueOf(scaleStr);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("유효하지 않은 기업 규모(Scale) 값입니다: " + scaleStr);
+        }
+    }
+
     @Transactional
     public String updateLogoUrl(Long userId, MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("업로드할 파일이 없습니다.");
+        }
+
+        String contentType = file.getContentType();
+        Set<String> allowedMimeTypes = Set.of("image/jpeg", "image/png", "image/webp", "image/gif");
+        
+        if (contentType == null || !allowedMimeTypes.contains(contentType.toLowerCase())) {
+            throw new IllegalArgumentException("이미지 파일(JPEG, PNG, WEBP, GIF)만 업로드 가능합니다. (현재 타입: " + contentType + ")");
         }
 
         Employer employer = employerRepository.findByUserId(userId)
