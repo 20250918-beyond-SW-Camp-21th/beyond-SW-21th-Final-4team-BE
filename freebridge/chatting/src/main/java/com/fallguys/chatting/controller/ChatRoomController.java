@@ -73,12 +73,20 @@ public class ChatRoomController {
         }
 
         LocalDateTime cursorDate = null;
+        String cursorId = null;
+
         if (cursorDateStr != null && !cursorDateStr.isEmpty()) {
-            cursorDate = LocalDateTime.parse(cursorDateStr);
+            String[] parts = cursorDateStr.split(",", 2);
+            if (parts.length > 0 && !parts[0].isEmpty()) {
+                cursorDate = LocalDateTime.parse(parts[0]);
+            }
+            if (parts.length > 1 && !parts[1].isEmpty()) {
+                cursorId = parts[1];
+            }
         }
 
         CursorPageResponse<ChatMessageResponse> messages = chatMessageService.getPreviousMessages(roomId, cursorDate,
-                size, userId);
+                cursorId, size, userId);
         return ResponseEntity.ok(messages);
     }
 }

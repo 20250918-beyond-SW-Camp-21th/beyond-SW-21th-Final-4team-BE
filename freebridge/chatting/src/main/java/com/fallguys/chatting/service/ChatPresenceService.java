@@ -26,7 +26,7 @@ public class ChatPresenceService {
         String statusKey = PRESENCE_PREFIX + userId;
         String lastSeenKey = PRESENCE_LAST_SEEN_PREFIX + userId;
         // ONLINE 상태는 유지하되, lastSeen 키로 좀비 상태를 방지
-        redisTemplate.opsForValue().set(statusKey, "ONLINE");
+        redisTemplate.opsForValue().set(statusKey, "ONLINE", PRESENCE_TIMEOUT_HOURS, TimeUnit.HOURS);
         redisTemplate.opsForValue().set(lastSeenKey, "1", PRESENCE_TIMEOUT_HOURS, TimeUnit.HOURS);
         log.info("User {} connected to chat websocket", userId);
     }
@@ -57,7 +57,10 @@ public class ChatPresenceService {
      * 메시지 전송 등 활동이 있을 때 lastSeen TTL 갱신
      */
     public void touchUser(String userId) {
+        String statusKey = PRESENCE_PREFIX + userId;
         String lastSeenKey = PRESENCE_LAST_SEEN_PREFIX + userId;
+        // TTL 갱신
+        redisTemplate.expire(statusKey, PRESENCE_TIMEOUT_HOURS, TimeUnit.HOURS);
         redisTemplate.opsForValue().set(lastSeenKey, "1", PRESENCE_TIMEOUT_HOURS, TimeUnit.HOURS);
     }
 }

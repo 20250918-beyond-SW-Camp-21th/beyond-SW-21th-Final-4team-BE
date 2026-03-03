@@ -60,7 +60,12 @@ public class ConfigTestController {
 
         // 3. Mongo 연결 테스트
         try {
-            boolean isMongoUp = mongoTemplate.getDb().getName() != null;
+            org.bson.Document pingCommand = org.bson.Document.parse("{ ping: 1 }");
+            org.bson.Document pingResult = mongoTemplate.executeCommand(pingCommand);
+            boolean isMongoUp = false;
+            if (pingResult != null && pingResult.get("ok") != null) {
+                isMongoUp = ((Number) pingResult.get("ok")).doubleValue() == 1.0;
+            }
             response.put("mongo_connection", isMongoUp ? "SUCCESS" : "FAIL");
         } catch (Exception e) {
             log.error("Mongo Connection Error", e);

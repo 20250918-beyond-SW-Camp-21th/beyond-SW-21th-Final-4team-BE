@@ -74,8 +74,12 @@ public class ChatMessageService {
         // 5. Response DTO 생성
         ChatMessageResponse response = ChatMessageResponse.from(savedMessage);
 
-        // 활동 기반 presence 갱신
-        chatPresenceService.touchUser(senderId);
+        // 활동 기반 presence 갱신 (예외 발생 시 메시지 전송 실패 방지를 위해 try-catch 처리)
+        try {
+            chatPresenceService.touchUser(senderId);
+        } catch (Exception e) {
+            log.error("Failed to update presence for user: {}", senderId, e);
+        }
 
         redisPublisher.publish(channelTopic, response);
 
@@ -83,10 +87,10 @@ public class ChatMessageService {
     }
 
     /**
-     * 커서 기반 페이징으로 이전 메시지 목록 무한 스크롤 조회
+     * 커서 기반 페이징으로 이전 메시지 목록 무한 스크롤 조회 (복합 커서 적용)
      */
     public com.fallguys.chatting.dto.CursorPageResponse<ChatMessageResponse> getPreviousMessages(String roomId,
-            java.time.LocalDateTime cursorDate, int size, String userId) {
+            java.time.LocalDateTime cursorDate, String cursorId, int size, String userId) {
 
         ChatRoom room = chatRoomRepository.findById(roomId)
                 .orElseThrow(() -> new IllegalArgumentException("채팅방을 찾을 수 없습니다: " + roomId));
@@ -105,9 +109,15 @@ public class ChatMessageService {
             // 처음 진입: 가장 최근 메시지부터 size 만큼 조회
             messages = chatMessageRepository.findByRoomIdOrderByCreatedAtDesc(roomId, pageRequest);
         } else {
-            // 이후 페이징: cursorDate 보다 예전 메시지들만 size 만큼 조회
-            messages = chatMessageRepository.findByRoomIdAndCreatedAtLessThanOrderByCreatedAtDesc(roomId, cursorDate,
-                    pageRequest);
+            // 이후 페이징: cursorDate 및 cursorId 복합 커서 기반 조회
+            if (cursorId == null || cursorId.isEmpty()) {
+                // 하위 호환성 (cursorId 없을 때)
+                messages = chatMessageRepository.findByRoomIdAndCreatedAtLessThanOrderByCreatedAtDesc(roomId,
+                        cursorDate,
+                        pageRequest);
+            } else {
+                messages = chatMessageRepository.findByRoomIdAndCursor(roomId, cursorDate, cursorId, pageRequest);
+            }
         }
 
         java.util.List<ChatMessageResponse> itemResponses = messages.stream()
@@ -119,8 +129,10 @@ public class ChatMessageService {
         if (!messages.isEmpty()) {
             ChatMessage lastExtractedMsg = messages.get(messages.size() - 1);
             if (lastExtractedMsg != null) {
-                // 커서는 생성시간(ISO-8601 문자열)로 통일
-                if (lastExtractedMsg.getCreatedAt() != null) {
+                // 커서는 "생성시간,메시지ID" 형태의 복합 커서 문자열로 통일
+                if (lastExtractedMsg.getCreatedAt() != null && lastExtractedMsg.getId() != null) {
+                    nextCursor = lastExtractedMsg.getCreatedAt().toString() + "," + lastExtractedMsg.getId();
+                } else if (lastExtractedMsg.getCreatedAt() != null) {
                     nextCursor = lastExtractedMsg.getCreatedAt().toString();
                 }
                 hasNext = messages.size() >= size; // size 만큼 가져왔으면 다음 페이지가 있을 확률이 큼
