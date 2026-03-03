@@ -33,6 +33,21 @@ public class RedisMockController {
         );
         redisTemplate.opsForValue().set(listKey, mockList);
 
+        // 4. Employer Applicant Status Data
+        String applicantsKey1 = "employer:project:applicants:101";
+        java.util.List<java.util.Map<String, Object>> mockApplicants101 = java.util.List.of(
+            java.util.Map.of("freelancerId", 1, "applyStatus", "검토중"),
+            java.util.Map.of("freelancerId", 2, "applyStatus", "면접"),
+            java.util.Map.of("freelancerId", 3, "applyStatus", "합격")
+        );
+        redisTemplate.opsForValue().set(applicantsKey1, mockApplicants101);
+
+        String applicantsKey2 = "employer:project:applicants:102";
+        java.util.List<java.util.Map<String, Object>> mockApplicants102 = java.util.List.of(
+            java.util.Map.of("freelancerId", 4, "applyStatus", "검토중")
+        );
+        redisTemplate.opsForValue().set(applicantsKey2, mockApplicants102);
+
         return "Successfully injected mock data for User ID 1 into Cloud Redis!";
     }
 }

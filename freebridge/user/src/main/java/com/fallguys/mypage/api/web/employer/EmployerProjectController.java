@@ -43,8 +43,11 @@ public class EmployerProjectController {
 
     @Operation(summary = "특정 프로젝트 지원자 현황 조회", description = "해당 프로젝트에 지원한 프리랜서들의 상태를 조회합니다.")
     @GetMapping("/{projectId}/applicants/status")
-    public ApiResponse<List<EmployerApplicantStatusResponseDto>> getApplicantStatus(@RequestHeader("X-User-Id") String userId,
-                                                                                    @PathVariable Long projectId) {
-        return ApiResponse.ok(null);
+    public ApiResponse<List<EmployerApplicantStatusResponseDto>> getApplicantStatus(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long projectId) {
+        
+        List<EmployerApplicantStatusResponseDto> response = employerProjectService.getApplicantStatus(projectId);
+        return ApiResponse.ok(response);
     }
 }

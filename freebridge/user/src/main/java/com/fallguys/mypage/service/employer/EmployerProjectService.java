@@ -60,4 +60,31 @@ public class EmployerProjectService {
             return java.util.Collections.emptyList();
         }
     }
+
+    public java.util.List<com.fallguys.mypage.api.web.dto.employer.response.EmployerApplicantStatusResponseDto> getApplicantStatus(Long projectId) {
+        String redisKey = "employer:project:applicants:" + projectId;
+        
+        try {
+            Object rawData = redisTemplate.opsForValue().get(redisKey);
+            
+            if (rawData == null) {
+                return java.util.Collections.emptyList();
+            }
+
+            @SuppressWarnings("unchecked")
+            java.util.List<Map<String, Object>> rawApplicantList = (java.util.List<Map<String, Object>>) rawData;
+
+            return rawApplicantList.stream()
+                    .map(data -> new com.fallguys.mypage.api.web.dto.employer.response.EmployerApplicantStatusResponseDto(
+                            data.get("freelancerId") != null ? Long.valueOf(data.get("freelancerId").toString()) : null,
+                            data.get("applyStatus") != null ? data.get("applyStatus").toString() : null
+                    ))
+                    .filter(dto -> dto.freelancerId() != null)
+                    .toList();
+
+        } catch (Exception e) {
+            log.error("Failed to parse applicant status list from Redis for projectId: {}", projectId, e);
+            return java.util.Collections.emptyList();
+        }
+    }
 }

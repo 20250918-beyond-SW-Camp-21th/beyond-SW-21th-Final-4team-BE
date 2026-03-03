@@ -1,5 +1,6 @@
 package com.fallguys.mypage.service.employer;
 
+import com.fallguys.mypage.api.web.dto.employer.response.EmployerApplicantStatusResponseDto;
 import com.fallguys.mypage.api.web.dto.employer.response.EmployerProjectStatsResponseDto;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -99,7 +100,7 @@ class EmployerProjectServiceTest {
     }
 
     @Test
-    @DisplayName("고용주 프로젝트 목록 조회: Redis 값이 없거나 null이면 빈 리스트를 반환한다")
+    @DisplayName("특정 프로젝트 지원자 현황 조회: Redis 값이 없거나 null이면 빈 리스트를 반환한다")
     void getMyProjects_Empty() {
         // Given
         Long employerId = 2L;
@@ -110,6 +111,49 @@ class EmployerProjectServiceTest {
 
         // When
         java.util.List<com.fallguys.mypage.api.web.dto.employer.response.EmployerProjectListResponseDto> result = employerProjectService.getMyProjects(employerId, null);
+
+        // Then
+        assertEquals(0, result.size());
+    }
+
+    @Test
+    @DisplayName("특정 프로젝트 지원자 현황 조회: Redis에서 지원자 목록을 정상적으로 파싱하여 반환한다")
+    void getApplicantStatus_Success() {
+        // Given
+        Long projectId = 101L;
+        String redisKey = "employer:project:applicants:" + projectId;
+
+        java.util.List<Map<String, Object>> mockRedisList = java.util.List.of(
+            Map.of("freelancerId", 1, "applyStatus", "검토중"),
+            Map.of("freelancerId", 2, "applyStatus", "면접")
+        );
+
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get(redisKey)).thenReturn(mockRedisList);
+
+        // When
+        java.util.List<EmployerApplicantStatusResponseDto> result = employerProjectService.getApplicantStatus(projectId);
+
+        // Then
+        assertEquals(2, result.size());
+        assertEquals(1L, result.get(0).freelancerId());
+        assertEquals("검토중", result.get(0).applyStatus());
+        assertEquals(2L, result.get(1).freelancerId());
+        assertEquals("면접", result.get(1).applyStatus());
+    }
+
+    @Test
+    @DisplayName("특정 프로젝트 지원자 현황 조회: Redis 값이 없거나 null이면 빈 리스트를 반환한다")
+    void getApplicantStatus_Empty() {
+        // Given
+        Long projectId = 102L;
+        String redisKey = "employer:project:applicants:" + projectId;
+
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get(redisKey)).thenReturn(null);
+
+        // When
+        java.util.List<EmployerApplicantStatusResponseDto> result = employerProjectService.getApplicantStatus(projectId);
 
         // Then
         assertEquals(0, result.size());
