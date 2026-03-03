@@ -2,6 +2,7 @@ package com.fallguys.recruitment.service;
 
 import com.fallguys.recruitment.api.dto.request.JobPostingCreateDTO;
 import com.fallguys.recruitment.api.dto.request.JobPostingUpdateDTO;
+import com.fallguys.recruitment.api.dto.response.AiRecommendationResponseDTO;
 import com.fallguys.recruitment.api.dto.response.EmployerProjectSearchDTO;
 import com.fallguys.recruitment.api.dto.response.FreelancerJobPostingSearchDTO;
 import com.fallguys.recruitment.api.dto.response.JobPostingSearchDTO;
@@ -30,5 +31,7 @@ public interface JobPostingService {
     void addFavoriteJobPosting(Long userId, Long jobPostingId);
 
     void removeFavoriteJobPosting(Long userId, Long jobPostingId);
+
+    List<AiRecommendationResponseDTO> getRecommendedFreelancers(Long jobPostingId);
 
 }

@@ -5,6 +5,7 @@ import com.fallguys.common.ai.port.ContractEngine;
 import com.fallguys.common.ai.port.RecommendationEngine;
 import com.fallguys.common.ai.port.ReviewEngine;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -84,6 +85,34 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
             return objectMapper.readValue(rawJson, new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
         } catch (JsonProcessingException e) {
             throw new RuntimeException("AI 분석 데이터 파싱 실패", e);
+        }
+    }
+
+    public <T> List<T> recommendFreelancers(Long jobId, String title, String description, Class<T> responseType) {
+        try {
+            // FastAPI의 /api/v1/employer/recommendations 엔드포인트로 POST 요청
+            String rawJson = restClient.post()
+                    .uri(pythonUrl + "/api/v1/employer/recommendations")
+                    .body(Map.of(
+                            "jobId", jobId,
+                            "title", title,
+                            "description", description
+                    ))
+                    .retrieve()
+                    .onStatus(HttpStatusCode::isError, (request, response) -> {
+                        throw new RuntimeException("AI 추천 서버 통신 오류");
+                    })
+                    .body(String.class);
+
+            // FastAPI 응답에서 data 필드만 추출해서 리스트로 변환
+            JsonNode root = objectMapper.readTree(rawJson);
+            JsonNode dataNode = root.get("data");
+
+            return objectMapper.readValue(dataNode.toString(),
+                    objectMapper.getTypeFactory().constructCollectionType(List.class, responseType));
+
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("AI 응답 데이터 파싱 실패", e);
         }
     }
 }

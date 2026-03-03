@@ -3,6 +3,7 @@ package com.fallguys.recruitment.api.web;
 import com.fallguys.common.response.ApiResponse;
 import com.fallguys.recruitment.api.dto.request.JobPostingCreateDTO;
 import com.fallguys.recruitment.api.dto.request.JobPostingUpdateDTO;
+import com.fallguys.recruitment.api.dto.response.AiRecommendationResponseDTO;
 import com.fallguys.recruitment.api.dto.response.EmployerProjectSearchDTO;
 import com.fallguys.recruitment.api.dto.response.JobPostingSearchDTO;
 import com.fallguys.recruitment.api.dto.response.PagedResponseDTO;
@@ -14,14 +15,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -89,5 +83,16 @@ public class JobPostingEmployerController {
         Long userId = tokenUserIdResolver.resolveUserId(authorization);
         jobPostingService.deleteJobPosting(jobsNumber, userId);
         return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    @Operation(summary = "공고 맞춤 프리랜서 추천")
+    @GetMapping("/api/v1/employer/jobs/{jobPostingId}/recommendations")
+    public ResponseEntity<ApiResponse<List<AiRecommendationResponseDTO>>> getFreelancerRecommendations(
+            @RequestHeader("Authorization") String authorization,
+            @PathVariable Long jobPostingId
+    ) {
+        // 서비스 호출 (서비스 내부에서 DB 조회 + FastAPI 통신 처리)
+        List<AiRecommendationResponseDTO> recommendations = jobPostingService.getRecommendedFreelancers(jobPostingId);
+        return ResponseEntity.ok(ApiResponse.ok(recommendations));
     }
 }
