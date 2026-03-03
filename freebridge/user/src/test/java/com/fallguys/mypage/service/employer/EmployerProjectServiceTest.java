@@ -30,7 +30,7 @@ class EmployerProjectServiceTest {
     private EmployerProjectService employerProjectService;
 
     @Test
-    @DisplayName("고용주 프로젝트 통계 조회: Redis에 등록된 통계 정보가 있을 때 매핑이 정상적으로 수행된다")
+    @DisplayName("고용주 프로젝트 통계 조회: Redis에 등록된 통계 정보가 있을 때 정상적으로 파싱하여 반환한다")
     void getProjectStats_Success() {
         // Given
         Long employerId = 1L;
@@ -58,7 +58,7 @@ class EmployerProjectServiceTest {
     }
 
     @Test
-    @DisplayName("고용주 프로젝트 목록 조회: Redis 값이 없거나 null인 경우 빈 0으로 채워진 DTO를 반환한다 (Fallback)")
+    @DisplayName("고용주 프로젝트 통계 조회: Redis 값이 없거나 null인 경우 0으로 채워진 통계 DTO를 반환한다 (Fallback)")
     void getProjectStats_Empty() {
         // Given
         Long employerId = 2L;
