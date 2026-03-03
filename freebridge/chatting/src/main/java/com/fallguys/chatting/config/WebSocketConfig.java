@@ -31,6 +31,9 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         registry.addEndpoint("/ws/chat")
                 .setAllowedOriginPatterns("*")
                 .withSockJS(); // fallback 적용
+        // 순수 WebSocket(STOMP) 연결 허용
+        registry.addEndpoint("/ws/chat")
+                .setAllowedOriginPatterns("*");
     }
 
     @Override

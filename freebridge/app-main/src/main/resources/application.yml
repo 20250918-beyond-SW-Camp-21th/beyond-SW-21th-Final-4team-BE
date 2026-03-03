@@ -1,0 +1,49 @@
+spring:
+  profiles:
+    include: secret
+  application:
+    name: freebridge
+  datasource:
+    driver-class-name: org.mariadb.jdbc.Driver
+
+  data:
+    mongodb:
+      database: freebridge
+      authentication-database: admin
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MariaDBDialect
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          connection-timeout: 5000
+          timeout: 5000
+          write-timeout: 5000
+
+fallguys:
+  redis:
+  rabbitmq:
+    host: ${RABBIT_HOST:localhost}
+    port: ${RABBIT_PORT:5672}
+  ai:
+    python-url: ${PYTHON_AI_URL:http://localhost:8000}
+  s3:
+    bucket: ${S3_BUCKET:dummy-bucket}
+    region: ${S3_REGION:ap-northeast-2}
+    credentials:
+      access-key: ${S3_ACCESS_KEY:dummy-access}
+      secret-key: ${S3_SECRET_KEY:dummy-secret}

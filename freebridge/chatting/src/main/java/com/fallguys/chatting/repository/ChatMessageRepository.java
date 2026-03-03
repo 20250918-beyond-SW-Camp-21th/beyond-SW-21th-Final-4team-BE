@@ -19,7 +19,10 @@ public interface ChatMessageRepository extends MongoRepository<ChatMessage, Stri
             Pageable pageable);
 
     // 복합 커서 기반 페이징 (createdAt + id)
-    @org.springframework.data.mongodb.repository.Query("{ 'roomId': ?0, '$or': [ { 'createdAt': { $lt: ?1 } }, { 'createdAt': ?1, '_id': { $lt: ?2 } } ] }")
+    @org.springframework.data.mongodb.repository.Query(
+            value = "{ 'roomId': ?0, '$or': [ { 'createdAt': { $lt: ?1 } }, { 'createdAt': ?1, '_id': { $lt: ?2 } } ] }",
+            sort = "{ 'createdAt': -1, '_id': -1 }"
+    )
     List<ChatMessage> findByRoomIdAndCursor(String roomId, LocalDateTime cursorDate, String cursorId,
             Pageable pageable);
 }
