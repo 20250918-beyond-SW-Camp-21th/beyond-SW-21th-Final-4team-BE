@@ -2,6 +2,8 @@ package com.fallguys.review.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -65,8 +67,9 @@ public class EmployerReview {
     private LocalDateTime updatedAt;
 
     @Builder.Default
-    @Column(name = "deleted", nullable = false)
-    private boolean deleted = false;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
+    private ReviewStatus status = ReviewStatus.ACTIVE;
 
     @PrePersist
     protected void onCreate() {
@@ -99,6 +102,6 @@ public class EmployerReview {
     }
 
     public void softDelete() {
-        this.deleted = true;
+        this.status = ReviewStatus.DELETED;
     }
 }

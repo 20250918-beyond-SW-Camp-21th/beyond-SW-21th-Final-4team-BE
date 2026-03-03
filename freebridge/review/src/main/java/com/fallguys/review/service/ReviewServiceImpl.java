@@ -8,13 +8,18 @@ import com.fallguys.review.api.dto.request.FreelancerReviewCreateRequest;
 import com.fallguys.review.api.dto.request.FreelancerReviewUpdateRequest;
 import com.fallguys.review.entity.EmployerReview;
 import com.fallguys.review.entity.FreelancerReview;
+import com.fallguys.review.entity.ReviewStatus;
 import com.fallguys.review.repository.EmployerReviewRepository;
 import com.fallguys.review.repository.FreelancerReviewRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.sql.SQLException;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -26,22 +31,31 @@ public class ReviewServiceImpl implements ReviewService {
 
     @Override
     public Page<FreelancerReview> getEmployerReceivedReviews(Long employerId, Pageable pageable) {
-        return freelancerReviewRepository.findAllByEmployerIdAndDeletedFalseOrderByCreatedAtDesc(employerId, pageable);
+        return freelancerReviewRepository.findAllByEmployerIdAndStatusOrderByCreatedAtDesc(
+                employerId,
+                ReviewStatus.ACTIVE,
+                pageable
+        );
     }
 
     @Override
     public Page<EmployerReview> getEmployerWrittenReviews(Long employerId, Pageable pageable) {
-        return employerReviewRepository.findAllByEmployerIdAndDeletedFalseOrderByCreatedAtDesc(employerId, pageable);
+        return employerReviewRepository.findAllByEmployerIdAndStatusOrderByCreatedAtDesc(
+                employerId,
+                ReviewStatus.ACTIVE,
+                pageable
+        );
     }
 
     @Override
     @Transactional
     public Long createEmployerReview(Long employerId, EmployerReviewCreateRequest request) {
         employerReviewRepository
-                .findByProjectIdAndEmployerIdAndFreelancerIdAndDeletedFalse(
+                .findByProjectIdAndEmployerIdAndFreelancerIdAndStatus(
                         request.projectId(),
                         employerId,
-                        request.freelancerId()
+                        request.freelancerId(),
+                        ReviewStatus.ACTIVE
                 )
                 .ifPresent(review -> {
                     throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
@@ -60,13 +74,24 @@ public class ReviewServiceImpl implements ReviewService {
                 .description(request.description())
                 .build();
 
-        return employerReviewRepository.save(review).getId();
+        try {
+            return employerReviewRepository.save(review).getId();
+        } catch (DataIntegrityViolationException e) {
+            if (!isDuplicateKeyViolation(e)) {
+                throw e;
+            }
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
     }
 
     @Override
     @Transactional
     public void updateEmployerReview(Long employerId, Long reviewId, EmployerReviewUpdateRequest request) {
-        EmployerReview review = employerReviewRepository.findByIdAndEmployerIdAndDeletedFalse(reviewId, employerId)
+        EmployerReview review = employerReviewRepository.findByIdAndEmployerIdAndStatus(
+                        reviewId,
+                        employerId,
+                        ReviewStatus.ACTIVE
+                )
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INPUT_VALUE));
 
         review.update(
@@ -83,29 +108,42 @@ public class ReviewServiceImpl implements ReviewService {
     @Override
     @Transactional
     public void deleteEmployerReview(Long employerId, Long reviewId) {
-        EmployerReview review = employerReviewRepository.findByIdAndEmployerIdAndDeletedFalse(reviewId, employerId)
+        EmployerReview review = employerReviewRepository.findByIdAndEmployerIdAndStatus(
+                        reviewId,
+                        employerId,
+                        ReviewStatus.ACTIVE
+                )
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INPUT_VALUE));
         review.softDelete();
     }
 
     @Override
     public Page<EmployerReview> getFreelancerReceivedReviews(Long freelancerId, Pageable pageable) {
-        return employerReviewRepository.findAllByFreelancerIdAndDeletedFalseOrderByCreatedAtDesc(freelancerId, pageable);
+        return employerReviewRepository.findAllByFreelancerIdAndStatusOrderByCreatedAtDesc(
+                freelancerId,
+                ReviewStatus.ACTIVE,
+                pageable
+        );
     }
 
     @Override
     public Page<FreelancerReview> getFreelancerWrittenReviews(Long freelancerId, Pageable pageable) {
-        return freelancerReviewRepository.findAllByFreelancerIdAndDeletedFalseOrderByCreatedAtDesc(freelancerId, pageable);
+        return freelancerReviewRepository.findAllByFreelancerIdAndStatusOrderByCreatedAtDesc(
+                freelancerId,
+                ReviewStatus.ACTIVE,
+                pageable
+        );
     }
 
     @Override
     @Transactional
     public Long createFreelancerReview(Long freelancerId, FreelancerReviewCreateRequest request) {
         freelancerReviewRepository
-                .findByProjectIdAndFreelancerIdAndEmployerIdAndDeletedFalse(
+                .findByProjectIdAndFreelancerIdAndEmployerIdAndStatus(
                         request.projectId(),
                         freelancerId,
-                        request.employerId()
+                        request.employerId(),
+                        ReviewStatus.ACTIVE
                 )
                 .ifPresent(review -> {
                     throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
@@ -121,13 +159,24 @@ public class ReviewServiceImpl implements ReviewService {
                 .description(request.description())
                 .build();
 
-        return freelancerReviewRepository.save(review).getId();
+        try {
+            return freelancerReviewRepository.save(review).getId();
+        } catch (DataIntegrityViolationException e) {
+            if (!isDuplicateKeyViolation(e)) {
+                throw e;
+            }
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
     }
 
     @Override
     @Transactional
     public void updateFreelancerReview(Long freelancerId, Long reviewId, FreelancerReviewUpdateRequest request) {
-        FreelancerReview review = freelancerReviewRepository.findByIdAndFreelancerIdAndDeletedFalse(reviewId, freelancerId)
+        FreelancerReview review = freelancerReviewRepository.findByIdAndFreelancerIdAndStatus(
+                        reviewId,
+                        freelancerId,
+                        ReviewStatus.ACTIVE
+                )
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INPUT_VALUE));
 
         review.update(
@@ -141,8 +190,35 @@ public class ReviewServiceImpl implements ReviewService {
     @Override
     @Transactional
     public void deleteFreelancerReview(Long freelancerId, Long reviewId) {
-        FreelancerReview review = freelancerReviewRepository.findByIdAndFreelancerIdAndDeletedFalse(reviewId, freelancerId)
+        FreelancerReview review = freelancerReviewRepository.findByIdAndFreelancerIdAndStatus(
+                        reviewId,
+                        freelancerId,
+                        ReviewStatus.ACTIVE
+                )
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INPUT_VALUE));
         review.softDelete();
+    }
+
+    private boolean isDuplicateKeyViolation(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof SQLException sqlException) {
+                String sqlState = sqlException.getSQLState();
+                if ("23505".equals(sqlState)) {
+                    return true;
+                }
+                if (sqlException.getErrorCode() == 1062) {
+                    return true;
+                }
+            }
+
+            String message = current.getMessage();
+            if (message != null && message.toLowerCase(Locale.ROOT).contains("duplicate")) {
+                return true;
+            }
+
+            current = current.getCause();
+        }
+        return false;
     }
 }
