@@ -9,10 +9,10 @@ spring:
 
   data:
     mongodb:
-      host: beyond21.iptime.org
+      host: 221.151.189.232
       port: 4006
       database: freebridge
-      username: fbmongo
+      username: admin
       password: '7276'
       authentication-database: admin
 
@@ -43,14 +43,14 @@ spring:
 
 fallguys:
   redis:
-    host: beyond21.iptime.org
+    host: 221.151.189.232
     port: 4005
     password: '7276'
   rabbitmq:
     host: ${RABBIT_HOST:localhost}
     port: ${RABBIT_PORT:5672}
   ai:
-    python-url: ${PYTHON_AI_URL:http://localhost:8000}
+    python-url: http://python-ai-service:4009
   s3:
     bucket: ${S3_BUCKET:dummy-bucket}
     region: ${S3_REGION:ap-northeast-2}

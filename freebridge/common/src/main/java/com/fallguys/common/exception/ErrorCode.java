@@ -29,6 +29,7 @@ public enum ErrorCode {
     ONLY_EMPLOYER_ALLOWED(403, "JP004", "employer만 가능합니다."),
     ONLY_FREELANCER_ALLOWED(403, "JP005", "freelancer만 가능합니다."),
     JOB_POSTING_HEADCOUNT_FULL(409, "JP006", "모집 인원이 모두 충족되었습니다."),
+    PROJECT_NOT_FOUND(404, "PJ001", "해당프로젝트를 찾을 수 없습니다."),
 
     // Contract
     CONTRACT_NOT_FOUND(404, "CON001", "계약을 찾을 수 없습니다."),

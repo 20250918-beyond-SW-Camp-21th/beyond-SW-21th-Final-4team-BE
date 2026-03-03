@@ -18,3 +18,20 @@ class FreelancerMatchList(BaseModel):
 class EmployerRecommendationResponse(BaseModel):
     success: bool
     data: List[FreelancerMatch]
+
+class FreelancerRecommendRequest(BaseModel):
+    freelancerId: int = Field(gt=0, description="프리랜서 ID")
+    skills: str = Field(min_length=1, description="보유 기술 스택")
+    experience: str = Field(min_length=5, description="경력 및 자기소개 요약")
+
+class JobMatch(BaseModel):
+    id: int = Field(gt=0, description="공고 ID")
+    title: str = Field(min_length=1, description="공고 제목")
+    matchScore: float = Field(ge=0.0, le=1.0, description="적합도 점수")
+
+class JobMatchList(BaseModel):
+    matches: List[JobMatch] = Field(description="추천된 공고 리스트")
+
+class FreelancerRecommendationResponse(BaseModel):
+    success: bool
+    data: List[JobMatch]

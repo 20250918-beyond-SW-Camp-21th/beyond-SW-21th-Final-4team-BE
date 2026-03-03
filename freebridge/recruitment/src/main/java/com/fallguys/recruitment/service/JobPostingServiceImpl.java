@@ -228,7 +228,7 @@ public class JobPostingServiceImpl implements JobPostingService {
         return source != null && source.toLowerCase(Locale.ROOT).contains(keyword);
     }
 
-    @Override
+    @Override   // 기업용
     public List<AiRecommendationResponseDTO> getRecommendedFreelancers(Long jobPostingId, Long userId) {
         JobPosting jobPosting = getJobPostingOrThrow(jobPostingId);
 
@@ -236,12 +236,50 @@ public class JobPostingServiceImpl implements JobPostingService {
 
         validateOwnership(jobPosting, userId);
 
-        // 4. FastAPI 호출
         return recommendationEngine.recommendFreelancers(
                 jobPosting.getId(),
                 jobPosting.getTitle(),
                 jobPosting.getDescription(),
                 AiRecommendationResponseDTO.class
+        );
+    }
+
+    @Override     // 프리랜서용 추천
+    public List<AiRecommendationResponseDTO> getRecommendedJobsForFreelancer(Long userId) {
+        // 1. 프리랜서 정보 조회 (이미 reader가 있어서 다행이야!)
+        RecruitmentUser freelancer = recruitmentUserReader.getFreelancerByIdOrThrow(userId);
+
+        // 2. 추천에 필요한 텍스트 가공
+        // freelancer 객체에 담긴 실제 데이터를 사용해 (필드명은 RecruitmentUser 정의에 맞춰서 수정해줘)
+        String skills = freelancer.skills(); // 예: "Java, Spring, Vue"
+        String experience = freelancer.experience(); // 예: "3년차 백엔드..."
+
+        // 3. AI 서버 호출
+        return recommendationEngine.recommendJobs(
+                userId,
+                skills,
+                experience,
+                AiRecommendationResponseDTO.class
+        );
+    }
+
+    @Transactional
+    public void completeProject(Long projectId){
+        Project project = projectPostingRepo.findById(projectId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.PROJECT_NOT_FOUND));
+        project.complete();
+
+        Long freelancerId = project.getFreelancerId();
+
+        RecruitmentUser freelancer = recruitmentUserReader.getFreelancerByIdOrThrow(freelancerId);
+
+        String syncContent = String.format("프로젝트 완료: %s", project.getProjectName());
+
+        recommendationEngine.syncToAiServer(
+                freelancer.id(),
+                "experience",
+                syncContent,
+                freelancer.status()
         );
     }
 }

@@ -8,6 +8,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
@@ -15,7 +16,9 @@ import org.springframework.web.client.RestClient;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngine, ReviewEngine {
@@ -118,5 +121,55 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
         } catch (JsonProcessingException e) {
             throw new RuntimeException("AI 응답 데이터 파싱 실패", e);
         }
+    }
+
+    @Override
+    public <T> List<T> recommendJobs(Long freelancerId, String skills, String experience, Class<T> responseType) {
+        try {
+            // FastAPI의 프리랜서용 추천 엔드포인트 호출
+            String rawJson = restClient.post()
+                    .uri(pythonUrl + "/api/v1/freelancer/recommendations")
+                    .body(Map.of(
+                            "freelancerId", freelancerId,
+                            "skills", skills,
+                            "experience", experience
+                    ))
+                    .retrieve()
+                    .onStatus(HttpStatusCode::isError, (request, response) -> {
+                        throw new RuntimeException("AI 프리랜서 맞춤 추천 서비스 응답 오류");
+                    })
+                    .body(String.class);
+
+            JsonNode root = objectMapper.readTree(rawJson);
+
+            if (root == null || !root.has("data") || !root.get("data").isArray()) {
+                throw new RuntimeException("AI 서버로부터 잘못된 응답 형식을 수신했습니다.");
+            }
+
+            return objectMapper.readValue(root.get("data").toString(),
+                    objectMapper.getTypeFactory().constructCollectionType(List.class, responseType));
+
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("AI 응답 데이터 파싱 실패", e);
+        }
+    }
+
+    public void syncToAiServer(Long id, String type, String content, String status) {
+        CompletableFuture.runAsync(() -> {
+            try {
+                restClient.post()
+                        .uri(pythonUrl + "/api/v1/sync/data")
+                        .body(Map.of(
+                                "id", id,
+                                "type", type,
+                                "content", content,
+                                "status", status
+                        ))
+                        .retrieve()
+                        .toBodilessEntity();
+            } catch (Exception e) {
+                log.error("AI 서버 실시간 동기화 실패: {}", e.getMessage());
+            }
+        });
     }
 }

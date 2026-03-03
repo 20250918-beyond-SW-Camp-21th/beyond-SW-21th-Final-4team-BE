@@ -1,3 +1,4 @@
+# loader.py
 import os
 import pandas as pd
 import pymysql
@@ -7,72 +8,81 @@ from langchain_core.documents import Document
 
 load_dotenv()
 
-def sync_maria_to_chroma(conn=None, vectorstore=None):
-    should_close = False
-    if conn is None:
-        conn = pymysql.connect(
-            host=os.getenv("DB_HOST", "localhost"),
-            user=os.getenv("DB_USER", "root"),
-            password=os.getenv("DB_PASSWORD", "password"),
-            db=os.getenv("DB_NAME", "freebridge"),
-            port=int(os.getenv("DB_PORT", 3306)),
-            charset='utf8mb4',
-            cursorclass=pymysql.cursors.DictCursor
-        )
-        should_close = True
+def sync_maria_to_chroma():
+    conn = pymysql.connect(
+        host=os.getenv("DB_HOST", "localhost"),
+        user=os.getenv("DB_USER", "root"),
+        password=os.getenv("DB_PASSWORD", "password"),
+        db=os.getenv("DB_NAME", "freebridge"),
+        port=int(os.getenv("DB_PORT", 3306)),
+        charset='utf8mb4',
+        cursorclass=pymysql.cursors.DictCursor
+    )
 
     try:
-        # 중복 방지를 위해 p.id를 명시적으로 가져옴
-        query = """
-        SELECT 
-            p.id as project_id,
-            p.freelancer_id,
-            u.name as freelancer_name,
-            j.title as job_title,
-            j.description as job_description,
-            (SELECT GROUP_CONCAT(tech SEPARATOR ', ') 
-             FROM job_posting_tech_stack jts 
-             WHERE jts.job_posting_id = j.id) as job_requirement
+        vectorstore = get_vectorstore() # 기본 컬렉션 사용
+        all_documents = []
+        all_ids = []
+
+        # --- Part 1: 완료된 프로젝트 경험 (기업이 프리랜서 찾을 때 사용) ---
+        project_query = """
+        SELECT p.id, p.freelancer_id, u.name, j.title, j.description, f.status as freelancer_status,
+               (SELECT GROUP_CONCAT(tech SEPARATOR ', ') FROM job_posting_tech_stack jts WHERE jts.job_posting_id = j.id) as techs
         FROM projects p
         JOIN freelancer f ON p.freelancer_id = f.freelancer_id
         JOIN user u ON f.user_id = u.user_id
         JOIN job_posting j ON p.job_posting_id = j.id
         WHERE p.status = 'COMPLETED'
         """
-        df = pd.read_sql(query, conn)
-        
-        if vectorstore is None:
-            vectorstore = get_vectorstore()
+        df_projects = pd.read_sql(project_query, conn)
+        for _, row in df_projects.iterrows():
+            techs = str(row['techs']) if pd.notna(row['techs']) else "없음"
+            text = f"경험 프로젝트: {row['title']}\n기술: {techs}\n설명: {row['description']}\n담당: {row['name']}"
             
-        documents = []
-        doc_ids = []
+            # [수정] status 메타데이터 추가 (CONTRACTING 필터링용)
+            all_documents.append(Document(
+                page_content=text, 
+                metadata={
+                    "id": row['id'], 
+                    "type": "experience", 
+                    "ref_id": row['freelancer_id'],
+                    "status": row['freelancer_status'] # DB의 실제 프리랜서 상태값 저장
+                }
+            ))
+            all_ids.append(f"exp:{row['id']}")
 
-        for _, row in df.iterrows():
-            # [수정] pandas NaN 처리: 데이터가 없으면 "없음"으로 표시
-            raw_req = row['job_requirement']
-            requirement = str(raw_req).strip() if pd.notna(raw_req) and raw_req else "없음"
+        # --- Part 2: 활성화된 채용 공고 (프리랜서가 공고 찾을 때 사용) ---
+        job_query = """
+        SELECT j.id, j.title, j.description, j.budget,
+               (SELECT GROUP_CONCAT(tech SEPARATOR ', ') FROM job_posting_tech_stack jts WHERE jts.job_posting_id = j.id) as techs
+        FROM job_posting j
+        WHERE j.status = 'ACTIVE'
+        """
+        df_jobs = pd.read_sql(job_query, conn)
+        for _, row in df_jobs.iterrows():
+            techs = str(row['techs']) if pd.notna(row['techs']) else "없음"
+            text = f"채용공고: {row['title']}\n요구기술: {techs}\n상세내용: {row['description']}\n예산: {row['budget']}"
             
-            text = f"프로젝트 제목: {row['job_title']}\n" \
-                   f"프로젝트 내용: {row['job_description']}\n" \
-                   f"사용 기술: {requirement}\n" \
-                   f"수행 프리랜서: {row['freelancer_name']}"
-            
-            doc = Document(
-                page_content=text,
-                metadata={"freelancer_id": row['freelancer_id'], "type": "completed_project"}
-            )
-            documents.append(doc)
-            # [수정] 고유 ID 부여로 여러 번 실행해도 중복 생성 방지
-            doc_ids.append(f"project:{row['project_id']}")
+            # [수정] 채용공고에도 기본 status 'ACTIVE' 추가 (에러 방지용)
+            all_documents.append(Document(
+                page_content=text, 
+                metadata={
+                    "id": row['id'], 
+                    "type": "job_posting", 
+                    "ref_id": row['id'],
+                    "status": "ACTIVE" 
+                }
+            ))
+            all_ids.append(f"job:{row['id']}")
 
-        if documents:
-            # ids 인자를 사용하여 기존 데이터를 업데이트(Upsert) 함
-            vectorstore.add_documents(documents, ids=doc_ids)
-            print(f"Successfully synced {len(documents)} records.")
+        # 벡터 DB 업데이트
+        if all_documents:
+            # 동일한 ID가 있으면 덮어쓰기(Upsert) 방식으로 작동함
+            vectorstore.add_documents(all_documents, ids=all_ids)
+            print(f"동기화 완료! 프로젝트: {len(df_projects)}건, 채용공고: {len(df_jobs)}건")
 
     finally:
-        if should_close:
-            conn.close()
+        conn.close()
 
 if __name__ == "__main__":
     sync_maria_to_chroma()
