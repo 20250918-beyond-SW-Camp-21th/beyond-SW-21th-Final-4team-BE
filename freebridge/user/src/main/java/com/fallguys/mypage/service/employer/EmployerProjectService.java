@@ -1,6 +1,7 @@
 package com.fallguys.mypage.service.employer;
 
 import com.fallguys.mypage.api.web.dto.employer.response.EmployerProjectStatsResponseDto;
+import com.fallguys.mypage.api.web.dto.employer.response.EmployerProjectListResponseDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -36,7 +37,7 @@ public class EmployerProjectService {
         }
     }
 
-    public java.util.List<com.fallguys.mypage.api.web.dto.employer.response.EmployerProjectListResponseDto> getMyProjects(Long employerId, String statusFilter) {
+    public java.util.List<EmployerProjectListResponseDto> getMyProjects(Long employerId, String statusFilter) {
         String redisKey = "employer:project:list:" + employerId;
         
         try {
