@@ -18,5 +18,6 @@ public class ExternalUserResponse {
     private String name;
     private String role; // Enum 대신 String 사용하여 강한 결합 제거
     private Boolean emailVerified;
+    private Boolean emailEnabled;
     private LocalDateTime createdAt;
 }

@@ -63,6 +63,7 @@ public class ExternalUserApiImpl implements ExternalUserApi {
                 // Enum 대신 String으로 전달하여 타 모듈에서의 역직렬화 및 강결합 문제 방지
                 .role(user.getRole() != null ? user.getRole().name() : null)
                 .emailVerified(user.getEmailVerified())
+                .emailEnabled(user.getEmailEnabled())
                 .createdAt(user.getCreatedAt())
                 .build();
     }
