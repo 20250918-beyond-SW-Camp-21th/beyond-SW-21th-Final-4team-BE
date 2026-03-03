@@ -20,6 +20,7 @@ import com.fallguys.recruitment.repository.ProjectPostingRepo;
 import com.fallguys.recruitment.service.port.RecruitmentUser;
 import com.fallguys.recruitment.service.port.RecruitmentUserReader;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +33,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -284,18 +286,29 @@ public class JobPostingServiceImpl implements JobPostingService {
         RecruitmentUser freelancer = recruitmentUserReader.getFreelancerByIdOrThrow(freelancerId);
         String syncContent = String.format("프로젝트 완료: %s", project.getProjectName());
 
+        Runnable syncTask = () -> {
+            try {
+                recommendationEngine.syncToAiServer(
+                        freelancer.id(),
+                        "experience",
+                        syncContent,
+                        freelancer.status()
+                );
+            } catch (Exception e) {
+                log.error("프로젝트 완료 후 AI 서버 동기화 실패 - 프리랜서 ID: {}, 내용: {}", freelancer.id(), syncContent, e);
+            }
+        };
+
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    recommendationEngine.syncToAiServer(
-                            freelancer.id(),
-                            "experience",
-                            syncContent,
-                            freelancer.status()
-                    );
+                    syncTask.run();
                 }
             });
+        } else {
+            log.warn("활성화된 트랜잭션이 없어 즉시 AI 동기화를 실행합니다. 프로젝트 ID: {}", projectId);
+            syncTask.run();
         }
     }
 }
