@@ -5,6 +5,7 @@ import com.fallguys.common.security.CustomUserDetails;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerAiPositivityIndexDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerAiReputationReportDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerEvaluationSummaryDto;
+import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerStrengthWeaknessDto;
 import com.fallguys.mypage.service.freelancer.FreelancerReviewService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -41,5 +42,12 @@ public class FreelancerReviewController {
     @GetMapping("/ai/positivity")
     public ApiResponse<FreelancerAiPositivityIndexDto> getAiPositivityIndex(@AuthenticationPrincipal CustomUserDetails userDetails) {
         return ApiResponse.ok(freelancerReviewService.getAiPositivityIndex(userDetails.getId()));
+    }
+
+    @Operation(summary = "강점/약점 분석 조회",
+            description = "AI가 분석한 프리랜서 강점 3가지, 약점 3가지를 조회합니다. (구현 예정)")
+    @GetMapping("/ai/strength-weakness")
+    public ApiResponse<FreelancerStrengthWeaknessDto> getStrengthWeaknessAnalysis(@AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ApiResponse.ok(freelancerReviewService.getStrengthWeaknessAnalysis(userDetails.getId()));
     }
 }

@@ -3,6 +3,7 @@ package com.fallguys.mypage.service.freelancer;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerAiPositivityIndexDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerAiReputationReportDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerEvaluationSummaryDto;
+import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerStrengthWeaknessDto;
 import com.fallguys.mypage.entity.freelancer.Freelancer;
 import com.fallguys.mypage.repository.freelancer.FreelancerRepository;
 import lombok.RequiredArgsConstructor;
@@ -67,6 +68,18 @@ public class FreelancerReviewService {
     public FreelancerAiPositivityIndexDto getAiPositivityIndex(Long userId) {
         // TODO: AI 도메인에서 전달된 긍정 지수(positivityScore) 및 등급(grade)을 조회하는 로직 구현 예정
         return new FreelancerAiPositivityIndexDto(null, null);
+    }
+
+    /**
+     * 프리랜서 강점/약점 분석 조회 (뼈대 - AI 도메인 연동 예정)
+     * AI가 분석한 강점 3가지, 약점 3가지를 반환합니다.
+     */
+    public FreelancerStrengthWeaknessDto getStrengthWeaknessAnalysis(Long userId) {
+        // TODO: AI 도메인에서 전달한 평점/리뷰 데이터를 바탕으로 강점/약점 항목 조회 로직 구현 예정
+        return new FreelancerStrengthWeaknessDto(
+                Collections.emptyList(), // 강점 최대 3가지 (예: "전문성 우수", "의사소통 원활", "일정준수")
+                Collections.emptyList()  // 약점 최대 3가지
+        );
     }
 
     // ─── 내부 헬퍼 ──────────────────────────────────────────────
