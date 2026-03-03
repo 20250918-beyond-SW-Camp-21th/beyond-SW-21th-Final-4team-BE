@@ -1,29 +1,41 @@
 package com.fallguys.mypage.api.web;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Profile;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/employer/mypage/test")
 @RequiredArgsConstructor
+@Profile({"local", "dev"})
 public class RedisMockController {
 
     private final RedisTemplate<String, Object> redisTemplate;
 
-    @GetMapping("/inject-mock-data")
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/inject-mock-data")
     public String injectMockData() {
         // 1. Employer Review Summary Data
         String reviewKey = "employer:review:rates:1";
-        redisTemplate.opsForValue().set(reviewKey, 
-            "[{\"atmosphereRate\": 4.5, \"requirementsDetailRate\": 4.0, \"scheduleAdherenceRate\": 5.0}, {\"atmosphereRate\": 3.5, \"requirementsDetailRate\": 4.5, \"scheduleAdherenceRate\": 4.5}]");
+        List<Map<String, Double>> mockReviews = List.of(
+            Map.of("atmosphereRate", 4.5, "requirementsDetailRate", 4.0, "scheduleAdherenceRate", 5.0),
+            Map.of("atmosphereRate", 3.5, "requirementsDetailRate", 4.5, "scheduleAdherenceRate", 4.5)
+        );
+        redisTemplate.opsForValue().set(reviewKey, mockReviews);
 
         // 2. Employer Project Stats Data
         String statsKey = "employer:project:stats:1";
-        redisTemplate.opsForValue().set(statsKey, 
-            "{\"totalProjects\": 15, \"activeApplicants\": 3, \"contractedFreelancers\": 7}");
+        Map<String, Integer> mockStats = Map.of(
+            "totalProjects", 15, "activeApplicants", 3, "contractedFreelancers", 7
+        );
+        redisTemplate.opsForValue().set(statsKey, mockStats);
 
         // 3. Employer Project List Data
         String listKey = "employer:project:list:1";

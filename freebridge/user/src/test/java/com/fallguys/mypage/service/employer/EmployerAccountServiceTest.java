@@ -95,6 +95,20 @@ class EmployerAccountServiceTest {
     }
 
     @Test
+    @DisplayName("구독 플랜 변경 신청: 소문자 입력 시 대문자로 변환되어 SharedMypageApi에 정상 전달된다")
+    void updateSubscription_LowercaseInput_Success() {
+        // Given
+        Long employerId = 1L;
+        UpdateSubscriptionRequestDto request = new UpdateSubscriptionRequestDto("prime");
+
+        // When
+        employerAccountService.updateSubscription(employerId, request);
+
+        // Then
+        verify(sharedMypageApi, times(1)).updateSubscription(employerId, "PRIME");
+    }
+
+    @Test
     @DisplayName("비밀번호 변경 신청: SharedMypageApi의 updatePassword가 정상적으로 호출된다")
     void updatePassword_Success() {
         // Given

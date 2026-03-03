@@ -11,6 +11,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.junit.jupiter.api.Assertions;
 
 import java.util.Optional;
 
@@ -120,6 +121,33 @@ class EmployerProfileServiceTest {
         assertThat(mockEmployer.getWebsiteUrl()).isEqualTo("https://new.com");
         assertThat(mockEmployer.getDescription()).isEqualTo("Updated Description");
     }
+
+    @Test
+    @DisplayName("[TDD] 3-1. 고용주 프로필 업데이트 시 잘못된 Scale 값은 IllegalArgumentException 예외를 발생시킨다")
+    void verify_scale_parsing_failure_throws_exception() {
+        // given
+        Long userId = 300L;
+        Employer mockEmployer = Employer.create(userId, Subscription.BASIC, "Old Company", Scale.S1_4);
+        given(employerRepository.findByUserId(userId)).willReturn(Optional.of(mockEmployer));
+
+        com.fallguys.mypage.api.web.dto.employer.request.EmployerProfileUpdateRequestDto requestDto =
+                new com.fallguys.mypage.api.web.dto.employer.request.EmployerProfileUpdateRequestDto(
+                        "New Company",
+                        "FinTech",
+                        "INVALID_SCALE",
+                        "Yeouido",
+                        "https://new.com",
+                        "Updated Description"
+                );
+
+        // when & then
+        IllegalArgumentException exception = Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> employerProfileService.updateProfile(userId, requestDto)
+        );
+        assertThat(exception.getMessage()).contains("유효하지 않은 기업 규모(Scale) 값입니다: INVALID_SCALE");
+    }
+
     @Test
     @DisplayName("[TDD] 4. 고용주 로고 이미지 파일 S3 업로드 및 Entity 변경 검증")
     void verify_logo_upload_and_update_interaction() throws java.io.IOException {

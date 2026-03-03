@@ -11,6 +11,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 
 import java.util.List;
 import java.util.Map;
@@ -29,6 +31,12 @@ class EmployerReviewServiceTest {
 
     @Mock
     private ReviewEngine reviewEngine;
+
+    @Captor
+    private ArgumentCaptor<List<Integer>> scoresCaptor;
+
+    @Captor
+    private ArgumentCaptor<List<String>> reviewsCaptor;
 
     @InjectMocks
     private EmployerReviewService employerReviewService;
@@ -115,7 +123,13 @@ class EmployerReviewServiceTest {
         assertEquals(1, result.negativeKeywords().size());
         assertEquals("신속함", result.positiveKeywords().get(0));
 
-        verify(reviewEngine, times(1)).analyzeReputation(anyList(), anyList());
+        verify(reviewEngine, times(1)).analyzeReputation(scoresCaptor.capture(), reviewsCaptor.capture());
+        
+        List<Integer> capturedScores = scoresCaptor.getValue();
+        List<String> capturedReviews = reviewsCaptor.getValue();
+        
+        assertEquals(mockScores, capturedScores);
+        assertEquals(List.of("좋아요", "무난합니다", "아쉽네요", "최고에요"), capturedReviews);
     }
 
     @Test

@@ -14,6 +14,7 @@ import org.springframework.data.redis.core.ValueOperations;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -100,6 +101,28 @@ class EmployerProjectServiceTest {
     }
 
     @Test
+    @DisplayName("고용주 프로젝트 목록 조회: Redis Map 내에 status 키가 없을 때 NPE 없이 안전하게 처리된다")
+    void getMyProjects_MissingStatusKey_ReturnsGracefully() {
+        // Given
+        Long employerId = 1L;
+        String redisKey = "employer:project:list:" + employerId;
+
+        // "status" 키가 없는 Map
+        java.util.List<Map<String, Object>> mockRedisList = java.util.List.of(
+            Map.of("projectId", 101, "title", "A", "applicantCount", 5, "createdAt", "2026-03-01T10:00:00", "deadline", "2026-03-15T23:59:59")
+        );
+
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get(redisKey)).thenReturn(mockRedisList);
+
+        // When (statusFilter를 null로 주어 필터링 없이 전체 조회 시도)
+        java.util.List<com.fallguys.mypage.api.web.dto.employer.response.EmployerProjectListResponseDto> result = employerProjectService.getMyProjects(employerId, null);
+
+        // Then
+        assertEquals(1, result.size());
+    }
+
+    @Test
     @DisplayName("특정 프로젝트 지원자 현황 조회: Redis 값이 없거나 null이면 빈 리스트를 반환한다")
     void getMyProjects_Empty() {
         // Given
@@ -140,6 +163,30 @@ class EmployerProjectServiceTest {
         assertEquals("검토중", result.get(0).applyStatus());
         assertEquals(2L, result.get(1).freelancerId());
         assertEquals("면접", result.get(1).applyStatus());
+    }
+
+    @Test
+    @DisplayName("특정 프로젝트 지원자 현황 조회: Redis Map 내에 applyStatus 키가 없을 때 NPE 없이 null로 파싱된다")
+    void getApplicantStatus_MissingApplyStatusKey_ReturnsGracefully() {
+        // Given
+        Long projectId = 101L;
+        String redisKey = "employer:project:applicants:" + projectId;
+
+        // "applyStatus" 키가 없는 Map
+        java.util.List<Map<String, Object>> mockRedisList = java.util.List.of(
+            Map.of("freelancerId", 1)
+        );
+
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get(redisKey)).thenReturn(mockRedisList);
+
+        // When
+        java.util.List<EmployerApplicantStatusResponseDto> result = employerProjectService.getApplicantStatus(1L, projectId);
+
+        // Then
+        assertEquals(1, result.size());
+        assertEquals(1L, result.get(0).freelancerId());
+        assertNull(result.get(0).applyStatus());
     }
 
     @Test
