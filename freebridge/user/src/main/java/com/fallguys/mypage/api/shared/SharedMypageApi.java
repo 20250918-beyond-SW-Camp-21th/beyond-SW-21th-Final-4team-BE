@@ -10,9 +10,10 @@ public interface SharedMypageApi {
      * (추후 FeignClient 등으로 치환될 예정)
      *
      * @param userId 변경할 대상 사용자의 고유 ID
+     * @param currentPassword 현재 비밀번호
      * @param updatedPassword 변경할 새 비밀번호
      */
-    void updatePassword(Long userId, String updatedPassword);
+    void updatePassword(Long userId, String currentPassword, String updatedPassword);
 
     EmployerSubscriptionResponseDto getSubscription(Long userId);
 

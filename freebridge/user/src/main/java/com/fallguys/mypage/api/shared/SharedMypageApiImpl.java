@@ -22,9 +22,9 @@ public class SharedMypageApiImpl implements SharedMypageApi {
     private final EmployerRepository employerRepository;
 
     @Override
-    public void updatePassword(Long userId, String updatedPassword) {
+    public void updatePassword(Long userId, String currentPassword, String updatedPassword) {
         log.info("SharedMypageApi: 외부 User 모듈로 비밀번호 변경(updatePassword) 요청이 전달되었습니다. (userId: {})", userId);
-        externalUserApi.updatePassword(userId, updatedPassword);
+        externalUserApi.updatePassword(userId, currentPassword, updatedPassword);
     }
 
     @Override

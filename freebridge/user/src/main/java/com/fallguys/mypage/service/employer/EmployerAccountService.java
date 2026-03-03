@@ -31,7 +31,7 @@ public class EmployerAccountService {
 
     public void updatePassword(Long employerId, UpdatePasswordRequestDto request) {
         // TDD Green Phase: call external module api
-        sharedMypageApi.updatePassword(employerId, request.newPassword());
+        sharedMypageApi.updatePassword(employerId, request.currentPassword(), request.newPassword());
     }
 
     @Transactional

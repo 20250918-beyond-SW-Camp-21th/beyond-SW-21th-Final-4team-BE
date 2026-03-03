@@ -34,13 +34,12 @@ public interface ExternalUserApi {
 
     /**
      * 사용자 ID로 비밀번호를 변경합니다.
-     * 타 모듈(예: 관리자 기능 등)에서 비밀번호 강제 변경이 필요할 때 사용합니다.
      * 
      * @param userId 변경할 대상 사용자의 고유 ID
-     * 
+     * @param currentPassword 현재 비밀번호
      * @param newPassword 변경할 새로운 비밀번호 (암호화되어야 함)
      */
-    void updatePassword(Long userId, String newPassword);
+    void updatePassword(Long userId, String currentPassword, String newPassword);
 
     /**
      * 사용자 ID로 이메일 알림 수신 동의 설정을 변경합니다.
