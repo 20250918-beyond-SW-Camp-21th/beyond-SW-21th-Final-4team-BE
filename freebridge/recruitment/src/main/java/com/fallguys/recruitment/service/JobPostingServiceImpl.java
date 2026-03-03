@@ -1,9 +1,11 @@
 package com.fallguys.recruitment.service;
 
+import com.fallguys.common.ai.port.RecommendationEngine;
 import com.fallguys.common.exception.BusinessException;
 import com.fallguys.common.exception.ErrorCode;
 import com.fallguys.recruitment.api.dto.request.JobPostingCreateDTO;
 import com.fallguys.recruitment.api.dto.request.JobPostingUpdateDTO;
+import com.fallguys.recruitment.api.dto.response.AiRecommendationResponseDTO;
 import com.fallguys.recruitment.api.dto.response.EmployerProjectSearchDTO;
 import com.fallguys.recruitment.api.dto.response.FreelancerJobPostingSearchDTO;
 import com.fallguys.recruitment.api.dto.response.JobPostingSearchDTO;
@@ -38,6 +40,7 @@ public class JobPostingServiceImpl implements JobPostingService {
     private final JobPostingFavoriteRepo jobPostingFavoriteRepo;
     private final ProjectPostingRepo projectPostingRepo;
     private final RecruitmentUserReader recruitmentUserReader;
+    private final RecommendationEngine recommendationEngine; // AiAdapter 주입
 
     @Override
     @Transactional(readOnly = true)
@@ -223,5 +226,22 @@ public class JobPostingServiceImpl implements JobPostingService {
 
     private boolean containsIgnoreCase(String source, String keyword) {
         return source != null && source.toLowerCase(Locale.ROOT).contains(keyword);
+    }
+
+    @Override
+    public List<AiRecommendationResponseDTO> getRecommendedFreelancers(Long jobPostingId, Long userId) {
+        JobPosting jobPosting = getJobPostingOrThrow(jobPostingId);
+
+        validateNotDeleted(jobPosting);
+
+        validateOwnership(jobPosting, userId);
+
+        // 4. FastAPI 호출
+        return recommendationEngine.recommendFreelancers(
+                jobPosting.getId(),
+                jobPosting.getTitle(),
+                jobPosting.getDescription(),
+                AiRecommendationResponseDTO.class
+        );
     }
 }

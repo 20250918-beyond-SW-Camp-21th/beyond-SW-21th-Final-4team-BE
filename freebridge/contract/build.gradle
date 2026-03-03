@@ -16,4 +16,5 @@ dependencies {
     runtimeOnly 'org.mariadb.jdbc:mariadb-java-client'
     // Swagger 설정 템플릿 참조용 (필수)
     compileOnly 'org.springdoc:springdoc-openapi-starter-webmvc-ui'
+    testImplementation 'org.springframework.security:spring-security-test'
 }
