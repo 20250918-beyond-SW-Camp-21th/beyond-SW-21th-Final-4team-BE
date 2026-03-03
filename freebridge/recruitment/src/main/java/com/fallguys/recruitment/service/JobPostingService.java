@@ -32,6 +32,6 @@ public interface JobPostingService {
 
     void removeFavoriteJobPosting(Long userId, Long jobPostingId);
 
-    List<AiRecommendationResponseDTO> getRecommendedFreelancers(Long jobPostingId);
+    List<AiRecommendationResponseDTO> getRecommendedFreelancers(Long jobPostingId, Long userId);
 
 }

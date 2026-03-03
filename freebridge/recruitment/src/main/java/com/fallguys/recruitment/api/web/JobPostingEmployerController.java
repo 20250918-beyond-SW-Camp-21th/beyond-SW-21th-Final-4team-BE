@@ -85,14 +85,15 @@ public class JobPostingEmployerController {
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
-    @Operation(summary = "공고 맞춤 프리랜서 추천")
     @GetMapping("/api/v1/employer/jobs/{jobPostingId}/recommendations")
     public ResponseEntity<ApiResponse<List<AiRecommendationResponseDTO>>> getFreelancerRecommendations(
             @RequestHeader("Authorization") String authorization,
             @PathVariable Long jobPostingId
     ) {
-        // 서비스 호출 (서비스 내부에서 DB 조회 + FastAPI 통신 처리)
-        List<AiRecommendationResponseDTO> recommendations = jobPostingService.getRecommendedFreelancers(jobPostingId);
+        Long userId = tokenUserIdResolver.resolveUserId(authorization);
+
+        List<AiRecommendationResponseDTO> recommendations = jobPostingService.getRecommendedFreelancers(jobPostingId, userId);
+
         return ResponseEntity.ok(ApiResponse.ok(recommendations));
     }
 }

@@ -2,7 +2,7 @@ import os
 import logging
 from fastapi import FastAPI
 from dotenv import load_dotenv
-from routers import recommendation # 분리한 라우터 임포트
+from routers import recommendation
 
 # .env 로드
 load_dotenv()

@@ -104,8 +104,12 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                     })
                     .body(String.class);
 
-            // FastAPI 응답에서 data 필드만 추출해서 리스트로 변환
             JsonNode root = objectMapper.readTree(rawJson);
+
+            if (root == null || !root.has("data") || !root.get("data").isArray()) {
+                throw new RuntimeException("AI 서버로부터 잘못된 응답 형식을 수신했습니다. 수신 데이터: " + rawJson);
+            }
+
             JsonNode dataNode = root.get("data");
 
             return objectMapper.readValue(dataNode.toString(),

@@ -229,10 +229,14 @@ public class JobPostingServiceImpl implements JobPostingService {
     }
 
     @Override
-    public List<AiRecommendationResponseDTO> getRecommendedFreelancers(Long jobPostingId) {
+    public List<AiRecommendationResponseDTO> getRecommendedFreelancers(Long jobPostingId, Long userId) {
         // MariaDB 공고 상세 조회
         JobPosting jobPosting = jobPostingRepo.findById(jobPostingId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.JOB_POSTING_NOT_FOUND));
+
+        if (!jobPosting.getEmployerId().equals(userId)) {
+            throw new BusinessException(ErrorCode.JOB_POSTING_FORBIDDEN); // 403 에러
+        }
 
         return recommendationEngine.recommendFreelancers(
                 jobPosting.getId(),
