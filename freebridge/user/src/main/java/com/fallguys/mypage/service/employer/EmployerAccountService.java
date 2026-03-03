@@ -16,6 +16,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.fallguys.mypage.entity.employer.Employer;
 import com.fallguys.mypage.entity.employer.Subscription;
+import com.fallguys.mypage.api.shared.SharedMypageApi;
+import com.fallguys.mypage.api.web.dto.employer.request.UpdatePasswordRequestDto;
 
 @Slf4j
 @Service
@@ -24,6 +26,12 @@ public class EmployerAccountService {
 
     private final RedisTemplate<String, Object> redisTemplate;
     private final EmployerRepository employerRepository;
+    private final SharedMypageApi sharedMypageApi;
+
+    public void updatePassword(Long employerId, UpdatePasswordRequestDto request) {
+        // TDD Green Phase: call external module api
+        sharedMypageApi.updatePassword(request.newPassword());
+    }
 
     @Transactional
     public void updateSubscription(Long userId, UpdateSubscriptionRequestDto request) {

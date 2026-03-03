@@ -38,18 +38,19 @@ public class EmployerAccountController {
 
     @Operation(summary = "비밀번호 변경", description = "고용주 계정의 비밀번호를 변경합니다.")
     @PutMapping("/password")
-    public ApiResponse<Void> updatePassword(@RequestHeader("X-User-Id") String userId,
+    public ApiResponse<Void> updatePassword(@AuthenticationPrincipal CustomUserDetails userDetails,
                                             @RequestBody UpdatePasswordRequestDto request) {
+        employerAccountService.updatePassword(userDetails.getId(), request);
         return ApiResponse.ok(null);
     }
 
-    @Operation(summary = "알림 설정 조회", description = "이메일/카톡 알림 수신 동의 여부를 조회합니다.")
+    @Operation(summary = "알림 설정 조회", description = "이메일 수신 동의 여부를 조회합니다.")
     @GetMapping("/notifications")
     public ApiResponse<EmployerNotificationSettingsDto> getNotificationSettings(@RequestHeader("X-User-Id") String userId) {
         return ApiResponse.ok(null);
     }
 
-    @Operation(summary = "알림 설정 변경", description = "알림 수신 동의 여부를 변경합니다.")
+    @Operation(summary = "이메일 알림 설정 변경", description = "이메일 수신 동의 여부를 변경합니다.")
     @PutMapping("/notifications")
     public ApiResponse<Void> updateNotificationSettings(@RequestHeader("X-User-Id") String userId,
                                                         @RequestBody EmployerNotificationSettingsDto request) {

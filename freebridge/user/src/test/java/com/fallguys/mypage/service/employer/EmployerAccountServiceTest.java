@@ -1,11 +1,13 @@
 package com.fallguys.mypage.service.employer;
 
+import com.fallguys.mypage.api.web.dto.employer.response.EmployerSubscriptionResponseDto;
 import com.fallguys.mypage.repository.employer.EmployerRepository;
 import com.fallguys.mypage.entity.employer.Employer;
 import com.fallguys.mypage.entity.employer.Subscription;
 import com.fallguys.mypage.api.web.dto.employer.request.UpdateSubscriptionRequestDto;
+import com.fallguys.mypage.api.shared.SharedMypageApi;
+import com.fallguys.mypage.api.web.dto.employer.request.UpdatePasswordRequestDto;
 import java.util.Optional;
-import com.fallguys.mypage.api.web.dto.employer.response.EmployerSubscriptionResponseDto;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,6 +33,12 @@ class EmployerAccountServiceTest {
 
     @Mock
     private ValueOperations<String, Object> valueOperations;
+
+    @Mock
+    private EmployerRepository employerRepository;
+
+    @Mock
+    private SharedMypageApi sharedMypageApi;
 
     @InjectMocks
     private EmployerAccountService employerAccountService;
@@ -78,8 +86,6 @@ class EmployerAccountServiceTest {
         assertNull(result.features());
         assertNull(result.nextBillingDate());
     }
-    @Mock
-    private EmployerRepository employerRepository;
 
     @Test
     @DisplayName("구독 플랜 변경 신청: 정상적으로 엔티티의 Subscription 필드가 갱신된다")
@@ -118,5 +124,20 @@ class EmployerAccountServiceTest {
 
         // Then (changeSubscription should not be called since there is no entity)
         // verify no interactions
+    }
+
+    @Test
+    @DisplayName("비밀번호 변경 신청: SharedMypageApi의 updatePassword가 정상적으로 호출된다")
+    void updatePassword_Success() {
+        // Given
+        Long employerId = 1L;
+        String newPassword = "newPassword123!";
+        UpdatePasswordRequestDto request = new UpdatePasswordRequestDto("oldPassword", newPassword);
+
+        // When
+        employerAccountService.updatePassword(employerId, request);
+
+        // Then
+        verify(sharedMypageApi, times(1)).updatePassword(newPassword);
     }
 }
