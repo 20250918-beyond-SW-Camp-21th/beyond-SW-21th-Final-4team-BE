@@ -11,6 +11,8 @@ import com.fallguys.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.Optional;
+
 @Component
 @RequiredArgsConstructor
 public class RecruitmentUserReaderImpl implements RecruitmentUserReader {
@@ -30,17 +32,21 @@ public class RecruitmentUserReaderImpl implements RecruitmentUserReader {
     @Override
     public RecruitmentUser getFreelancerByIdOrThrow(Long userId) {
         User user = getByIdOrThrow(userId);
+
         if (user.getRole() != Role.FREELANCER) {
             throw new BusinessException(ErrorCode.ONLY_FREELANCER_ALLOWED);
         }
+
         var freelancer = freelancerRepository.findByUserId(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
         return new RecruitmentUser(
                 user.getId(),
                 user.getName(),
-                freelancer.getSkills().toString(),
-                freelancer.getIntroduction(),
-                freelancer.getStatus().name());
+                Optional.ofNullable(freelancer.getSkills()).map(Object::toString).orElse("[]"),
+                Optional.ofNullable(freelancer.getIntroduction()).orElse("정보 없음"),
+                Optional.ofNullable(freelancer.getStatus()).map(Enum::name).orElse("POTENTIAL")
+        );
     }
 
     private User getByIdOrThrow(Long userId) {

@@ -23,7 +23,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashSet;
@@ -246,13 +248,12 @@ public class JobPostingServiceImpl implements JobPostingService {
 
     @Override     // 프리랜서용 추천
     public List<AiRecommendationResponseDTO> getRecommendedJobsForFreelancer(Long userId) {
-        // 1. 프리랜서 정보 조회 (이미 reader가 있어서 다행이야!)
+        // 1. 프리랜서 정보 조회
         RecruitmentUser freelancer = recruitmentUserReader.getFreelancerByIdOrThrow(userId);
 
         // 2. 추천에 필요한 텍스트 가공
-        // freelancer 객체에 담긴 실제 데이터를 사용해 (필드명은 RecruitmentUser 정의에 맞춰서 수정해줘)
-        String skills = freelancer.skills(); // 예: "Java, Spring, Vue"
-        String experience = freelancer.experience(); // 예: "3년차 백엔드..."
+        String skills = freelancer.skills();
+        String experience = freelancer.experience();
 
         // 3. AI 서버 호출
         return recommendationEngine.recommendJobs(
@@ -264,22 +265,27 @@ public class JobPostingServiceImpl implements JobPostingService {
     }
 
     @Transactional
-    public void completeProject(Long projectId){
+    public void completeProject(Long projectId) {
         Project project = projectPostingRepo.findById(projectId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.PROJECT_NOT_FOUND));
         project.complete();
 
         Long freelancerId = project.getFreelancerId();
-
         RecruitmentUser freelancer = recruitmentUserReader.getFreelancerByIdOrThrow(freelancerId);
-
         String syncContent = String.format("프로젝트 완료: %s", project.getProjectName());
 
-        recommendationEngine.syncToAiServer(
-                freelancer.id(),
-                "experience",
-                syncContent,
-                freelancer.status()
-        );
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    recommendationEngine.syncToAiServer(
+                            freelancer.id(),
+                            "experience",
+                            syncContent,
+                            freelancer.status()
+                    );
+                }
+            });
+        }
     }
 }

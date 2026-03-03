@@ -17,6 +17,7 @@ import org.springframework.web.client.RestClient;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
 @Slf4j
 @Component
@@ -25,6 +26,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
+    private final Executor taskExecutor; // [코드래빗 피드백] AsyncConfig의 taskExecutor 주입
 
     @Value("${fallguys.ai.python-url}")
     private String pythonUrl;
@@ -56,7 +58,6 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
     @Override
     public <T> List<T> recommend(String type, Long id, Class<T> responseType) {
         try {
-            // 1. Raw JSON String으로 가져오기
             String rawJson = restClient.get()
                     .uri(pythonUrl + "/ai/recommend/{type}/{id}", type, id)
                     .retrieve()
@@ -91,9 +92,9 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
         }
     }
 
+    @Override
     public <T> List<T> recommendFreelancers(Long jobId, String title, String description, Class<T> responseType) {
         try {
-            // FastAPI의 /api/v1/employer/recommendations 엔드포인트로 POST 요청
             String rawJson = restClient.post()
                     .uri(pythonUrl + "/api/v1/employer/recommendations")
                     .body(Map.of(
@@ -126,7 +127,6 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
     @Override
     public <T> List<T> recommendJobs(Long freelancerId, String skills, String experience, Class<T> responseType) {
         try {
-            // FastAPI의 프리랜서용 추천 엔드포인트 호출
             String rawJson = restClient.post()
                     .uri(pythonUrl + "/api/v1/freelancer/recommendations")
                     .body(Map.of(
@@ -154,6 +154,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
         }
     }
 
+    @Override
     public void syncToAiServer(Long id, String type, String content, String status) {
         CompletableFuture.runAsync(() -> {
             try {
@@ -166,10 +167,14 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                                 "status", status
                         ))
                         .retrieve()
+                        .onStatus(HttpStatusCode::isError, (request, response) -> {
+                            throw new RuntimeException("AI 서버 응답 오류: " + response.getStatusCode());
+                        })
                         .toBodilessEntity();
+                log.info("AI 서버 실시간 동기화 성공: id={}, type={}", id, type);
             } catch (Exception e) {
-                log.error("AI 서버 실시간 동기화 실패: {}", e.getMessage());
+                log.error("AI 서버 실시간 동기화 실패: id={}, type={}", id, type, e);
             }
-        });
+        }, taskExecutor);
     }
 }
