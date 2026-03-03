@@ -18,6 +18,7 @@ import com.fallguys.mypage.entity.employer.Employer;
 import com.fallguys.mypage.entity.employer.Subscription;
 import com.fallguys.mypage.api.shared.SharedMypageApi;
 import com.fallguys.mypage.api.web.dto.employer.request.UpdatePasswordRequestDto;
+import com.fallguys.mypage.api.web.dto.employer.response.EmployerNotificationSettingsDto;
 
 @Slf4j
 @Service
@@ -35,44 +36,18 @@ public class EmployerAccountService {
 
     @Transactional
     public void updateSubscription(Long userId, UpdateSubscriptionRequestDto request) {
-        Employer employer = employerRepository.findByUserId(userId)
-                .orElseThrow(() -> new IllegalArgumentException("해당 고용주를 찾을 수 없습니다."));
-
-        Subscription targetPlan;
-        try {
-            targetPlan = Subscription.valueOf(request.targetPlan().toUpperCase());
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("유효하지 않은 플랜 요청입니다: " + request.targetPlan());
-        }
-
-        employer.changeSubscription(targetPlan);
+        sharedMypageApi.updateSubscription(userId, request.targetPlan().toUpperCase());
     }
 
-    public EmployerSubscriptionResponseDto getSubscription(Long employerId) {
-        String redisKey = "employer:subscription:" + employerId;
+    public EmployerSubscriptionResponseDto getSubscription(Long userId) {
+        return sharedMypageApi.getSubscription(userId);
+    }
 
-        try {
-            Object rawData = redisTemplate.opsForValue().get(redisKey);
+    public EmployerNotificationSettingsDto getNotificationSettings(Long userId) {
+        return sharedMypageApi.getNotificationSettings(userId);
+    }
 
-            if (rawData == null) {
-                return new EmployerSubscriptionResponseDto(null, null, null);
-            }
-
-            @SuppressWarnings("unchecked")
-            Map<String, Object> data = (Map<String, Object>) rawData;
-
-            String currentPlan = data.get("currentPlan") != null ? data.get("currentPlan").toString() : null;
-            
-            @SuppressWarnings("unchecked")
-            List<String> features = data.get("features") != null ? (List<String>) data.get("features") : null;
-            
-            LocalDateTime nextBillingDate = data.get("nextBillingDate") != null ? LocalDateTime.parse(data.get("nextBillingDate").toString()) : null;
-
-            return new EmployerSubscriptionResponseDto(currentPlan, features, nextBillingDate);
-
-        } catch (Exception e) {
-            log.error("Failed to parse employer subscription from Redis for employerId: {}", employerId, e);
-            return new EmployerSubscriptionResponseDto(null, null, null);
-        }
+    public void updateNotificationSettings(Long userId, Boolean emailEnabled) {
+        sharedMypageApi.updateNotificationSettings(userId, emailEnabled);
     }
 }

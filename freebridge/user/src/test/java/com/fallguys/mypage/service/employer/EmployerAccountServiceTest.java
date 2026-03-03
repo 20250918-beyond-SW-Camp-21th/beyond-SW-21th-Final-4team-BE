@@ -7,6 +7,8 @@ import com.fallguys.mypage.entity.employer.Subscription;
 import com.fallguys.mypage.api.web.dto.employer.request.UpdateSubscriptionRequestDto;
 import com.fallguys.mypage.api.shared.SharedMypageApi;
 import com.fallguys.mypage.api.web.dto.employer.request.UpdatePasswordRequestDto;
+import com.fallguys.mypage.api.web.dto.employer.response.EmployerSubscriptionResponseDto;
+import com.fallguys.mypage.api.web.dto.employer.response.EmployerNotificationSettingsDto;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -29,12 +31,6 @@ import static org.mockito.Mockito.*;
 class EmployerAccountServiceTest {
 
     @Mock
-    private RedisTemplate<String, Object> redisTemplate;
-
-    @Mock
-    private ValueOperations<String, Object> valueOperations;
-
-    @Mock
     private EmployerRepository employerRepository;
 
     @Mock
@@ -44,20 +40,17 @@ class EmployerAccountServiceTest {
     private EmployerAccountService employerAccountService;
 
     @Test
-    @DisplayName("고용주 구독 정보 조회: Redis에서 정보를 정상적으로 가져와 파싱한다")
+    @DisplayName("고용주 구독 정보 조회: SharedMypageApi를 통해 정상적으로 구독 정보를 가져온다")
     void getSubscription_Success() {
         // Given
         Long employerId = 1L;
-        String redisKey = "employer:subscription:" + employerId;
-
-        Map<String, Object> mockData = Map.of(
-            "currentPlan", "PRIME",
-            "features", List.of("인재풀 무제한 열람", "프로젝트 상단 노출", "수수료 면제"),
-            "nextBillingDate", "2026-04-03T12:00:00"
+        EmployerSubscriptionResponseDto mockResponse = new EmployerSubscriptionResponseDto(
+            "PRIME",
+            List.of("인재풀 무제한 열람", "프로젝트 상단 노출", "수수료 면제"),
+            LocalDateTime.of(2026, 4, 3, 12, 0, 0)
         );
 
-        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        when(valueOperations.get(redisKey)).thenReturn(mockData);
+        when(sharedMypageApi.getSubscription(employerId)).thenReturn(mockResponse);
 
         // When
         EmployerSubscriptionResponseDto result = employerAccountService.getSubscription(employerId);
@@ -66,17 +59,16 @@ class EmployerAccountServiceTest {
         assertEquals("PRIME", result.currentPlan());
         assertEquals(3, result.features().size());
         assertEquals(LocalDateTime.of(2026, 4, 3, 12, 0, 0), result.nextBillingDate());
+        verify(sharedMypageApi, times(1)).getSubscription(employerId);
     }
 
     @Test
-    @DisplayName("고용주 구독 정보 조회: Redis 값이 없으면 빈 껍데기 객체를 반환한다 (오류 방지)")
+    @DisplayName("고용주 구독 정보 조회: 구독 정보가 없을 경우 null 또는 빈 객체를 반환한다")
     void getSubscription_Empty() {
         // Given
         Long employerId = 2L;
-        String redisKey = "employer:subscription:" + employerId;
 
-        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        when(valueOperations.get(redisKey)).thenReturn(null);
+        when(sharedMypageApi.getSubscription(employerId)).thenReturn(new EmployerSubscriptionResponseDto(null, null, null));
 
         // When
         EmployerSubscriptionResponseDto result = employerAccountService.getSubscription(employerId);
@@ -85,45 +77,21 @@ class EmployerAccountServiceTest {
         assertNull(result.currentPlan());
         assertNull(result.features());
         assertNull(result.nextBillingDate());
+        verify(sharedMypageApi, times(1)).getSubscription(employerId);
     }
 
     @Test
-    @DisplayName("구독 플랜 변경 신청: 정상적으로 엔티티의 Subscription 필드가 갱신된다")
+    @DisplayName("구독 플랜 변경 신청: SharedMypageApi의 updateSubscription가 정상적으로 호출된다")
     void updateSubscription_Success() {
         // Given
         Long employerId = 1L;
         UpdateSubscriptionRequestDto request = new UpdateSubscriptionRequestDto("PRIME");
-        
-        // Reflection 또는 Mock으로 Employer 객체 생성
-        Employer mockEmployer = mock(Employer.class);
-
-        when(employerRepository.findByUserId(employerId)).thenReturn(Optional.of(mockEmployer));
 
         // When
         employerAccountService.updateSubscription(employerId, request);
 
         // Then
-        verify(mockEmployer, times(1)).changeSubscription(Subscription.PRIME);
-    }
-
-    @Test
-    @DisplayName("구독 플랜 변경 신청: 존재하지 않는 회원인 경우 예외 또는 무시 처리")
-    void updateSubscription_NotFound() {
-        // Given
-        Long employerId = 999L;
-        UpdateSubscriptionRequestDto request = new UpdateSubscriptionRequestDto("PRO");
-
-        when(employerRepository.findByUserId(employerId)).thenReturn(Optional.empty());
-
-        // When
-        try {
-            employerAccountService.updateSubscription(employerId, request);
-        } catch (IllegalArgumentException e) {
-            assertEquals("해당 고용주를 찾을 수 없습니다.", e.getMessage());
-        }
-
-        // Then (changeSubscription should not be called since there is no entity)
-        // verify no interactions
+        verify(sharedMypageApi, times(1)).updateSubscription(employerId, "PRIME");
     }
 
     @Test
@@ -139,5 +107,21 @@ class EmployerAccountServiceTest {
 
         // Then
         verify(sharedMypageApi, times(1)).updatePassword(newPassword);
+    }
+
+    @Test
+    @DisplayName("알림 설정 조회: SharedMypageApi를 통해 알림 설정을 정상적으로 조회한다")
+    void getNotificationSettings_Success() {
+        // Given
+        Long employerId = 1L;
+        EmployerNotificationSettingsDto mockDto = new EmployerNotificationSettingsDto(true);
+        when(sharedMypageApi.getNotificationSettings(employerId)).thenReturn(mockDto);
+
+        // When
+        EmployerNotificationSettingsDto result = employerAccountService.getNotificationSettings(employerId);
+
+        // Then
+        assertEquals(true, result.emailEnabled());
+        verify(sharedMypageApi, times(1)).getNotificationSettings(employerId);
     }
 }

@@ -1,5 +1,8 @@
 package com.fallguys.mypage.api.shared;
 
+import com.fallguys.mypage.api.web.dto.employer.response.EmployerSubscriptionResponseDto;
+import com.fallguys.mypage.api.web.dto.employer.response.EmployerNotificationSettingsDto;
+
 public interface SharedMypageApi {
 
     /**
@@ -9,4 +12,12 @@ public interface SharedMypageApi {
      * @param updatedPassword 변경할 새 비밀번호
      */
     void updatePassword(String updatedPassword);
+
+    EmployerSubscriptionResponseDto getSubscription(Long userId);
+
+    void updateSubscription(Long userId, String targetPlan);
+
+    EmployerNotificationSettingsDto getNotificationSettings(Long userId);
+
+    void updateNotificationSettings(Long userId, Boolean emailEnabled);
 }

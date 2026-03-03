@@ -46,14 +46,16 @@ public class EmployerAccountController {
 
     @Operation(summary = "알림 설정 조회", description = "이메일 수신 동의 여부를 조회합니다.")
     @GetMapping("/notifications")
-    public ApiResponse<EmployerNotificationSettingsDto> getNotificationSettings(@RequestHeader("X-User-Id") String userId) {
-        return ApiResponse.ok(null);
+    public ApiResponse<EmployerNotificationSettingsDto> getNotificationSettings(@AuthenticationPrincipal CustomUserDetails userDetails) {
+        EmployerNotificationSettingsDto response = employerAccountService.getNotificationSettings(userDetails.getId());
+        return ApiResponse.ok(response);
     }
 
     @Operation(summary = "이메일 알림 설정 변경", description = "이메일 수신 동의 여부를 변경합니다.")
     @PutMapping("/notifications")
-    public ApiResponse<Void> updateNotificationSettings(@RequestHeader("X-User-Id") String userId,
+    public ApiResponse<Void> updateNotificationSettings(@AuthenticationPrincipal CustomUserDetails userDetails,
                                                         @RequestBody EmployerNotificationSettingsDto request) {
+        employerAccountService.updateNotificationSettings(userDetails.getId(), request.emailEnabled());
         return ApiResponse.ok(null);
     }
 }
