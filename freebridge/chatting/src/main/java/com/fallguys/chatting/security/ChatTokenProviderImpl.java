@@ -31,11 +31,11 @@ public class ChatTokenProviderImpl implements ChatTokenProvider {
             throw new IllegalArgumentException("토큰에 'role' 클레임이 존재하지 않습니다.");
         }
 
-        if ("ROLE_EMPLOYER".equals(role)) {
+        if ("ROLE_EMPLOYER".equals(role) || "EMPLOYER".equals(role)) {
             return "e" + id;
-        } else if ("ROLE_FREELANCER".equals(role)) {
+        } else if ("ROLE_FREELANCER".equals(role) || "FREELANCER".equals(role)) {
             return "f" + id;
-        } else if ("ROLE_ADMIN".equals(role)) {
+        } else if ("ROLE_ADMIN".equals(role) || "ADMIN".equals(role)) {
             return "a" + id;
         } else {
             throw new IllegalArgumentException("알 수 없는 권한입니다: " + role);

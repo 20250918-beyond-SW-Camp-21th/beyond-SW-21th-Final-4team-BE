@@ -101,8 +101,11 @@ public class ChatMessageService {
             throw new IllegalArgumentException("채팅방에 접근할 권한이 없습니다.");
         }
 
+        org.springframework.data.domain.Sort sort = org.springframework.data.domain.Sort.by(
+                org.springframework.data.domain.Sort.Order.desc("createdAt"),
+                org.springframework.data.domain.Sort.Order.desc("_id"));
         org.springframework.data.domain.PageRequest pageRequest = org.springframework.data.domain.PageRequest.of(0,
-                size);
+                size, sort);
         java.util.List<ChatMessage> messages;
 
         if (cursorDate == null) {
