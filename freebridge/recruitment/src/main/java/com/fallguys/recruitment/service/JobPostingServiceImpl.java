@@ -267,7 +267,11 @@ public class JobPostingServiceImpl implements JobPostingService {
     public void completeProject(Long projectId) {
         Project project = projectPostingRepo.findById(projectId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.PROJECT_NOT_FOUND));
-        project.complete();
+        try{
+            project.complete();
+        } catch (IllegalStateException e) {
+            throw new BusinessException(ErrorCode.PROJECT_ALREADY_COMPLETED);
+        }
 
         Long freelancerId = project.getFreelancerId();
         RecruitmentUser freelancer = recruitmentUserReader.getFreelancerByIdOrThrow(freelancerId);
