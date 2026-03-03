@@ -11,7 +11,7 @@ import com.fallguys.user.api.shared.ExternalUserApi;
 import com.fallguys.user.api.shared.response.ExternalUserResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.transaction.annotation.Transactional;
-import java.time.LocalDateTime;
+
 
 @Slf4j
 @Component
@@ -35,7 +35,7 @@ public class SharedMypageApiImpl implements SharedMypageApi {
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 고용주입니다."));
         
         String planName = employer.getSubscription() != null ? employer.getSubscription().name() : "BASIC";
-        return new EmployerSubscriptionResponseDto(planName, null, LocalDateTime.now().plusMonths(1));
+        return new EmployerSubscriptionResponseDto(planName, null, null);
     }
 
     @Override
