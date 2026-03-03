@@ -3,23 +3,23 @@ import logging
 from typing import List
 from fastapi import APIRouter, HTTPException
 from database import get_vectorstore
-from models import EmployerRecommendationResponse, FreelancerMatch, RecommendationRequest
+from models import EmployerRecommendationResponse, FreelancerMatch, FreelancerMatchList, RecommendationRequest
 from langchain_upstage import ChatUpstage
 from langchain_core.prompts import ChatPromptTemplate
 
 router = APIRouter(prefix="/api/v1/employer", tags=["Recommendation"])
 logger = logging.getLogger(__name__)
 
+_vectorstore = get_vectorstore()
+_llm = ChatUpstage(api_key=os.getenv("UPSTAGE_API_KEY"))
+
 @router.post("/recommendations", response_model=EmployerRecommendationResponse)
 async def get_job_recommendations(req: RecommendationRequest):
     try:
-        vectorstore = get_vectorstore()
-        llm = ChatUpstage(api_key=os.getenv("UPSTAGE_API_KEY"))
         
-        # 1. 출력 구조 강제
-        structured_llm = llm.with_structured_output(List[FreelancerMatch])
+        structured_llm = _llm.with_structured_output(FreelancerMatchList)
 
-        # 2. 프롬프트 설정
+        # 1. 프롬프트 설정
         prompt = ChatPromptTemplate.from_template("""
         당신은 IT 전문 헤드헌터입니다. <context> 내의 프리랜서 데이터를 분석하여 공고에 적합한 인재를 추천하세요.
         
@@ -36,30 +36,27 @@ async def get_job_recommendations(req: RecommendationRequest):
         </context>
         """)
 
-        # 3. 검색 범위 설정 및 비동기 호출
         search_query = f"{req.title} {req.description}"
-        retriever = vectorstore.as_retriever(search_kwargs={"k": 15}) 
+        retriever = _vectorstore.as_retriever(search_kwargs={"k": 15}) 
         
-        # 4. 비동기로 데이터 가져오기 (이벤트 루프 차단 방지)
         docs = await retriever.ainvoke(search_query) 
         context = "\n\n".join(doc.page_content for doc in docs)
         
-        # 5. LLM 비동기 실행
         formatted_prompt = prompt.format(
             title=req.title, 
             description=req.description, 
             context=context
         )
-        recommendations = await structured_llm.ainvoke(formatted_prompt)
+        
+        result = await structured_llm.ainvoke(formatted_prompt)
 
         return {
             "success": True,
-            "data": recommendations[:7]
+            "data": result.matches[:7] # 최종적으로 최대 7명 반환
         }
 
     except HTTPException:
-        # 이미 발생한 HTTP 예외는 그대로 전달
         raise
     except Exception as e:
-        logger.error(f"AI 추천 처리 중 오류 발생: {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        logger.exception("AI 추천 처리 중 서버 내부 오류 발생")
+        raise HTTPException(status_code=500, detail="Internal server error") from e

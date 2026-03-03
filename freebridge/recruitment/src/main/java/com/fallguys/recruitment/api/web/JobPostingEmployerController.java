@@ -85,6 +85,7 @@ public class JobPostingEmployerController {
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
+    @Operation(summary = "공고 맞춤 프리랜서 추천", description = "공고 내용을 분석하여 적합한 프리랜서 7명을 추천합니다.")
     @GetMapping("/api/v1/employer/jobs/{jobPostingId}/recommendations")
     public ResponseEntity<ApiResponse<List<AiRecommendationResponseDTO>>> getFreelancerRecommendations(
             @RequestHeader("Authorization") String authorization,
