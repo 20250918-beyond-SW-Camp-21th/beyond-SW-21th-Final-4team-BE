@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
+import org.springframework.messaging.simp.SimpMessageType;
 import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
@@ -42,6 +43,8 @@ public class StompHandler implements ChannelInterceptor {
 
                         // Redis 에 온라인 접속 상태 기록
                         chatPresenceService.connectUser(userId);
+                        // CONNECT 시에도 lastSeen 갱신
+                        chatPresenceService.touchUser(userId);
                         log.info("WebSocket CONNECT - User ID: {}", userId);
                     } catch (Exception e) {
                         log.error("웹소켓 연결 실패: 유효하지 않은 토큰입니다.", e);
@@ -60,8 +63,27 @@ public class StompHandler implements ChannelInterceptor {
                     chatPresenceService.disconnectUser(userId);
                     log.info("WebSocket DISCONNECT - User ID: {}", userId);
                 }
+            } else if (StompCommand.SUBSCRIBE == command) {
+                String userId = getUserIdFromSession(accessor);
+                if (userId != null) {
+                    chatPresenceService.touchUser(userId);
+                    log.info("WebSocket SUBSCRIBE - User ID: {}", userId);
+                }
+            } else if (command == null && accessor.getMessageType() == SimpMessageType.HEARTBEAT) {
+                String userId = getUserIdFromSession(accessor);
+                if (userId != null) {
+                    chatPresenceService.touchUser(userId);
+                    log.debug("WebSocket HEARTBEAT - User ID: {}", userId);
+                }
             }
         }
         return message;
+    }
+
+    private String getUserIdFromSession(StompHeaderAccessor accessor) {
+        java.util.Map<String, Object> sessionAttributes = java.util.Optional
+                .ofNullable(accessor.getSessionAttributes())
+                .orElseGet(java.util.concurrent.ConcurrentHashMap::new);
+        return (String) sessionAttributes.get("userId");
     }
 }
