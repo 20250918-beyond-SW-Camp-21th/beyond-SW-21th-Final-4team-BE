@@ -12,11 +12,15 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
+
+import org.springframework.context.annotation.Profile;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/v1/chat/test/config")
+@RequestMapping("/api/chat/test/config")
 @RequiredArgsConstructor
+@Profile({ "local", "dev" })
 public class ConfigTestController {
 
     private final RedisTemplate<String, Object> redisTemplate;
@@ -43,14 +47,15 @@ public class ConfigTestController {
         response.put("yml_properties", configValues);
 
         // 2. Redis 연결 테스트
+        String testKey = "test_key_" + UUID.randomUUID().toString();
         try {
-            redisTemplate.opsForValue().set("test_key", "test_value");
-            String value = (String) redisTemplate.opsForValue().get("test_key");
+            redisTemplate.opsForValue().set(testKey, "test_value");
+            String value = (String) redisTemplate.opsForValue().get(testKey);
             response.put("redis_connection", "SUCCESS (test value: " + value + ")");
-            redisTemplate.delete("test_key");
+            redisTemplate.delete(testKey);
         } catch (Exception e) {
             log.error("Redis Connection Error", e);
-            response.put("redis_connection", "FAIL (" + e.getMessage() + ")");
+            response.put("redis_connection", "FAIL (Internal test error)");
         }
 
         // 3. Mongo 연결 테스트
@@ -59,7 +64,7 @@ public class ConfigTestController {
             response.put("mongo_connection", isMongoUp ? "SUCCESS" : "FAIL");
         } catch (Exception e) {
             log.error("Mongo Connection Error", e);
-            response.put("mongo_connection", "FAIL (" + e.getMessage() + ")");
+            response.put("mongo_connection", "FAIL (Internal test error)");
         }
 
         return ResponseEntity.ok(response);
