@@ -72,17 +72,22 @@ public class EmployerProfileService {
             throw new IllegalArgumentException("이미지 파일(JPEG, PNG, WEBP, GIF)만 업로드 가능합니다. (현재 타입: " + contentType + ")");
         }
 
-        Employer employer = employerRepository.findByUserId(userId)
-                .orElseThrow(() -> new IllegalArgumentException("해당 유저의 고용주 프로필을 찾을 수 없습니다."));
-
         try {
+            byte[] fileBytes = file.getBytes();
+            if (!isValidImageByMagicBytes(fileBytes)) {
+                throw new IllegalArgumentException("올바른 이미지 파일 형식이 아닙니다. (확장자 위조 의심)");
+            }
+
+            Employer employer = employerRepository.findByUserId(userId)
+                    .orElseThrow(() -> new IllegalArgumentException("해당 유저의 고용주 프로필을 찾을 수 없습니다."));
+
             // S3 키(경로) 생성 (예: employers/logo/uuid_filename)
             String extension = getExtension(file.getOriginalFilename());
             String key = "employers/logo/" + UUID.randomUUID() + extension;
             
             // S3 FileStorage 인터페이스를 통한 업로드 실제 수행
             // 반환되는 key는 S3에 저장된 경로
-            String uploadedUrl = fileStorage.upload(file.getBytes(), key, file.getContentType());
+            String uploadedUrl = fileStorage.upload(fileBytes, key, file.getContentType());
             
             // DB 엔티티 업데이트
             employer.updateLogoUrl(uploadedUrl);
@@ -98,6 +103,35 @@ public class EmployerProfileService {
             return "";
         }
         return filename.substring(filename.lastIndexOf("."));
+    }
+
+    private boolean isValidImageByMagicBytes(byte[] bytes) {
+        if (bytes == null || bytes.length < 8) {
+            return false;
+        }
+
+        // JPEG: FF D8 FF
+        if ((bytes[0] & 0xFF) == 0xFF && (bytes[1] & 0xFF) == 0xD8 && (bytes[2] & 0xFF) == 0xFF) {
+            return true;
+        }
+        // PNG: 89 50 4E 47 0D 0A 1A 0A
+        if ((bytes[0] & 0xFF) == 0x89 && (bytes[1] & 0xFF) == 0x50 && (bytes[2] & 0xFF) == 0x4E && (bytes[3] & 0xFF) == 0x47 &&
+            (bytes[4] & 0xFF) == 0x0D && (bytes[5] & 0xFF) == 0x0A && (bytes[6] & 0xFF) == 0x1A && (bytes[7] & 0xFF) == 0x0A) {
+            return true;
+        }
+        // GIF87a / GIF89a: 47 49 46 38 37 61 / 47 49 46 38 39 61
+        if ((bytes[0] & 0xFF) == 0x47 && (bytes[1] & 0xFF) == 0x49 && (bytes[2] & 0xFF) == 0x46 && (bytes[3] & 0xFF) == 0x38 &&
+            ((bytes[4] & 0xFF) == 0x37 || (bytes[4] & 0xFF) == 0x39) && (bytes[5] & 0xFF) == 0x61) {
+            return true;
+        }
+        // WEBP: RIFF .... WEBP
+        if ((bytes[0] & 0xFF) == 0x52 && (bytes[1] & 0xFF) == 0x49 && (bytes[2] & 0xFF) == 0x46 && (bytes[3] & 0xFF) == 0x46 &&
+            bytes.length >= 12 &&
+            (bytes[8] & 0xFF) == 0x57 && (bytes[9] & 0xFF) == 0x45 && (bytes[10] & 0xFF) == 0x42 && (bytes[11] & 0xFF) == 0x50) {
+            return true;
+        }
+
+        return false;
     }
 
     @Transactional(readOnly = true)

@@ -162,8 +162,9 @@ class EmployerProfileServiceTest {
         given(employerRepository.findByUserId(userId)).willReturn(Optional.of(mockEmployer));
 
         // Mock MultipartFile
+        byte[] validPngBytes = new byte[]{(byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
         org.springframework.mock.web.MockMultipartFile mockFile =
-                new org.springframework.mock.web.MockMultipartFile("file", "logo.png", "image/png", "dummy image content".getBytes());
+                new org.springframework.mock.web.MockMultipartFile("file", "logo.png", "image/png", validPngBytes);
 
         // Mock FileStorage (S3 Upload)
         String uploadedS3Url = "employers/logo/mock-uuid.png";
