@@ -9,9 +9,10 @@ public interface SharedMypageApi {
      * User 도메인에 비밀번호 변경을 요청하는 포트 인터페이스입니다.
      * (추후 FeignClient 등으로 치환될 예정)
      *
+     * @param userId 변경할 대상 사용자의 고유 ID
      * @param updatedPassword 변경할 새 비밀번호
      */
-    void updatePassword(String updatedPassword);
+    void updatePassword(Long userId, String updatedPassword);
 
     EmployerSubscriptionResponseDto getSubscription(Long userId);
 

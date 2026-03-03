@@ -106,7 +106,7 @@ class EmployerAccountServiceTest {
         employerAccountService.updatePassword(employerId, request);
 
         // Then
-        verify(sharedMypageApi, times(1)).updatePassword(newPassword);
+        verify(sharedMypageApi, times(1)).updatePassword(employerId, newPassword);
     }
 
     @Test
