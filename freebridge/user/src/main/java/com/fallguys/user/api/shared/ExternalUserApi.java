@@ -37,7 +37,7 @@ public interface ExternalUserApi {
      * 
      * @param userId 변경할 대상 사용자의 고유 ID
      * @param currentPassword 현재 비밀번호
-     * @param newPassword 변경할 새로운 비밀번호 (암호화되어야 함)
+     * @param newPassword 변경할 새로운 비밀번호 (평문 비밀번호, 내부에서 인코딩됨)
      */
     void updatePassword(Long userId, String currentPassword, String newPassword);
 

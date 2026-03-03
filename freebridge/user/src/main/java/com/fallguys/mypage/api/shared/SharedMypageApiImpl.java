@@ -42,10 +42,21 @@ public class SharedMypageApiImpl implements SharedMypageApi {
     @Transactional
     public void updateSubscription(Long userId, String targetPlan) {
         log.info("SharedMypageApi: 내부 EmployerRepository를 통해 구독 변경 요청 (userId: {}, plan: {})", userId, targetPlan);
+        
+        if (targetPlan == null || targetPlan.isBlank()) {
+            throw new IllegalArgumentException("Invalid subscription plan: '" + targetPlan + "'");
+        }
+        
         Employer employer = employerRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 고용주입니다."));
-                
-        employer.changeSubscription(com.fallguys.mypage.entity.employer.Subscription.valueOf(targetPlan.toUpperCase()));
+        
+        try {
+            com.fallguys.mypage.entity.employer.Subscription subscription = 
+                com.fallguys.mypage.entity.employer.Subscription.valueOf(targetPlan.trim().toUpperCase());
+            employer.changeSubscription(subscription);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid subscription plan: '" + targetPlan + "'", e);
+        }
     }
 
     @Override

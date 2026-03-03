@@ -9,7 +9,7 @@ public interface SwaggerConfigInterface {
         return GroupedOpenApi.builder()
                 .group(group)
                 .pathsToMatch(path)
-                .addOpenApiCustomizer(openApi ->
+                .addOpenApiCustomizercoopenApi ->
                         openApi.setInfo(new Info()
                                 .title(title)
                                 .description(description)

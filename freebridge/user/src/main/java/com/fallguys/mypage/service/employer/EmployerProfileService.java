@@ -65,6 +65,11 @@ public class EmployerProfileService {
             throw new IllegalArgumentException("업로드할 파일이 없습니다.");
         }
 
+        long MAX_LOGO_BYTES = 5 * 1024 * 1024; // 5MB
+        if (file.getSize() > MAX_LOGO_BYTES) {
+            throw new IllegalArgumentException("업로드 파일 크기는 5MB를 초과할 수 없습니다.");
+        }
+
         String contentType = file.getContentType();
         Set<String> allowedMimeTypes = Set.of("image/jpeg", "image/png", "image/webp", "image/gif");
         

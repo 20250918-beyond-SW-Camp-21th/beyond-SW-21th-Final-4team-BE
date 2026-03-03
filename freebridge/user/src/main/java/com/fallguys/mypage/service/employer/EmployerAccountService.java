@@ -30,6 +30,11 @@ public class EmployerAccountService {
     private final SharedMypageApi sharedMypageApi;
 
     public void updatePassword(Long employerId, UpdatePasswordRequestDto request) {
+        if (request == null || 
+            request.currentPassword() == null || request.currentPassword().isBlank() ||
+            request.newPassword() == null || request.newPassword().isBlank()) {
+            throw new IllegalArgumentException("현재 비밀번호와 새 비밀번호를 모두 입력해야 합니다.");
+        }
         // TDD Green Phase: call external module api
         sharedMypageApi.updatePassword(employerId, request.currentPassword(), request.newPassword());
     }
