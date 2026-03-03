@@ -335,6 +335,20 @@ class ContractServiceTest {
 
             assertEquals(ErrorCode.CONTRACT_NOT_FOUND, exception.getErrorCode());
         }
+
+        @Test
+        @DisplayName("계약 당사자가 아닌 사용자가 조회 시 CONTRACT_FORBIDDEN 에러가 발생한다")
+        void throwsErrorWhenNotOwner() {
+            when(contractRepository.findByContractId(1001L))
+                    .thenReturn(Optional.of(savedContract)); // employerId=200, freelancerId=100
+
+            BusinessException exception = assertThrows(
+                    BusinessException.class,
+                    () -> contractService.getContract(1001L, 999L) // 무관한 사용자
+            );
+
+            assertEquals(ErrorCode.CONTRACT_FORBIDDEN, exception.getErrorCode());
+        }
     }
 
     @Nested
@@ -424,6 +438,48 @@ class ContractServiceTest {
 
             verify(eventPublisher, never()).publishEvent(any());
         }
+
+        @Test
+        @DisplayName("존재하지 않는 계약 서명 시 CONTRACT_NOT_FOUND 에러가 발생한다")
+        void throwsErrorWhenContractNotFound() {
+            when(contractRepository.findByContractId(9999L))
+                    .thenReturn(Optional.empty());
+
+            BusinessException exception = assertThrows(
+                    BusinessException.class,
+                    () -> contractService.sign(9999L, "sig", "FREELANCER", 100L)
+            );
+
+            assertEquals(ErrorCode.CONTRACT_NOT_FOUND, exception.getErrorCode());
+        }
+
+        @Test
+        @DisplayName("계약 당사자가 아닌 사용자가 서명 시 CONTRACT_FORBIDDEN 에러가 발생한다")
+        void throwsErrorWhenNotOwner() {
+            when(contractRepository.findByContractId(1001L))
+                    .thenReturn(Optional.of(savedContract)); // employerId=200, freelancerId=100
+
+            BusinessException exception = assertThrows(
+                    BusinessException.class,
+                    () -> contractService.sign(1001L, "sig", "FREELANCER", 999L) // 무관한 사용자
+            );
+
+            assertEquals(ErrorCode.CONTRACT_FORBIDDEN, exception.getErrorCode());
+        }
+
+        @Test
+        @DisplayName("유효하지 않은 role로 서명 시 CONTRACT_FORBIDDEN 에러가 발생한다")
+        void throwsErrorWhenInvalidRole() {
+            when(contractRepository.findByContractId(1001L))
+                    .thenReturn(Optional.of(savedContract));
+
+            BusinessException exception = assertThrows(
+                    BusinessException.class,
+                    () -> contractService.sign(1001L, "sig", "ADMIN", 100L)
+            );
+
+            assertEquals(ErrorCode.CONTRACT_FORBIDDEN, exception.getErrorCode());
+        }
     }
 
     @Nested
@@ -459,6 +515,36 @@ class ContractServiceTest {
             );
 
             assertEquals(ErrorCode.CONTRACT_NOT_IN_PROGRESS, exception.getErrorCode());
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 계약 완료 시 CONTRACT_NOT_FOUND 에러가 발생한다")
+        void throwsErrorWhenContractNotFound() {
+            when(contractRepository.findByContractId(9999L))
+                    .thenReturn(Optional.empty());
+
+            BusinessException exception = assertThrows(
+                    BusinessException.class,
+                    () -> contractService.complete(9999L, 200L)
+            );
+
+            assertEquals(ErrorCode.CONTRACT_NOT_FOUND, exception.getErrorCode());
+        }
+
+        @Test
+        @DisplayName("계약 당사자가 아닌 사용자가 완료 처리 시 CONTRACT_FORBIDDEN 에러가 발생한다")
+        void throwsErrorWhenNotOwner() {
+            savedContract.setStatus(ContractStatus.IN_PROGRESS);
+
+            when(contractRepository.findByContractId(1001L))
+                    .thenReturn(Optional.of(savedContract));
+
+            BusinessException exception = assertThrows(
+                    BusinessException.class,
+                    () -> contractService.complete(1001L, 999L) // 무관한 사용자
+            );
+
+            assertEquals(ErrorCode.CONTRACT_FORBIDDEN, exception.getErrorCode());
         }
     }
 
@@ -511,6 +597,36 @@ class ContractServiceTest {
             );
 
             assertEquals(ErrorCode.CONTRACT_CANNOT_REJECT, exception.getErrorCode());
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 계약 거절 시 CONTRACT_NOT_FOUND 에러가 발생한다")
+        void throwsErrorWhenContractNotFound() {
+            when(contractRepository.findByContractId(9999L))
+                    .thenReturn(Optional.empty());
+
+            BusinessException exception = assertThrows(
+                    BusinessException.class,
+                    () -> contractService.reject(9999L, 200L)
+            );
+
+            assertEquals(ErrorCode.CONTRACT_NOT_FOUND, exception.getErrorCode());
+        }
+
+        @Test
+        @DisplayName("계약 당사자가 아닌 사용자가 거절 시 CONTRACT_FORBIDDEN 에러가 발생한다")
+        void throwsErrorWhenNotOwner() {
+            savedContract.setStatus(ContractStatus.WAITING_SIGNATURE);
+
+            when(contractRepository.findByContractId(1001L))
+                    .thenReturn(Optional.of(savedContract));
+
+            BusinessException exception = assertThrows(
+                    BusinessException.class,
+                    () -> contractService.reject(1001L, 999L) // 무관한 사용자
+            );
+
+            assertEquals(ErrorCode.CONTRACT_FORBIDDEN, exception.getErrorCode());
         }
     }
 }
