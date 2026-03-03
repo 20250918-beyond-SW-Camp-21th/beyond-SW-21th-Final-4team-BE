@@ -2,6 +2,7 @@ package com.fallguys.mypage.api.web.employer;
 
 
 import com.fallguys.common.response.ApiResponse;
+import com.fallguys.mypage.api.web.dto.employer.request.UpdateNotificationSettingsRequestDto;
 import com.fallguys.mypage.api.web.dto.employer.request.UpdatePasswordRequestDto;
 import com.fallguys.mypage.api.web.dto.employer.request.UpdateSubscriptionRequestDto;
 import com.fallguys.mypage.api.web.dto.employer.response.EmployerNotificationSettingsDto;
@@ -12,6 +13,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 
 @Tag(name = "4. Employer MyPage - Account", description = "고용주 마이페이지 계정 관리 API")
 @RestController
@@ -31,7 +33,7 @@ public class EmployerAccountController {
     @Operation(summary = "구독 플랜 변경 신청", description = "프라임 멤버십 등 다른 플랜으로 변경을 요청합니다.")
     @PutMapping("/subscription")
     public ApiResponse<Void> updateSubscription(@AuthenticationPrincipal CustomUserDetails userDetails,
-                                                @RequestBody UpdateSubscriptionRequestDto request) {
+                                                @Valid @RequestBody UpdateSubscriptionRequestDto request) {
         employerAccountService.updateSubscription(userDetails.getId(), request);
         return ApiResponse.ok(null);
     }
@@ -39,7 +41,7 @@ public class EmployerAccountController {
     @Operation(summary = "비밀번호 변경", description = "고용주 계정의 비밀번호를 변경합니다.")
     @PutMapping("/password")
     public ApiResponse<Void> updatePassword(@AuthenticationPrincipal CustomUserDetails userDetails,
-                                            @RequestBody UpdatePasswordRequestDto request) {
+                                            @Valid @RequestBody UpdatePasswordRequestDto request) {
         employerAccountService.updatePassword(userDetails.getId(), request);
         return ApiResponse.ok(null);
     }
@@ -54,7 +56,7 @@ public class EmployerAccountController {
     @Operation(summary = "이메일 알림 설정 변경", description = "이메일 수신 동의 여부를 변경합니다.")
     @PutMapping("/notifications")
     public ApiResponse<Void> updateNotificationSettings(@AuthenticationPrincipal CustomUserDetails userDetails,
-                                                        @RequestBody EmployerNotificationSettingsDto request) {
+                                                        @Valid @RequestBody UpdateNotificationSettingsRequestDto request) {
         employerAccountService.updateNotificationSettings(userDetails.getId(), request.emailEnabled());
         return ApiResponse.ok(null);
     }

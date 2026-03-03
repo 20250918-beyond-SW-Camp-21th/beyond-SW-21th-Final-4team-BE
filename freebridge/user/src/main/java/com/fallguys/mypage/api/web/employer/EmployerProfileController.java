@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import jakarta.validation.Valid;
 import com.fallguys.common.security.CustomUserDetails;
 
 @Tag(name = "1. Employer MyPage - Profile", description = "고용주 마이페이지 프로필 관리 API")
@@ -30,9 +31,10 @@ public class EmployerProfileController {
 
     @Operation(summary = "고용주 프로필 수정", description = "고용주 프로필 정보를 수정합니다.")
     @PutMapping
-    public void updateProfile(@AuthenticationPrincipal CustomUserDetails userDetails,
-                                           @RequestBody EmployerProfileUpdateRequestDto request) {
+    public ApiResponse<Void> updateProfile(@AuthenticationPrincipal CustomUserDetails userDetails,
+                                           @Valid @RequestBody EmployerProfileUpdateRequestDto request) {
         employerProfileService.updateProfile(userDetails.getId(), request);
+        return ApiResponse.ok(null);
     }
 
     @Operation(summary = "로고 이미지 수정", description = "고용주 로고 이미지를 업로드하고 반환합니다.")
