@@ -5,6 +5,7 @@ import com.fallguys.user.api.shared.response.ExternalUserResponse;
 import com.fallguys.user.entity.User;
 import com.fallguys.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ExternalUserApiImpl implements ExternalUserApi {
 
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     public ExternalUserResponse getUserById(Long userId) {
@@ -32,6 +34,22 @@ public class ExternalUserApiImpl implements ExternalUserApi {
     @Override
     public boolean existsById(Long userId) {
         return userRepository.existsById(userId);
+    }
+
+    @Override
+    @Transactional
+    public void updatePassword(Long userId, String newPassword) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다. ID: " + userId));
+        user.updatePassword(passwordEncoder.encode(newPassword));
+    }
+
+    @Override
+    @Transactional
+    public void updateEmailNotificationSetting(Long userId, boolean emailEnabled) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다. ID: " + userId));
+        user.updateEmailEnabled(emailEnabled);
     }
 
     /*
