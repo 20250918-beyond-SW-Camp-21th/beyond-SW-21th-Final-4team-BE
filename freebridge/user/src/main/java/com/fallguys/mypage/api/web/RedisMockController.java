@@ -77,6 +77,6 @@ public class RedisMockController {
         );
         redisTemplate.opsForValue().set(subscriptionKey2, mockSubscription2);
 
-        return "Successfully injected mock data for User ID 1 into Cloud Redis!";
+        return "Successfully injected mock data for User IDs 1 and 2 into Cloud Redis!";
     }
 }
