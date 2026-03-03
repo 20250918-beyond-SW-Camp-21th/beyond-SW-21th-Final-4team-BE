@@ -25,6 +25,7 @@ public class ChatMessageService {
     private final UnreadMessageRedisRepository unreadMessageRedisRepository;
     private final RedisPublisher redisPublisher;
     private final ChannelTopic channelTopic;
+    private final ChatPresenceService chatPresenceService;
 
     /**
      * 클라이언트로부터 메시지 수신 시 처리
@@ -73,6 +74,9 @@ public class ChatMessageService {
         // 5. Response DTO 생성
         ChatMessageResponse response = ChatMessageResponse.from(savedMessage);
 
+        // 활동 기반 presence 갱신
+        chatPresenceService.touchUser(senderId);
+
         redisPublisher.publish(channelTopic, response);
 
         return response;
@@ -115,10 +119,10 @@ public class ChatMessageService {
         if (!messages.isEmpty()) {
             ChatMessage lastExtractedMsg = messages.get(messages.size() - 1);
             if (lastExtractedMsg != null) {
-                // 이 예시에서는 테스트 목적으로 ID를 커서처럼 사용하기도 하나, 시간 커서가 정확함
-                // 하지만 테스트는 ID를 체크하므로 ID나 시간을 내려줍니다.
-                // 실 서비스에서는 LocalDateTime 을 String 변환하여 내려줍니다.
-                nextCursor = lastExtractedMsg.getId(); // 프론트엔드 호환성을 위해 ID나 시간문자열 사용
+                // 커서는 생성시간(ISO-8601 문자열)로 통일
+                if (lastExtractedMsg.getCreatedAt() != null) {
+                    nextCursor = lastExtractedMsg.getCreatedAt().toString();
+                }
                 hasNext = messages.size() >= size; // size 만큼 가져왔으면 다음 페이지가 있을 확률이 큼
             }
         }

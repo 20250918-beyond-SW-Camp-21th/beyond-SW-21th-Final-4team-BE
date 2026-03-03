@@ -42,8 +42,20 @@ public class User extends BaseTimeEntity {
     @Column(nullable = false)
     private Boolean emailVerified = false;
 
+    /* 이메일 수신 동의 여부 */
+    @Column(nullable = false)
+    private Boolean emailEnabled = true;
+
     public void verifyEmail() {
         this.emailVerified = true;
+    }
+
+    public void updatePassword(String newPassword) {
+        this.password = newPassword;
+    }
+
+    public void updateEmailEnabled(Boolean emailEnabled) {
+        this.emailEnabled = emailEnabled;
     }
 
     @Builder
@@ -56,5 +68,6 @@ public class User extends BaseTimeEntity {
         this.termsAgreed = termsAgreed;
         this.privacyAgreed = privacyAgreed;
         this.emailVerified = false;
+        this.emailEnabled = true;
     }
 }

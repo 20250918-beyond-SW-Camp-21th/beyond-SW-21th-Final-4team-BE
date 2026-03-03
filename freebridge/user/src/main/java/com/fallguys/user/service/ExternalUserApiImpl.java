@@ -34,6 +34,22 @@ public class ExternalUserApiImpl implements ExternalUserApi {
         return userRepository.existsById(userId);
     }
 
+    @Override
+    @Transactional
+    public void updatePassword(Long userId, String newPassword) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다. ID: " + userId));
+        user.updatePassword(newPassword);
+    }
+
+    @Override
+    @Transactional
+    public void updateEmailNotificationSetting(Long userId, boolean emailEnabled) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다. ID: " + userId));
+        user.updateEmailEnabled(emailEnabled);
+    }
+
     /*
      * 내부 User Entity를 외부용 공유 DTO(ExternalUserResponse)로 변환
      */

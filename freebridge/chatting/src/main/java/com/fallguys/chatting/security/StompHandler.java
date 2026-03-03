@@ -33,9 +33,12 @@ public class StompHandler implements ChannelInterceptor {
                     String token = authHeader.substring(7);
                     try {
                         String userId = chatTokenProvider.getUserIdFromToken(token);
-                        java.util.Optional.ofNullable(accessor.getSessionAttributes())
-                                .orElseGet(java.util.concurrent.ConcurrentHashMap::new)
-                                .put("userId", userId);
+                        java.util.Map<String, Object> sessionAttributes = accessor.getSessionAttributes();
+                        if (sessionAttributes == null) {
+                            sessionAttributes = new java.util.concurrent.ConcurrentHashMap<>();
+                            accessor.setSessionAttributes(sessionAttributes);
+                        }
+                        sessionAttributes.put("userId", userId);
 
                         // Redis 에 온라인 접속 상태 기록
                         chatPresenceService.connectUser(userId);

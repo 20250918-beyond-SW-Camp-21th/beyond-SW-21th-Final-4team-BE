@@ -9,10 +9,10 @@ spring:
 
   data:
     mongodb:
-      host: beyond21.iptime.org
+      host: 221.151.189.232
       port: 4006
       database: freebridge
-      username: fbmongo
+      username: admin
       password: '7276'
       authentication-database: admin
 
@@ -43,7 +43,7 @@ spring:
 
 fallguys:
   redis:
-    host: beyond21.iptime.org
+    host: 221.151.189.232
     port: 4005
     password: '7276'
   rabbitmq:
