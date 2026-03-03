@@ -24,7 +24,7 @@ public class Resume {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long resumeId;
 
-    @Column(name = "freelancer_id", nullable = false)
+    @Column(name = "freelancer_id", nullable = false, unique = true)
     private Long freelancerId;
 
     private String name;
