@@ -2,7 +2,7 @@ package com.fallguys.recruitment.infra.user;
 
 import com.fallguys.common.exception.BusinessException;
 import com.fallguys.common.exception.ErrorCode;
-import com.fallguys.mypage.repository.FreelancerRepository;
+import com.fallguys.mypage.repository.freelancer.FreelancerRepository;
 import com.fallguys.recruitment.service.port.RecruitmentUser;
 import com.fallguys.recruitment.service.port.RecruitmentUserReader;
 import com.fallguys.user.entity.Role;
