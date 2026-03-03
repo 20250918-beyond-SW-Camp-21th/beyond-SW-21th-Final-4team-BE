@@ -105,4 +105,19 @@ public class JobPostingEmployerController {
 
         return ResponseEntity.ok(ApiResponse.ok(recommendations));
     }
+
+    @Operation(summary = "프로젝트 완료 처리", description = "고용주가 프로젝트를 완료 처리하고 해당 내용을 AI 서버에 동기화합니다.")
+    @PostMapping("/api/v1/employer/projects/{projectId}/complete")
+    public ResponseEntity<ApiResponse<Void>> completeProject(
+            @RequestHeader("Authorization") String authorization,
+            @PathVariable Long projectId
+    ) {
+        // 1. 토큰에서 유저 ID 추출
+        Long userId = tokenUserIdResolver.resolveUserId(authorization);
+
+        // 2. 서비스의 completeProject 호출
+        jobPostingService.completeProject(projectId, userId);
+
+        return ResponseEntity.ok(ApiResponse.ok(null));
+    }
 }

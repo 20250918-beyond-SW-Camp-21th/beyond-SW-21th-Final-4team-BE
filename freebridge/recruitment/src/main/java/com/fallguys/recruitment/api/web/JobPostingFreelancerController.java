@@ -67,4 +67,17 @@ public class JobPostingFreelancerController {
         jobPostingService.removeFavoriteJobPosting(userId, jobPostingId);
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
+
+    @Operation(summary = "나에게 맞는 추천 공고 조회", description = "내 프로필을 분석하여 AI가 최적의 공고 5개를 추천합니다.")
+    @GetMapping("/api/v1/freelancer/jobs/recommendations")
+    public ResponseEntity<ApiResponse<List<AiRecommendationResponseDTO>>> getMyJobRecommendations(
+            @RequestHeader("Authorization") String authorization
+    ) {
+        // 토큰에서 프리랜서 유저 ID 추출
+        Long userId = tokenUserIdResolver.resolveUserId(authorization);
+
+        List<AiRecommendationResponseDTO> result = jobPostingService.getRecommendedJobsForFreelancer(userId);
+
+        return ResponseEntity.ok(ApiResponse.ok(result));
+    }
 }

@@ -52,4 +52,11 @@ public class Project extends BaseEntity {
         project.assignEmployer(jobPosting.getEmployerId());
         return project;
     }
+
+    public void complete(){
+        if (this.status == ProjectStatus.COMPLETED){
+            throw new IllegalStateException("이미 완료된 프로젝트입니다.");
+        }
+        this.status = ProjectStatus.COMPLETED;
+    }
 }
