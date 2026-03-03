@@ -116,7 +116,7 @@ public class JobPostingEmployerController {
         Long userId = tokenUserIdResolver.resolveUserId(authorization);
 
         // 2. 서비스의 completeProject 호출
-        jobPostingService.completeProject(projectId);
+        jobPostingService.completeProject(projectId, userId);
 
         return ResponseEntity.ok(ApiResponse.ok(null));
     }

@@ -251,8 +251,10 @@ public class JobPostingServiceImpl implements JobPostingService {
         RecruitmentUser freelancer = recruitmentUserReader.getFreelancerByIdOrThrow(userId);
 
         // 2. 추천에 필요한 텍스트 가공
-        String skills = freelancer.skills();
-        String experience = freelancer.experience();
+        String skills = (freelancer.skills() == null || freelancer.skills().isBlank())
+                ? "없음" : freelancer.skills().trim();
+        String experience = (freelancer.experience() == null || freelancer.experience().isBlank())
+                ? "없음" : freelancer.experience().trim();
 
         // 3. AI 서버 호출
         return recommendationEngine.recommendJobs(
@@ -264,9 +266,14 @@ public class JobPostingServiceImpl implements JobPostingService {
     }
 
     @Transactional
-    public void completeProject(Long projectId) {
+    public void completeProject(Long projectId, Long userId) {
         Project project = projectPostingRepo.findById(projectId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.PROJECT_NOT_FOUND));
+
+        if (!project.getJobPosting().getEmployerId().equals(userId)) {
+            throw new BusinessException(ErrorCode.JOB_POSTING_FORBIDDEN); // 권한 없음 에러
+        }
+
         try{
             project.complete();
         } catch (IllegalStateException e) {
