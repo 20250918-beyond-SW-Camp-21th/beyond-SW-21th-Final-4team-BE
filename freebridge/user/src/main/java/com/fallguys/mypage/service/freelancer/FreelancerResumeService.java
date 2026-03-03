@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -109,6 +110,7 @@ public class FreelancerResumeService {
     // ─── 내부 변환 헬퍼 ──────────────────────────────────────────────
 
     private Education toEducationEntity(EducationRequestDto e) {
+        if (e == null) throw new IllegalArgumentException("학력 요청 데이터가 null입니다.");
         EduStatus status = null;
         if (e.eduStatus() != null && !e.eduStatus().isBlank()) {
             try {
@@ -121,11 +123,13 @@ public class FreelancerResumeService {
     }
 
     private Career toCareerEntity(CareerRequestDto c) {
+        if (c == null) throw new IllegalArgumentException("경력 요청 데이터가 null입니다.");
         return new Career(c.companyName(), c.department(), c.position(),
                 c.jobType(), c.employmentType(), c.startDate(), c.endDate(), c.description());
     }
 
     private Certification toCertificationEntity(CertificationRequestDto cert) {
+        if (cert == null) throw new IllegalArgumentException("자격증 요청 데이터가 null입니다.");
         return new Certification(cert.name(), cert.issuer(), cert.acquisitionDate());
     }
 
@@ -137,6 +141,7 @@ public class FreelancerResumeService {
     private FreelancerResumeResponseDto toResumeDto(Resume resume) {
         List<EducationDto> educations = resume.getEducations() == null ? Collections.emptyList() :
                 resume.getEducations().stream()
+                        .filter(Objects::nonNull)
                         .map(e -> new EducationDto(null, e.getSchoolName(), e.getMajor(),
                                 e.getEntranceDate() != null ? e.getEntranceDate().toString() : null,
                                 e.getGraduationDate() != null ? e.getGraduationDate().toString() : null,
@@ -145,6 +150,7 @@ public class FreelancerResumeService {
 
         List<CareerDto> careers = resume.getCareers() == null ? Collections.emptyList() :
                 resume.getCareers().stream()
+                        .filter(Objects::nonNull)
                         .map(c -> new CareerDto(null, c.getCompanyName(), c.getPosition(),
                                 c.getStartDate() != null ? c.getStartDate().toString() : null,
                                 c.getEndDate() != null ? c.getEndDate().toString() : null,
@@ -153,6 +159,7 @@ public class FreelancerResumeService {
 
         List<CertificationDto> certifications = resume.getCertifications() == null ? Collections.emptyList() :
                 resume.getCertifications().stream()
+                        .filter(Objects::nonNull)
                         .map(cert -> new CertificationDto(null, cert.getName(), cert.getIssuer(),
                                 cert.getAcquisitionDate() != null ? cert.getAcquisitionDate().toString() : null))
                         .toList();
