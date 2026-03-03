@@ -10,12 +10,35 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
+import com.fallguys.mypage.api.web.dto.employer.request.UpdateSubscriptionRequestDto;
+import com.fallguys.mypage.repository.employer.EmployerRepository;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.fallguys.mypage.entity.employer.Employer;
+import com.fallguys.mypage.entity.employer.Subscription;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class EmployerAccountService {
 
     private final RedisTemplate<String, Object> redisTemplate;
+    private final EmployerRepository employerRepository;
+
+    @Transactional
+    public void updateSubscription(Long userId, UpdateSubscriptionRequestDto request) {
+        Employer employer = employerRepository.findByUserId(userId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 고용주를 찾을 수 없습니다."));
+
+        Subscription targetPlan;
+        try {
+            targetPlan = Subscription.valueOf(request.targetPlan().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("유효하지 않은 플랜 요청입니다: " + request.targetPlan());
+        }
+
+        employer.changeSubscription(targetPlan);
+    }
 
     public EmployerSubscriptionResponseDto getSubscription(Long employerId) {
         String redisKey = "employer:subscription:" + employerId;
