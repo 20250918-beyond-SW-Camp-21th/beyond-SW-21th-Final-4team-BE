@@ -21,18 +21,39 @@ public class Proposal {
     private Long jobPostingId;
 
     @Column(nullable=false)
-    private String freelancerId;
+    private Long freelancerId;
 
     @Column(nullable=false)
-    private String employerId;
+    private Long employerId;
 
     @Column(nullable=false)
     private String message;
 
     @Column(nullable=false)
+    @Enumerated(EnumType.STRING)
     @Builder.Default
     private MatchsStatus status=MatchsStatus.PENDING;
 
+    @Column(nullable = false)
     private LocalDateTime createdAt;
+
+    public static Proposal create(Long jobPostingId, Long freelancerId, Long employerId, String message) {
+        return Proposal.builder()
+                .jobPostingId(jobPostingId)
+                .freelancerId(freelancerId)
+                .employerId(employerId)
+                .message(message)
+                .status(MatchsStatus.PENDING)
+                .createdAt(LocalDateTime.now())
+                .build();
+    }
+
+    public void accept() {
+        this.status = MatchsStatus.ACCEPTED;
+    }
+
+    public void reject() {
+        this.status = MatchsStatus.REJECTED;
+    }
 
 }

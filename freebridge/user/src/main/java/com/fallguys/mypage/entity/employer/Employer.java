@@ -6,11 +6,13 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.time.LocalDateTime;
 
 @Entity
 @Getter
 @Table(name = "employer")
+@EntityListeners(AuditingEntityListener.class)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Employer {
 
@@ -19,7 +21,7 @@ public class Employer {
     @Column(name = "employer_id")
     private Long employerId;
 
-    @Column(name = "user_id", nullable = false)
+    @Column(name = "user_id", nullable = false, unique = true)
     private Long userId;
 
     @Enumerated(EnumType.STRING)
@@ -46,7 +48,7 @@ public class Employer {
     @Column(nullable = false, length = 20)
     private Scale scale;
 
-    @Column(length=100)
+    @Column(length = 100)
     private String location;
 
     @Column(length = 100)
@@ -60,15 +62,16 @@ public class Employer {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
-    /* =========================
-       생성 메소드
-       ========================= */
+    /*
+     * =========================
+     * 생성 메소드
+     * =========================
+     */
     public static Employer create(
             Long userId,
             Subscription subscription,
             String companyName,
-            Scale scale
-    ) {
+            Scale scale) {
         Employer e = new Employer();
         e.userId = requireNonNull(userId, "userId");
         e.subscription = requireNonNull(subscription, "subscription");
@@ -78,12 +81,15 @@ public class Employer {
         return e;
     }
 
-    /* =========================
-       UPDATE 메소드
-       ========================= */
+    /*
+     * =========================
+     * UPDATE 메소드
+     * =========================
+     */
 
     public void changeStatus(EmployerStatus newStatus) {
-        if (newStatus == null) throw new IllegalArgumentException("newStatus is required");
+        if (newStatus == null)
+            throw new IllegalArgumentException("newStatus is required");
         if (this.status == EmployerStatus.LEFT) {
             throw new IllegalStateException("이미 이탈한 고용주의 상태는 변경할 수 없습니다.");
         }
@@ -119,7 +125,6 @@ public class Employer {
         this.description = normalizeNullable(description);
     }
 
-
     public void updateLogoUrl(String logoUrl) {
         this.logoUrl = normalizeNullable(logoUrl);
     }
@@ -131,8 +136,7 @@ public class Employer {
             String location,
             String websiteUrl,
             String description,
-            String logoUrl
-    ) {
+            String logoUrl) {
         changeCompanyName(companyName);
         updateIndustry(industry);
         changeScale(scale);
@@ -141,24 +145,31 @@ public class Employer {
         updateDescription(description);
         updateLogoUrl(logoUrl);
     }
-    /* =========================
-         내부 유틸
-         ========================= */
+
+    /*
+     * =========================
+     * 내부 유틸
+     * =========================
+     */
     private static String normalize(String value, String fieldName) {
-        if (value == null) throw new IllegalArgumentException(fieldName + " 값이 비어있습니다.");
+        if (value == null)
+            throw new IllegalArgumentException(fieldName + " 값이 비어있습니다.");
         String v = value.trim();
-        if (v.isEmpty()) throw new IllegalArgumentException(fieldName + " 값이 비어있습니다.");
+        if (v.isEmpty())
+            throw new IllegalArgumentException(fieldName + " 값이 비어있습니다.");
         return v;
     }
 
     private static String normalizeNullable(String value) {
-        if (value == null) return null;
+        if (value == null)
+            return null;
         String v = value.trim();
         return v.isEmpty() ? null : v;
     }
 
     private static <T> T requireNonNull(T value, String fieldName) {
-        if (value == null) throw new IllegalArgumentException(fieldName + " 값이 비어있습니다.");
+        if (value == null)
+            throw new IllegalArgumentException(fieldName + " 값이 비어있습니다.");
         return value;
     }
 }

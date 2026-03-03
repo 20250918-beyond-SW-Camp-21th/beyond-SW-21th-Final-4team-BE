@@ -8,7 +8,13 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDate;
 
 @Entity
-@Table(name = "projects")
+@Table(
+        name = "projects",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_project_job_posting_freelancer",
+                columnNames = {"job_posting_id", "freelancer_id"}
+        )
+)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Project extends BaseEntity {
@@ -23,6 +29,9 @@ public class Project extends BaseEntity {
     @Column(nullable = false)
     private String projectName;
 
+    @Column(name = "headcount", nullable = false)
+    private Integer headcount;
+
     @Column
     private LocalDate startDate;
 
@@ -32,4 +41,15 @@ public class Project extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private ProjectStatus status = ProjectStatus.IN_PROGRESS;
+
+    public static Project create(JobPosting jobPosting, Long freelancerId) {
+        Project project = new Project();
+        project.jobPosting = jobPosting;
+        project.freelancerId = freelancerId;
+        project.projectName = jobPosting.getTitle();
+        project.headcount = jobPosting.getHeadcount();
+        project.status = ProjectStatus.IN_PROGRESS;
+        project.assignEmployer(jobPosting.getEmployerId());
+        return project;
+    }
 }

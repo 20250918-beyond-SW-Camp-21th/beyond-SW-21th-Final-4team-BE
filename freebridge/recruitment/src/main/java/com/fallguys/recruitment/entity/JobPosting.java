@@ -37,8 +37,14 @@ public class JobPosting extends BaseEntity {
     @Column(nullable = false)
     private Integer duration;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable=false)
+    @Column(name = "headcount", nullable = false)
+    private Integer headcount;
+
+    @Column(name = "matched_headcount", nullable = false)
+    private Integer matchedHeadcount = 0;
+
+    @Convert(converter = StatusConverter.class)
+    @Column(nullable=false, length = 20, columnDefinition = "varchar(20)")
     private Status status=Status.ACTIVE;
 
     @Enumerated(EnumType.STRING)
@@ -59,6 +65,12 @@ public class JobPosting extends BaseEntity {
                 : new ArrayList<>(dto.techStack());
         this.budget = dto.budget() == null ? this.budget : dto.budget();
         this.duration = dto.duration() == null ? this.duration : dto.duration();
+        if (dto.headcount() != null) {
+            if (dto.headcount() < 1 || dto.headcount() < this.matchedHeadcount) {
+                throw new IllegalArgumentException("invalid headcount");
+            }
+            this.headcount = dto.headcount();
+        }
         this.postingStatus = dto.status() == null ? this.postingStatus : dto.status();
     }
 
@@ -73,6 +85,8 @@ public class JobPosting extends BaseEntity {
                 : new ArrayList<>(dto.techStack());
         this.budget = dto.budget();
         this.duration = dto.duration();
+        this.headcount = dto.headcount() == null || dto.headcount() < 1 ? 1 : dto.headcount();
+        this.matchedHeadcount = 0;
         this.postingStatus = JobPostingStatus.OPEN;
         this.status = Status.ACTIVE;
 
@@ -82,5 +96,16 @@ public class JobPosting extends BaseEntity {
 
     public void delete() {
         this.status = Status.DELETED;
+    }
+
+    public void matchFreelancer() {
+        if (isRecruitmentFull()) {
+            throw new IllegalStateException("job posting headcount already full");
+        }
+        this.matchedHeadcount += 1;
+    }
+
+    public boolean isRecruitmentFull() {
+        return this.matchedHeadcount >= this.headcount;
     }
 }

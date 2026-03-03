@@ -10,7 +10,13 @@ import com.fallguys.user.entity.User;
 import com.fallguys.user.repository.UserRepository;
 import com.fallguys.common.security.JwtTokenProvider;
 import com.fallguys.mypage.repository.FreelancerRepository;
+import com.fallguys.mypage.repository.EmployerRepository;
 import com.fallguys.mypage.entity.freelancer.Freelancer;
+import com.fallguys.mypage.entity.freelancer.FreelancerGrade;
+import com.fallguys.mypage.entity.employer.Employer;
+import com.fallguys.mypage.entity.employer.Subscription;
+import com.fallguys.mypage.entity.employer.Scale;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -30,6 +36,8 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final FreelancerRepository freelancerRepository;
+    private final EmployerRepository employerRepository;
+    private final StringRedisTemplate redisTemplate;
 
     @Async
     @EventListener
@@ -54,6 +62,14 @@ public class UserService {
             throw new IllegalArgumentException("이미 사용 중인 이메일입니다.");
         }
 
+        // Redis에서 이메일 인증 완료 증표 확인
+        String verifiedKey = "email:verified:" + request.getEmail();
+        String isVerified = redisTemplate.opsForValue().get(verifiedKey);
+
+        if (!"true".equals(isVerified)) {
+            throw new IllegalArgumentException("이메일 인증이 완료되지 않았습니다.");
+        }
+
         User user = User.builder()
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
@@ -62,6 +78,7 @@ public class UserService {
                 .termsAgreed(request.getTermsAgreed())
                 .privacyAgreed(request.getPrivacyAgreed())
                 .build();
+        user.verifyEmail(); // 가입 시 이메일 인증 완료 처리
 
         User savedUser;
         try {
@@ -71,6 +88,21 @@ public class UserService {
             throw new IllegalArgumentException("이미 사용 중인 이메일입니다.");
         }
         log.info("회원가입 완료 - userId: {}", savedUser.getId());
+
+        // 역할에 맞는 빈 프로필 자동 생성
+        if (Role.FREELANCER.equals(savedUser.getRole())) {
+            Freelancer freelancer = Freelancer.create(savedUser.getId(), "미입력", FreelancerGrade.JUNIOR);
+            freelancerRepository.save(freelancer);
+            log.info("프리랜서 빈 프로필 생성 완료 - userId: {}", savedUser.getId());
+        } else if (Role.EMPLOYER.equals(savedUser.getRole())) {
+            // 필수 뼈대값 대입 (가입 시 법인명은 유저 이름으로 임시 설정)
+            Employer employer = Employer.create(savedUser.getId(), Subscription.BASIC, savedUser.getName(), Scale.S1_4);
+            employerRepository.save(employer);
+            log.info("고용주 빈 프로필 생성 완료 - userId: {}", savedUser.getId());
+        }
+
+        // 인증 증표 삭제 (재가입 등 방지)
+        redisTemplate.delete(verifiedKey);
 
         return UserResponseDto.from(savedUser);
     }
@@ -96,6 +128,11 @@ public class UserService {
                     .map(Freelancer::getGrade)
                     .map(Enum::name)
                     .orElseThrow(() -> new IllegalStateException("프리랜서 등급 정보가 존재하지 않습니다."));
+        } else if (Role.EMPLOYER.equals(user.getRole())) {
+            grade = employerRepository.findByUserId(user.getId())
+                    .map(com.fallguys.mypage.entity.employer.Employer::getScale)
+                    .map(Enum::name)
+                    .orElse("UNKNOWN");
         }
 
         String accessToken = jwtTokenProvider.generateToken(
@@ -135,7 +172,7 @@ public class UserService {
         return UserResponseDto.from(user);
     }
 
-    /**
+    /*
      * 이메일 인증 완료 처리
      */
     @Transactional
@@ -146,7 +183,7 @@ public class UserService {
         log.info("이메일 인증 완료 - email: {}", maskEmail(email));
     }
 
-    /**
+    /*
      * 이메일 마스킹 (예: test@gmail.com → t***t@gmail.com)
      */
     private String maskEmail(String email) {

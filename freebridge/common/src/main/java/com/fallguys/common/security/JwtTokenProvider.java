@@ -28,11 +28,11 @@ public class JwtTokenProvider {
         Date expiryDate = new Date(now.getTime() + JWT_EXPIRATION_MS);
 
         return Jwts.builder()
-                .subject(email)
-                .claim("id", id)
+                .subject(String.valueOf(id)) // 토큰의 주체(Subject)를 변하지 않는 식별자인 ID로 설정
+                .claim("email", email) // 이메일은 별도의 클레임으로 저장
                 .claim("role", role)
                 .claim("name", name)
-                .claim("grade", grade != null ? grade : "")
+                .claim("grade", grade != null ? grade : "") // 회원 등급
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith((javax.crypto.SecretKey) key, Jwts.SIG.HS256)

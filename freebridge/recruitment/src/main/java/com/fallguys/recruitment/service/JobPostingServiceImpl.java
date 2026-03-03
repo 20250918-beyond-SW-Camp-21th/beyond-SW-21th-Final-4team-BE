@@ -4,23 +4,26 @@ import com.fallguys.common.exception.BusinessException;
 import com.fallguys.common.exception.ErrorCode;
 import com.fallguys.recruitment.api.dto.request.JobPostingCreateDTO;
 import com.fallguys.recruitment.api.dto.request.JobPostingUpdateDTO;
+import com.fallguys.recruitment.api.dto.response.EmployerProjectSearchDTO;
 import com.fallguys.recruitment.api.dto.response.FreelancerJobPostingSearchDTO;
 import com.fallguys.recruitment.api.dto.response.JobPostingSearchDTO;
 import com.fallguys.recruitment.entity.JobPostingFavorite;
 import com.fallguys.recruitment.entity.JobPosting;
 import com.fallguys.recruitment.entity.JobPostingStatus;
+import com.fallguys.recruitment.entity.Project;
 import com.fallguys.recruitment.entity.Status;
 import com.fallguys.recruitment.repository.JobPostingFavoriteRepo;
 import com.fallguys.recruitment.repository.JobPostingRepo;
-import com.fallguys.user.entity.Role;
-import com.fallguys.user.entity.User;
-import com.fallguys.user.repository.UserRepository;
+import com.fallguys.recruitment.repository.ProjectPostingRepo;
+import com.fallguys.recruitment.service.port.RecruitmentUser;
+import com.fallguys.recruitment.service.port.RecruitmentUserReader;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -33,13 +36,14 @@ public class JobPostingServiceImpl implements JobPostingService {
 
     private final JobPostingRepo jobPostingRepo;
     private final JobPostingFavoriteRepo jobPostingFavoriteRepo;
-    private final UserRepository userRepository;
+    private final ProjectPostingRepo projectPostingRepo;
+    private final RecruitmentUserReader recruitmentUserReader;
 
     @Override
     @Transactional(readOnly = true)
     public List<JobPostingSearchDTO> getJobPostings(Long userId) {
-        User user = getEmployerOrThrow(userId);
-        return jobPostingRepo.findAllByEmployerIdAndStatusNot(user.getId(), Status.DELETED)
+        RecruitmentUser user = recruitmentUserReader.getEmployerByIdOrThrow(userId);
+        return jobPostingRepo.findAllByEmployerIdAndStatusNot(user.id(), Status.DELETED)
                 .stream()
                 .map(this::toJobPostingSearchDto)
                 .toList();
@@ -48,27 +52,31 @@ public class JobPostingServiceImpl implements JobPostingService {
     @Override
     @Transactional
     public void createJobPosting(JobPostingCreateDTO jobPostingCreateDTO, Long userId) {
-        User user = getEmployerOrThrow(userId);
-        JobPosting jobPosting = JobPosting.from(jobPostingCreateDTO, user.getId(), user.getName());
+        RecruitmentUser user = recruitmentUserReader.getEmployerByIdOrThrow(userId);
+        JobPosting jobPosting = JobPosting.from(jobPostingCreateDTO, user.id(), user.name());
         jobPostingRepo.save(jobPosting);
     }
 
     @Override
     @Transactional
     public void updateJobPosting(JobPostingUpdateDTO jobPostingUpdateDTO, Long jobPostingId, Long userId) {
-        getEmployerOrThrow(userId);
+        RecruitmentUser user = recruitmentUserReader.getEmployerByIdOrThrow(userId);
         JobPosting jobPosting = getJobPostingOrThrow(jobPostingId);
-        validateOwnership(jobPosting, userId);
+        validateOwnership(jobPosting, user.id());
         validateNotDeleted(jobPosting);
-        jobPosting.update(jobPostingUpdateDTO);
+        try {
+            jobPosting.update(jobPostingUpdateDTO);
+        } catch (IllegalArgumentException e) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
     }
 
     @Override
     @Transactional
     public void deleteJobPosting(Long jobPostingId, Long userId) {
-        getEmployerOrThrow(userId);
+        RecruitmentUser user = recruitmentUserReader.getEmployerByIdOrThrow(userId);
         JobPosting jobPosting = getJobPostingOrThrow(jobPostingId);
-        validateOwnership(jobPosting, userId);
+        validateOwnership(jobPosting, user.id());
         validateNotDeleted(jobPosting);
         jobPosting.delete();
     }
@@ -82,8 +90,18 @@ public class JobPostingServiceImpl implements JobPostingService {
     }
 
     @Override
-    public List<FreelancerJobPostingSearchDTO> searchJobPostingsForFreelancer(Long freelancerId, String keyword, boolean favoritesOnly) {
-        getFreelancerOrThrow(freelancerId);
+    public List<EmployerProjectSearchDTO> getEmployerProjects(Long userId) {
+        RecruitmentUser user = recruitmentUserReader.getEmployerByIdOrThrow(userId);
+        return projectPostingRepo.findAllByEmployerIdOrderByCreatedAtDesc(user.id())
+                .stream()
+                .map(this::toEmployerProjectSearchDto)
+                .toList();
+    }
+
+    @Override
+    public List<FreelancerJobPostingSearchDTO> searchJobPostingsForFreelancer(Long userId, String keyword, boolean favoritesOnly) {
+        RecruitmentUser user = recruitmentUserReader.getFreelancerByIdOrThrow(userId);
+        Long freelancerId = user.id();
 
         Set<Long> favoriteJobPostingIds = new HashSet<>(
                 jobPostingFavoriteRepo.findAllByFreelancerId(freelancerId)
@@ -94,7 +112,10 @@ public class JobPostingServiceImpl implements JobPostingService {
 
         String normalizedKeyword = keyword == null ? "" : keyword.trim().toLowerCase(Locale.ROOT);
 
-        return jobPostingRepo.findAllByStatusAndPostingStatus(Status.ACTIVE, JobPostingStatus.OPEN)
+        return jobPostingRepo.findAllByStatusAndPostingStatusIn(
+                        Status.ACTIVE,
+                        EnumSet.of(JobPostingStatus.OPEN, JobPostingStatus.IN_PROGRESS)
+                )
                 .stream()
                 .filter(jobPosting -> matchesKeyword(jobPosting, normalizedKeyword))
                 .filter(jobPosting -> !favoritesOnly || favoriteJobPostingIds.contains(jobPosting.getId()))
@@ -104,8 +125,9 @@ public class JobPostingServiceImpl implements JobPostingService {
 
     @Override
     @Transactional
-    public void addFavoriteJobPosting(Long freelancerId, Long jobPostingId) {
-        getFreelancerOrThrow(freelancerId);
+    public void addFavoriteJobPosting(Long userId, Long jobPostingId) {
+        RecruitmentUser user = recruitmentUserReader.getFreelancerByIdOrThrow(userId);
+        Long freelancerId = user.id();
 
         JobPosting jobPosting = getJobPostingOrThrow(jobPostingId);
         validateNotDeleted(jobPosting);
@@ -119,19 +141,11 @@ public class JobPostingServiceImpl implements JobPostingService {
 
     @Override
     @Transactional
-    public void removeFavoriteJobPosting(Long freelancerId, Long jobPostingId) {
-        getFreelancerOrThrow(freelancerId);
+    public void removeFavoriteJobPosting(Long userId, Long jobPostingId) {
+        RecruitmentUser user = recruitmentUserReader.getFreelancerByIdOrThrow(userId);
+        Long freelancerId = user.id();
 
         jobPostingFavoriteRepo.deleteByFreelancerIdAndJobPostingId(freelancerId, jobPostingId);
-    }
-
-    private User getEmployerOrThrow(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        if (user.getRole() != Role.EMPLOYER) {
-            throw new BusinessException(ErrorCode.ONLY_EMPLOYER_ALLOWED);
-        }
-        return user;
     }
 
     private JobPosting getJobPostingOrThrow(Long jobPostingId) {
@@ -151,15 +165,6 @@ public class JobPostingServiceImpl implements JobPostingService {
         }
     }
 
-    private User getFreelancerOrThrow(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        if (user.getRole() != Role.FREELANCER) {
-            throw new BusinessException(ErrorCode.ONLY_FREELANCER_ALLOWED);
-        }
-        return user;
-    }
-
     private JobPostingSearchDTO toJobPostingSearchDto(JobPosting jobPosting) {
         return new JobPostingSearchDTO(
                 jobPosting.getId(),
@@ -169,6 +174,8 @@ public class JobPostingServiceImpl implements JobPostingService {
                 new ArrayList<>(jobPosting.getTechStack()),
                 jobPosting.getBudget(),
                 jobPosting.getDuration(),
+                jobPosting.getHeadcount(),
+                jobPosting.getMatchedHeadcount(),
                 jobPosting.getPostingStatus()
         );
     }
@@ -182,7 +189,22 @@ public class JobPostingServiceImpl implements JobPostingService {
                 new ArrayList<>(jobPosting.getTechStack()),
                 jobPosting.getBudget(),
                 jobPosting.getDuration(),
+                jobPosting.getHeadcount(),
+                jobPosting.getMatchedHeadcount(),
                 favorite
+        );
+    }
+
+    private EmployerProjectSearchDTO toEmployerProjectSearchDto(Project project) {
+        return new EmployerProjectSearchDTO(
+                project.getId(),
+                project.getJobPosting().getId(),
+                project.getFreelancerId(),
+                project.getProjectName(),
+                project.getHeadcount(),
+                project.getStartDate(),
+                project.getEndDate(),
+                project.getStatus()
         );
     }
 
