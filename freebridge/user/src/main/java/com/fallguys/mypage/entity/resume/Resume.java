@@ -14,7 +14,9 @@ import java.util.List;
 
 @Entity
 @Getter
-@Table(name = "resume")
+@Table(name = "resume", uniqueConstraints = {
+        @UniqueConstraint(name = "uq_resume_freelancer_id", columnNames = {"freelancer_id"})
+})
 @EntityListeners(AuditingEntityListener.class)
 @NoArgsConstructor
 public class Resume {
