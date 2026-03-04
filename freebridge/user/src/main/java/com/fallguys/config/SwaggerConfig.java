@@ -14,17 +14,50 @@ public class SwaggerConfig implements SwaggerConfigInterface {
     }
 
     @Bean
-    public GroupedOpenApi mypageGroupedOpenApi() {
+    public GroupedOpenApi employerMypageGroupedOpenApi() {
         return GroupedOpenApi.builder()
-                .group("mypage")
+                .group("employerMypage")
                 .pathsToMatch(
-                        "/api/employer/mypage/**",
+                        "/api/employer/mypage/**"
+                )
+                .addOpenApiCustomizer(openApi ->
+                        openApi.setInfo(new io.swagger.v3.oas.models.info.Info()
+                                .title("EMPLOYER MYPAGE API")
+                                .description("MYPAGE Domain API")
+                                .version("1.0.0")
+                        )
+                )
+                .build();
+    }
+
+    @Bean
+    public GroupedOpenApi freelancerMypageGroupedOpenApi() {
+        return GroupedOpenApi.builder()
+                .group("freelancerMypage")
+                .pathsToMatch(
                         "/api/freelancer/mypage/**"
                 )
                 .addOpenApiCustomizer(openApi ->
                         openApi.setInfo(new io.swagger.v3.oas.models.info.Info()
-                                .title("MYPAGE API")
+                                .title("FREELANCER MYPAGE API")
                                 .description("MYPAGE Domain API")
+                                .version("1.0.0")
+                        )
+                )
+                .build();
+    }
+
+    @Bean
+    public GroupedOpenApi subscriptionGroupedOpenApi() {
+        return GroupedOpenApi.builder()
+                .group("subscription")
+                .pathsToMatch(
+                        "/api/employer/subscription**"
+                )
+                .addOpenApiCustomizer(openApi ->
+                        openApi.setInfo(new io.swagger.v3.oas.models.info.Info()
+                                .title("SUBSCRIPTION API")
+                                .description("SUBSCRIPTION Domain API")
                                 .version("1.0.0")
                         )
                 )
