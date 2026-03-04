@@ -14,8 +14,8 @@ public class RecruitmentSwaggerConfig implements SwaggerConfigInterface {
         return GroupedOpenApi.builder()
                 .group("recruitment")
                 .pathsToMatch(
-                        "/api/v1/employer/**",
-                        "/api/v1/freelancer/**"
+                        "/api/employer/**",
+                        "/api/freelancer/**"
                 )
                 .addOpenApiCustomizer(openApi ->
                         openApi.setInfo(new Info()
