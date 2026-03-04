@@ -6,12 +6,15 @@ import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerProfileResp
 import com.fallguys.mypage.entity.freelancer.Freelancer;
 import com.fallguys.mypage.entity.freelancer.FreelancerGrade;
 import com.fallguys.mypage.repository.freelancer.FreelancerRepository;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.mock.web.MockMultipartFile;
 
 import java.util.List;
@@ -34,6 +37,16 @@ class FreelancerProfileServiceTest {
 
     @Mock
     private FileStorage fileStorage;
+
+    @BeforeEach
+    void setUp() {
+        TransactionSynchronizationManager.initSynchronization();
+    }
+
+    @AfterEach
+    void tearDown() {
+        TransactionSynchronizationManager.clear();
+    }
 
     // ─── getProfile ───────────────────────────────────────────────
 
