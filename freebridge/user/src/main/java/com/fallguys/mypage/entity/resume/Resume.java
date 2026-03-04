@@ -71,11 +71,17 @@ public class Resume {
                        List<Education> educations, List<Career> careers, List<Certification> certifications) {
         updateBasicInfo(name, birthDate, phone, email, address);
         this.educations.clear();
-        if (educations != null) this.educations.addAll(educations);
+        if (educations != null) {
+            educations.stream().filter(java.util.Objects::nonNull).forEach(this.educations::add);
+        }
         this.careers.clear();
-        if (careers != null) this.careers.addAll(careers);
+        if (careers != null) {
+            careers.stream().filter(java.util.Objects::nonNull).forEach(this.careers::add);
+        }
         this.certifications.clear();
-        if (certifications != null) this.certifications.addAll(certifications);
+        if (certifications != null) {
+            certifications.stream().filter(java.util.Objects::nonNull).forEach(this.certifications::add);
+        }
     }
 
     // ─── 학력 CUD ─────────────────────────────────────────────────
@@ -87,6 +93,7 @@ public class Resume {
     }
 
     public void updateEducation(int index, Education education) {
+        if (education == null) throw new IllegalArgumentException("학력 정보가 없습니다.");
         validateIndex(index, this.educations, "학력");
         this.educations.set(index, education);
     }
@@ -105,6 +112,7 @@ public class Resume {
     }
 
     public void updateCareerEntry(int index, Career career) {
+        if (career == null) throw new IllegalArgumentException("경력 정보가 없습니다.");
         validateIndex(index, this.careers, "경력");
         this.careers.set(index, career);
     }
@@ -123,6 +131,7 @@ public class Resume {
     }
 
     public void updateCertification(int index, Certification certification) {
+        if (certification == null) throw new IllegalArgumentException("자격증 정보가 없습니다.");
         validateIndex(index, this.certifications, "자격증");
         this.certifications.set(index, certification);
     }
