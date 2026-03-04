@@ -1,5 +1,7 @@
 package com.fallguys.payment.entity;
 
+import com.fallguys.common.exception.BusinessException;
+import com.fallguys.common.exception.ErrorCode;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -45,6 +47,10 @@ public class Wallet {
     }
 
     public void debit(long amount) {
-        this.balance -= amount;
+
+        if(amount < this.balance) {
+            this.balance -= amount;
+        } else throw new BusinessException(ErrorCode.PAYMENT_FAILED);
+
     }
 }
