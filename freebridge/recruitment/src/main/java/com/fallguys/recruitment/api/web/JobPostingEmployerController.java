@@ -34,7 +34,7 @@ public class JobPostingEmployerController {
     private final TokenUserIdResolver tokenUserIdResolver;
 
     @Operation(summary = "내 채용 공고 목록 조회", description = "고용주가 등록한 채용 공고 목록을 조회합니다.")
-    @GetMapping("/api/v1/employer/jobs")
+    @GetMapping("/api/employer/jobs")
     public ResponseEntity<ApiResponse<PagedResponseDTO<JobPostingSearchDTO>>> getMyJobPostings(
             @RequestHeader("Authorization") String authorization,
             @RequestParam(defaultValue = "0") int page,
@@ -46,7 +46,7 @@ public class JobPostingEmployerController {
     }
 
     @Operation(summary = "고용주: 자신의 프로젝트 조회", description = "고용주의 프로젝트 목록을 조회합니다.")
-    @GetMapping("/api/v1/employer/project")
+    @GetMapping("/api/employer/project")
     public ResponseEntity<ApiResponse<PagedResponseDTO<EmployerProjectSearchDTO>>> getMyProjects(
             @RequestHeader("Authorization") String authorization,
             @RequestParam(defaultValue = "0") int page,
@@ -58,7 +58,7 @@ public class JobPostingEmployerController {
     }
 
     @Operation(summary = "채용 공고 등록", description = "새로운 채용 공고를 등록합니다.")
-    @PostMapping("/api/v1/employer/jobs/post")
+    @PostMapping("/api/employer/jobs/post")
     public ResponseEntity<ApiResponse<Void>> createJobPosting(
             @RequestHeader("Authorization") String authorization,
             @Valid @RequestBody JobPostingCreateDTO body
@@ -69,7 +69,7 @@ public class JobPostingEmployerController {
     }
 
     @Operation(summary = "채용 공고 수정", description = "기존 채용 공고 내용을 수정합니다.")
-    @PutMapping("/api/v1/employer/jobs/put")
+    @PutMapping("/api/employer/jobs/put")
     public ResponseEntity<ApiResponse<Void>> updateJobPosting(
             @RequestHeader("Authorization") String authorization,
             @RequestParam(name = "jobsNumber") Long jobsNumber,
@@ -81,7 +81,7 @@ public class JobPostingEmployerController {
     }
 
     @Operation(summary = "채용 공고 삭제", description = "등록된 채용 공고를 삭제합니다.")
-    @DeleteMapping("/api/v1/employer/jobs/del")
+    @DeleteMapping("/api/employer/jobs/del")
     public ResponseEntity<ApiResponse<Void>> deleteJobPosting(
             @RequestHeader("Authorization") String authorization,
             @RequestParam(name = "jobsNumber") Long jobsNumber
