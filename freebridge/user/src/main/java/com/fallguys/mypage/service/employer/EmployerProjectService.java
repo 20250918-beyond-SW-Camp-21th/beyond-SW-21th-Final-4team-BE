@@ -27,7 +27,7 @@ public class EmployerProjectService {
             }
 
             @SuppressWarnings("unchecked")
-            Map<String, Integer> stats = (Map<String, Integer>) rawData;
+            Map<String, ?> stats = (Map<String, ?>) rawData;
 
             return EmployerProjectStatsResponseDto.from(stats);
 

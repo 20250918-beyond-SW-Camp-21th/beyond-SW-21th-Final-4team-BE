@@ -8,6 +8,7 @@ import com.fallguys.mypage.service.employer.EmployerProfileService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -38,7 +39,7 @@ public class EmployerProfileController {
     }
 
     @Operation(summary = "로고 이미지 수정", description = "고용주 로고 이미지를 업로드하고 반환합니다.")
-    @PostMapping("/logo")
+    @PostMapping(value = "/logo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ApiResponse<String> uploadLogo(@AuthenticationPrincipal CustomUserDetails userDetails,
                                           @RequestPart("file") MultipartFile file) {
         String uploadedLogoUrl = employerProfileService.updateLogoUrl(userDetails.getId(), file);
