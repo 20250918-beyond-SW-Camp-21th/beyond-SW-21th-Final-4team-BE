@@ -7,6 +7,7 @@ import lombok.Setter;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -34,6 +35,12 @@ public class BillingKey {
     @Column(nullable = false)
     private boolean active;
 
+    @Column(nullable = false)
+    private LocalDate nextBillingDate;
+
+    @Column(nullable = false)
+    private int billingDayOfMonth;
+
     @CreatedDate
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -43,6 +50,21 @@ public class BillingKey {
         this.billingKey = billingKey;
         this.planType = planType;
         this.active = true;
+
+        LocalDate today = LocalDate.now();
+        this.billingDayOfMonth = today.getDayOfMonth();
+        this.nextBillingDate = calculateNextBillingDate(today, this.billingDayOfMonth);
+    }
+
+    public void updateNextBillingDate() {
+        this.nextBillingDate = calculateNextBillingDate(this.nextBillingDate, this.billingDayOfMonth);
+    }
+
+    private LocalDate calculateNextBillingDate(LocalDate baseDate, int targetDayOfMonth) {
+        LocalDate nextMonth = baseDate.plusMonths(1);
+        int lastDayOfNextMonth = nextMonth.lengthOfMonth();
+        int day = Math.min(targetDayOfMonth, lastDayOfNextMonth);
+        return nextMonth.withDayOfMonth(day);
     }
 
     public void deactivate() {

@@ -14,4 +14,6 @@ public interface BillingKeyRepository extends JpaRepository<BillingKey, Long> {
     Optional<BillingKey> findByEmployerIdAndPlanTypeAndActiveTrue(Long employerId, PlanType planType);
 
     List<BillingKey> findByActiveTrue();
+
+    List<BillingKey> findByActiveTrueAndNextBillingDateLessThanEqual(java.time.LocalDate date);
 }
