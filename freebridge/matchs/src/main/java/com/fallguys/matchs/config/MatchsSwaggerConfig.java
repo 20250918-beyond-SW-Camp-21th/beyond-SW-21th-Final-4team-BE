@@ -13,8 +13,8 @@ public class MatchsSwaggerConfig {
         return GroupedOpenApi.builder()
                 .group("matchs")
                 .pathsToMatch(
-                        "/api/v1/employer/**",
-                        "/api/v1/freelancer/**"
+                        "/api/employer/**",
+                        "/api/freelancer/**"
                 )
                 .addOpenApiCustomizer(openApi ->
                         openApi.setInfo(new Info()
