@@ -36,7 +36,7 @@ public class EmployerReviewController {
     private final ReviewTokenUserIdResolver reviewTokenUserIdResolver;
 
     @Operation(summary = "고용주가 받은 전체 후기 조회", description = "프리랜서가 고용주에게 작성한 후기 목록을 조회합니다.")
-    @GetMapping("/api/v1/employer/reviews")
+    @GetMapping("/api/employer/reviews")
     public ResponseEntity<ApiResponse<PagedResponseDTO<FreelancerReview>>> getEmployerReceivedReviews(
             @RequestHeader("Authorization") String authorization,
             @RequestParam(defaultValue = "0") int page,
@@ -57,7 +57,7 @@ public class EmployerReviewController {
     }
 
     @Operation(summary = "고용주가 작성한 전체 후기 조회", description = "고용주가 프리랜서에게 작성한 후기 목록을 조회합니다.")
-    @GetMapping("/api/v1/employer/reviews/written")
+    @GetMapping("/api/employer/reviews/written")
     public ResponseEntity<ApiResponse<PagedResponseDTO<EmployerReview>>> getEmployerWrittenReviews(
             @RequestHeader("Authorization") String authorization,
             @RequestParam(defaultValue = "0") int page,
@@ -78,7 +78,7 @@ public class EmployerReviewController {
     }
 
     @Operation(summary = "고용주 후기 작성", description = "고용주가 프로젝트에 대한 후기를 작성합니다.")
-    @PostMapping("/api/v1/employer/projects/{projectId}/reviews")
+    @PostMapping("/api/employer/projects/{projectId}/reviews")
     public ResponseEntity<ApiResponse<Long>> createEmployerReview(
             @RequestHeader("Authorization") String authorization,
             @PathVariable Long projectId,
@@ -101,7 +101,7 @@ public class EmployerReviewController {
     }
 
     @Operation(summary = "고용주 후기 수정", description = "고용주가 작성한 후기를 수정합니다.")
-    @PutMapping("/api/v1/employer/reviews/{reviewId}")
+    @PutMapping("/api/employer/reviews/{reviewId}")
     public ResponseEntity<ApiResponse<Void>> updateEmployerReview(
             @RequestHeader("Authorization") String authorization,
             @PathVariable Long reviewId,
@@ -113,7 +113,7 @@ public class EmployerReviewController {
     }
 
     @Operation(summary = "고용주 후기 삭제", description = "고용주가 작성한 후기를 삭제합니다.")
-    @DeleteMapping("/api/v1/employer/reviews/{reviewId}")
+    @DeleteMapping("/api/employer/reviews/{reviewId}")
     public ResponseEntity<ApiResponse<Void>> deleteEmployerReview(
             @RequestHeader("Authorization") String authorization,
             @PathVariable Long reviewId

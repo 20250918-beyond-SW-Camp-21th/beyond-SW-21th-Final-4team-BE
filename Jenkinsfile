@@ -117,6 +117,9 @@ pipeline {
                             chmod 600 $KUBECONFIG
                             cd manifest-repo
 
+                            # 백엔드 시크릿 배포 (컨테이너가 뜨기 전에 반드시 먼저 생성되어야 함)
+                            kubectl apply -f kube-folder/backend-secret.yml
+                            
                             kubectl apply -f kube-folder/backend-deployment.yml
                             kubectl apply -f kube-folder/backend-service.yml
 

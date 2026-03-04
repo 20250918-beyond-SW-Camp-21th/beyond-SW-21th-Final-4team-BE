@@ -18,7 +18,9 @@ import com.fallguys.mypage.entity.freelancer.FreelancerGrade;
 import com.fallguys.mypage.entity.employer.Employer;
 import com.fallguys.mypage.entity.employer.Subscription;
 import com.fallguys.mypage.entity.employer.Scale;
+import com.fallguys.mypage.entity.resume.Resume;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import com.fallguys.mypage.repository.resume.ResumeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -39,6 +41,7 @@ public class UserService {
     private final JwtTokenProvider jwtTokenProvider;
     private final FreelancerRepository freelancerRepository;
     private final EmployerRepository employerRepository;
+    private final ResumeRepository resumeRepository;
     private final StringRedisTemplate redisTemplate;
 
     @Async
@@ -94,8 +97,12 @@ public class UserService {
         // 역할에 맞는 빈 프로필 자동 생성
         if (Role.FREELANCER.equals(savedUser.getRole())) {
             Freelancer freelancer = Freelancer.create(savedUser.getId(), "미입력", FreelancerGrade.JUNIOR);
-            freelancerRepository.save(freelancer);
+            Freelancer savedFreelancer = freelancerRepository.save(freelancer);
             log.info("프리랜서 빈 프로필 생성 완료 - userId: {}", savedUser.getId());
+            if (resumeRepository.findByFreelancerId(savedFreelancer.getFreelancerId()).isEmpty()) {
+                resumeRepository.save(new Resume(savedFreelancer.getFreelancerId()));
+                log.info("프리랜서 기본 이력서 생성 완료 - freelancerId: {}", savedFreelancer.getFreelancerId());
+            }
         } else if (Role.EMPLOYER.equals(savedUser.getRole())) {
             // 필수 뼈대값 대입 (가입 시 법인명은 유저 이름으로 임시 설정)
             Employer employer = Employer.create(savedUser.getId(), Subscription.BASIC, savedUser.getName(), Scale.S1_4);
