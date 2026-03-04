@@ -38,10 +38,10 @@ class FreelancerProjectServiceTest {
         Long freelancerId = 1L;
         String redisKey = "freelancer:project:stats:" + freelancerId;
 
-        Map<String, Integer> mockStats = Map.of(
-                "appliedProjects", 8,
-                "inProgressProjects", 3,
-                "completedProjects", 12
+        Map<String, Long> mockStats = Map.of(   // Redis/Jackson은 정수를 Long으로 역직렬화함
+                "appliedProjects", 8L,
+                "inProgressProjects", 3L,
+                "completedProjects", 12L
         );
 
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);

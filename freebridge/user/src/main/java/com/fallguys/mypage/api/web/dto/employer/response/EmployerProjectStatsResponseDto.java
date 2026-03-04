@@ -11,14 +11,29 @@ public record EmployerProjectStatsResponseDto(
         return new EmployerProjectStatsResponseDto(0, 0, 0);
     }
 
-    public static EmployerProjectStatsResponseDto from(Map<String, Integer> stats) {
+    /**
+     * Redis 역직렬화 결과는 Integer / Long / String 등 다양한 타입일 수 있으므로
+     * 와일드카드 맵을 받아 safeInt()로 안전하게 변환합니다.
+     */
+    public static EmployerProjectStatsResponseDto from(Map<String, ?> stats) {
         if (stats == null || stats.isEmpty()) {
             return empty();
         }
         return new EmployerProjectStatsResponseDto(
-                java.util.Optional.ofNullable(stats.get("totalProjects")).orElse(0),
-                java.util.Optional.ofNullable(stats.get("activeApplicants")).orElse(0),
-                java.util.Optional.ofNullable(stats.get("contractedFreelancers")).orElse(0)
+                safeInt(stats.get("totalProjects")),
+                safeInt(stats.get("activeApplicants")),
+                safeInt(stats.get("contractedFreelancers"))
         );
+    }
+
+    /** Number(Integer/Long 등), String, null 을 모두 int로 안전 변환합니다. */
+    private static int safeInt(Object value) {
+        if (value == null) return 0;
+        if (value instanceof Number n) return n.intValue();
+        try {
+            return Integer.parseInt(value.toString());
+        } catch (NumberFormatException e) {
+            return 0;
+        }
     }
 }

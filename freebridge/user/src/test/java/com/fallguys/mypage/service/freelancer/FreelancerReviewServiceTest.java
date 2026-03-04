@@ -45,9 +45,9 @@ class FreelancerReviewServiceTest {
         String redisKey = "freelancer:review:rates:" + userId;
         Integer topPercentile = 15;
 
-        List<Map<String, Double>> mockReviews = List.of(
+        List<Map<String, Object>> mockReviews = List.of(
                 Map.of("expertiseRate", 4.0, "communicationRate", 5.0, "scheduleRate", 3.0),
-                Map.of("expertiseRate", 5.0, "communicationRate", 4.0, "scheduleRate", 4.0)
+                Map.of("expertiseRate", 5, "communicationRate", 4, "scheduleRate", 4)  // 정수도 처리 가능 검증
         );
 
         Freelancer mockFreelancer = mock(Freelancer.class);

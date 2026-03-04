@@ -36,10 +36,10 @@ class EmployerProjectServiceTest {
         Long employerId = 1L;
         String redisKey = "employer:project:stats:" + employerId;
 
-        Map<String, Integer> mockStats = Map.of(
-            "totalProjects", 10,
-            "activeApplicants", 5,
-            "contractedFreelancers", 15
+        Map<String, Long> mockStats = Map.of(   // Redis/Jackson은 정수를 Long으로 역직렬화함
+            "totalProjects", 10L,
+            "activeApplicants", 5L,
+            "contractedFreelancers", 15L
         );
 
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);

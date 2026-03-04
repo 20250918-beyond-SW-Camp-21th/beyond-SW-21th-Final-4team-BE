@@ -32,7 +32,7 @@ public class FreelancerProjectService {
                 return FreelancerProjectStatusStatsDto.empty();
             }
             @SuppressWarnings("unchecked")
-            Map<String, Integer> stats = (Map<String, Integer>) rawData;
+            Map<String, ?> stats = (Map<String, ?>) rawData;
             return FreelancerProjectStatusStatsDto.from(stats);
         } catch (Exception e) {
             log.error("Failed to parse freelancer project stats from Redis for freelancerId: {}", freelancerId, e);

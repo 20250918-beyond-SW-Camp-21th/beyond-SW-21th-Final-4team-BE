@@ -50,10 +50,10 @@ class EmployerReviewServiceTest {
         
         // Mocking Data: List of Review Maps or DTOs.
         // 예를 들어 Review 도메인이 Redis에 아래와 같은 포맷으로 리뷰 점수 리스트를 올렸다고 가정합니다.
-        List<Map<String, Double>> mockReviews = List.of(
-            Map.of("atmosphereRate", 5.0, "requirementsDetailRate", 4.0, "scheduleAdherenceRate", 5.0),
-            Map.of("atmosphereRate", 3.0, "requirementsDetailRate", 4.0, "scheduleAdherenceRate", 3.0),
-            Map.of("atmosphereRate", 4.0, "requirementsDetailRate", 4.0, "scheduleAdherenceRate", 4.0)
+        List<Map<String, Object>> mockReviews = List.of(
+            Map.of("atmosphereRate", 5, "requirementsDetailRate", 4.0, "scheduleAdherenceRate", 5),   // 정수/실수 혼합 검증
+            Map.of("atmosphereRate", 3.0, "requirementsDetailRate", 4, "scheduleAdherenceRate", 3.0),
+            Map.of("atmosphereRate", 4, "requirementsDetailRate", 4.0, "scheduleAdherenceRate", 4)
         );
 
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);

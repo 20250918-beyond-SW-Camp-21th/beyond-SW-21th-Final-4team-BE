@@ -16,10 +16,10 @@ public record FreelancerEvaluationSummaryDto(
 
     /**
      * Redis에서 받은 리뷰 목록으로 항목별 평균을 계산합니다.
-     * 각 Map: { "expertiseRate": 4.5, "communicationRate": 5.0, "scheduleRate": 3.5 }
-     * Map value가 null인 경우 0.0으로 처리합니다.
+     * 각 Map: { "expertiseRate": 4.5, "communicationRate": 5, "scheduleRate": 3.5 }
+     * JSON 역직렬화 시 정수 값은 Integer/Long으로 들어올 수 있으므로 Object로 수신합니다.
      */
-    public static FreelancerEvaluationSummaryDto from(List<Map<String, Double>> reviews, Integer topPercentile) {
+    public static FreelancerEvaluationSummaryDto from(List<Map<String, Object>> reviews, Integer topPercentile) {
         if (reviews == null || reviews.isEmpty()) {
             return empty(topPercentile);
         }
@@ -28,12 +28,11 @@ public record FreelancerEvaluationSummaryDto(
         double sumSchedule = 0;
         int count = 0;
 
-        for (Map<String, Double> rates : reviews) {
+        for (Map<String, Object> rates : reviews) {
             if (rates == null) continue; // null Map 요소 방어
-            // getOrDefault는 키가 있고 값이 null이면 null을 반환하므로 별도 null 처리
-            sumExpertise     += safeDouble(rates.get("expertiseRate"));
-            sumCommunication += safeDouble(rates.get("communicationRate"));
-            sumSchedule      += safeDouble(rates.get("scheduleRate"));
+            sumExpertise     += safeNumber(rates.get("expertiseRate"));
+            sumCommunication += safeNumber(rates.get("communicationRate"));
+            sumSchedule      += safeNumber(rates.get("scheduleRate"));
             count++;
         }
 
@@ -47,8 +46,12 @@ public record FreelancerEvaluationSummaryDto(
         return new FreelancerEvaluationSummaryDto(totalAverage, topPercentile, avgExpertise, avgCommunication, avgSchedule);
     }
 
-    private static double safeDouble(Double value) {
-        return value != null ? value : 0.0;
+    /** Integer, Long, Double 등 모든 Number 하위 타입과 null을 안전하게 double로 변환합니다. */
+    private static double safeNumber(Object value) {
+        if (value instanceof Number n) {
+            return n.doubleValue();
+        }
+        return 0.0;
     }
 
     private static double round1(double value) {

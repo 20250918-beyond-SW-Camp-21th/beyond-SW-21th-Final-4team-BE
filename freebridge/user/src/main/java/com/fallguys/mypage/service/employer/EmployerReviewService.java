@@ -31,7 +31,7 @@ public class EmployerReviewService {
             }
 
             @SuppressWarnings("unchecked")
-            List<Map<String, Double>> reviews = (List<Map<String, Double>>) rawData;
+            List<Map<String, Object>> reviews = (List<Map<String, Object>>) rawData;
 
             return EmployerReviewSummaryResponseDto.from(reviews);
 

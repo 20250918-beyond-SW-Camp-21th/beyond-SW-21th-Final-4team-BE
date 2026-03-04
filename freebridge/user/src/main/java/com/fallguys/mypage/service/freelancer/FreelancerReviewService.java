@@ -41,7 +41,7 @@ public class FreelancerReviewService {
                 return FreelancerEvaluationSummaryDto.empty(topPercentile);
             }
             @SuppressWarnings("unchecked")
-            List<Map<String, Double>> reviews = (List<Map<String, Double>>) rawData;
+            List<Map<String, Object>> reviews = (List<Map<String, Object>>) rawData;
             return FreelancerEvaluationSummaryDto.from(reviews, topPercentile);
 
         } catch (Exception e) {
