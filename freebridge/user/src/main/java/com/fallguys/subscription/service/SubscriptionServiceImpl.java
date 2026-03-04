@@ -3,6 +3,7 @@ package com.fallguys.subscription.service;
 import com.fallguys.subscription.api.request.SubscriptionCancelRequest;
 import com.fallguys.subscription.api.request.SubscriptionChangeRequest;
 import com.fallguys.subscription.api.response.SubscriptionResponse;
+import com.fallguys.subscription.api.shared.ExternalPaymentPort;
 import com.fallguys.subscription.api.shared.ExternalSubscriptionPort;
 import com.fallguys.subscription.entity.PlanGrade;
 import lombok.RequiredArgsConstructor;
@@ -13,8 +14,13 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * 구독 도메인 핵심 비즈니스 로직 구현체.
  *
- * <p>이 서비스는 mypage, user 등 타 도메인을 직접 import하지 않습니다.
- * 데이터 접근은 {@link ExternalSubscriptionPort}를 통해서만 이루어집니다.
+ * <h3>플랜 변경 정책</h3>
+ * <ul>
+ *   <li><b>업그레이드</b> (BASIC→PRO, BASIC→PRIME, PRO→PRIME): 즉시 결제 후 즉시 플랜 변경</li>
+ *   <li><b>다운그레이드 (유료→유료)</b> (PRIME→PRO): 당월 말까지 현재 플랜 유지, 다음 결제일부터 하위 플랜 전환.
+ *       다운그레이드 월에는 추가 결제 없음.</li>
+ *   <li><b>BASIC 전환</b> (PRO/PRIME→BASIC): {@link #cancelSubscription} 를 통해 처리</li>
+ * </ul>
  */
 @Slf4j
 @Service
@@ -22,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class SubscriptionServiceImpl implements SubscriptionService {
 
     private final ExternalSubscriptionPort externalSubscriptionPort;
+    private final ExternalPaymentPort externalPaymentPort;
 
     @Override
     @Transactional(readOnly = true)
@@ -42,6 +49,15 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         );
     }
 
+    /**
+     * 구독 플랜 변경.
+     *
+     * <ul>
+     *   <li>업그레이드: 결제 성공 시 즉시 변경</li>
+     *   <li>다운그레이드(유료→유료): 결제 없이 다음 결제일로 변경 예약 (당월 현 플랜 유지)</li>
+     *   <li>BASIC으로 변경 시: 취소 처리를 위해 cancelSubscription 사용 권장이나, 직접 BASIC 요청 시도 처리</li>
+     * </ul>
+     */
     @Override
     @Transactional
     public void changePlan(Long userId, SubscriptionChangeRequest request) {
@@ -64,8 +80,46 @@ public class SubscriptionServiceImpl implements SubscriptionService {
             throw new IllegalArgumentException("현재와 동일한 플랜으로는 변경할 수 없습니다.");
         }
 
-        log.info("[SubscriptionService] 구독 플랜 변경 요청 (userId: {}, {} -> {})", userId, currentGrade, targetGrade);
-        externalSubscriptionPort.changePlan(userId, targetGrade);
+        // BASIC으로 변경 = 구독 취소 처리
+        if (targetGrade == PlanGrade.BASIC) {
+            log.info("[SubscriptionService] BASIC 전환 요청 → 구독 취소 처리 (userId: {})", userId);
+            externalSubscriptionPort.changePlan(userId, PlanGrade.BASIC);
+            return;
+        }
+
+        boolean isUpgrade = targetGrade.ordinal() > currentGrade.ordinal();
+
+        if (isUpgrade) {
+            // ── 업그레이드: 결제 먼저, 성공 시 즉시 플랜 변경 ──
+            if (request.billingKey() == null || request.billingKey().isBlank()) {
+                throw new IllegalArgumentException("유료 플랜 변경 시 billingKey가 필요합니다.");
+            }
+
+            log.info("[SubscriptionService] 업그레이드 결제 트리거 (userId: {}, {} -> {})", userId, currentGrade, targetGrade);
+            ExternalPaymentPort.PaymentResult result = externalPaymentPort.requestSubscriptionPayment(
+                    userId,
+                    targetGrade.name(),
+                    targetGrade.getMonthlyPrice(),
+                    request.billingKey()
+            );
+
+            if (!result.success()) {
+                log.warn("[SubscriptionService] 업그레이드 결제 실패 (userId: {}, errorCode: {}, message: {})",
+                        userId, result.errorCode(), result.errorMessage());
+                throw new IllegalStateException("구독 결제가 실패하였습니다. 사유: " + result.errorMessage());
+            }
+
+            log.info("[SubscriptionService] 업그레이드 완료 (userId: {}, billingId: {}, plan: {})",
+                    userId, result.billingId(), targetGrade);
+            externalSubscriptionPort.changePlan(userId, targetGrade);
+
+        } else {
+            // ── 다운그레이드 (유료→유료, PRIME→PRO): 결제 없이 다음 결제일로 예약 ──
+            // 당월 말까지 현재 플랜 유지, 다음 결제일부터 하위 플랜 적용
+            log.info("[SubscriptionService] 다운그레이드 예약 (userId: {}, {} -> {}) — 다음 결제일 적용",
+                    userId, currentGrade, targetGrade);
+            externalSubscriptionPort.schedulePlanDowngrade(userId, targetGrade);
+        }
     }
 
     @Override

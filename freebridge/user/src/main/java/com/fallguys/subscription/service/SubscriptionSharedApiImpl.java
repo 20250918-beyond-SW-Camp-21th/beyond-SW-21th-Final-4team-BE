@@ -8,7 +8,6 @@ import org.springframework.stereotype.Component;
 
 /**
  * subscription 도메인이 외부에 구독 정보를 제공하는 공유 API 구현체.
- * subscription 패키지 내부에서 구현합니다.
  */
 @Component
 @RequiredArgsConstructor

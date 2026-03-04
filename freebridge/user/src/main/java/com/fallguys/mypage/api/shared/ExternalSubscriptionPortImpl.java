@@ -12,9 +12,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * subscription 도메인의 {@link ExternalSubscriptionPort} 인터페이스를 구현하는 어댑터.
- * <p>
  * mypage 패키지 소속이지만, subscription 도메인이 Employer 데이터에
- * 직접 의존하지 않도록 anti-corruption layer 역할을 합니다.
+ * 직접 의존하지 않도록 anti-corruption layer 역할 수행
  */
 @Slf4j
 @Component
@@ -48,6 +47,18 @@ public class ExternalSubscriptionPortImpl implements ExternalSubscriptionPort {
         // 취소 예약: BASIC으로 전환 (현재 테이블 구조에서는 즉시 BASIC 처리; 다음 결제일 관리 테이블 추가 시 개선)
         employer.changeSubscription(Subscription.BASIC);
         log.info("[ExternalSubscriptionPortImpl] 구독 취소 처리 완료 (userId: {}, reason: {})", userId, cancelReason);
+    }
+
+    @Override
+    @Transactional
+    public void schedulePlanDowngrade(Long userId, PlanGrade targetGrade) {
+        Employer employer = employerRepository.findByUserId(userId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 고용주입니다. (userId: " + userId + ")"));
+        // TODO: Employer 엔티티에 pendingSubscription / planChangeEffectiveDate 컬럼 추가 후
+        //       즉시 전환 대신 다음 결제일에 전환하도록 스케줄링 로직 구현 필요.
+        //       현재는 정책 인터페이스만 구성하고, 로그로 예약 처리를 기록합니다.
+        log.info("[ExternalSubscriptionPortImpl] 다운그레이드 예약 등록 (userId: {}, 현재: {}, 예약플랜: {}) — 다음 결제일 적용 예정",
+                userId, employer.getSubscription(), targetGrade);
     }
 
     // ---- 변환 헬퍼 ----

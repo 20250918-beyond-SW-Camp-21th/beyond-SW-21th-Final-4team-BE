@@ -1,8 +1,5 @@
 package com.fallguys.subscription.entity;
 
-/**
- * 구독 상태를 정의하는 Enum입니다.
- */
 public enum SubscriptionStatus {
     /** 정상 구독 중 */
     ACTIVE,

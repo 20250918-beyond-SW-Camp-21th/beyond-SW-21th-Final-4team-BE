@@ -1,9 +1,9 @@
 package com.fallguys.subscription.entity;
 
-/**
- * 구독 플랜 등급을 정의하는 Enum입니다.
- * Employer에게만 적용됩니다.
- */
+
+import lombok.Getter;
+
+@Getter
 public enum PlanGrade {
 
     BASIC(0, 12.0),
@@ -18,11 +18,4 @@ public enum PlanGrade {
         this.feeRate = feeRate;
     }
 
-    public int getMonthlyPrice() {
-        return monthlyPrice;
-    }
-
-    public double getFeeRate() {
-        return feeRate;
-    }
 }
