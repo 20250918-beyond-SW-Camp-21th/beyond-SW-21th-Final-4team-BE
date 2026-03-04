@@ -2,9 +2,7 @@ package com.fallguys.mypage.service.freelancer;
 
 import com.fallguys.common.port.FileStorage;
 import com.fallguys.mypage.api.web.dto.freelancer.request.FreelancerProfileUpdateRequestDto;
-import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerBasicProfileDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerProfileResponseDto;
-import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerStatsDto;
 import com.fallguys.mypage.entity.freelancer.Freelancer;
 import com.fallguys.mypage.entity.freelancer.FreelancerGrade;
 import com.fallguys.mypage.repository.freelancer.FreelancerRepository;
