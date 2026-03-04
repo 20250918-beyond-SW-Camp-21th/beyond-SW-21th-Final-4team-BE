@@ -1,6 +1,7 @@
 package com.fallguys.recruitment.api.web;
 
 import com.fallguys.common.response.ApiResponse;
+import com.fallguys.recruitment.api.dto.response.AiRecommendationResponseDTO;
 import com.fallguys.recruitment.api.support.TokenUserIdResolver;
 import com.fallguys.recruitment.api.dto.response.FreelancerJobPostingSearchDTO;
 import com.fallguys.recruitment.api.dto.response.PagedResponseDTO;
@@ -29,7 +30,7 @@ public class JobPostingFreelancerController {
     private final TokenUserIdResolver tokenUserIdResolver;
 
     @Operation(summary = "채용 공고 검색", description = "프리랜서가 조건에 맞는 채용 공고를 조회합니다.")
-    @GetMapping("/api/v1/freelancer/jobs")
+    @GetMapping("/api/freelancer/jobs")
     public ResponseEntity<ApiResponse<PagedResponseDTO<FreelancerJobPostingSearchDTO>>> searchJobPostings(
             @RequestHeader("Authorization") String authorization,
             @RequestParam(required = false) String keyword,
@@ -46,7 +47,7 @@ public class JobPostingFreelancerController {
     }
 
     @Operation(summary = "관심 공고 등록", description = "채용 공고를 관심 목록에 추가합니다.")
-    @PostMapping("/api/v1/freelancer/jobs/{jobPostingId}/like")
+    @PostMapping("/api/freelancer/jobs/{jobPostingId}/like")
     public ResponseEntity<ApiResponse<Void>> addFavorite(
             @RequestHeader("Authorization") String authorization,
             @PathVariable Long jobPostingId
@@ -57,7 +58,7 @@ public class JobPostingFreelancerController {
     }
 
     @Operation(summary = "관심 공고 해제", description = "관심 목록에서 채용 공고를 제거합니다.")
-    @DeleteMapping("/api/v1/freelancer/jobs/{jobPostingId}/like")
+    @DeleteMapping("/api/freelancer/jobs/{jobPostingId}/like")
     public ResponseEntity<ApiResponse<Void>> removeFavorite(
             @RequestHeader("Authorization") String authorization,
             @PathVariable Long jobPostingId
@@ -65,5 +66,18 @@ public class JobPostingFreelancerController {
         Long userId = tokenUserIdResolver.resolveUserId(authorization);
         jobPostingService.removeFavoriteJobPosting(userId, jobPostingId);
         return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    @Operation(summary = "나에게 맞는 추천 공고 조회", description = "내 프로필을 분석하여 AI가 최적의 공고 5개를 추천합니다.")
+    @GetMapping("/api/v1/freelancer/jobs/recommendations")
+    public ResponseEntity<ApiResponse<List<AiRecommendationResponseDTO>>> getMyJobRecommendations(
+            @RequestHeader("Authorization") String authorization
+    ) {
+        // 토큰에서 프리랜서 유저 ID 추출
+        Long userId = tokenUserIdResolver.resolveUserId(authorization);
+
+        List<AiRecommendationResponseDTO> result = jobPostingService.getRecommendedJobsForFreelancer(userId);
+
+        return ResponseEntity.ok(ApiResponse.ok(result));
     }
 }

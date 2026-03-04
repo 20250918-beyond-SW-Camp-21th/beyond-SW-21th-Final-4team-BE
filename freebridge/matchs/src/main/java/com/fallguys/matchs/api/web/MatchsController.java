@@ -37,7 +37,7 @@ public class MatchsController {
     private final TokenUserIdResolver tokenUserIdResolver;
 
     @Operation(summary = "프로젝트 지원 등록", description = "프리랜서가 프로젝트에 지원합니다.")
-    @PostMapping("/api/v1/freelancer/application")
+    @PostMapping("/api/freelancer/application")
     public ResponseEntity<ApiResponse<Map<String, Long>>> createApplication(
             @RequestHeader("Authorization") String authorization,
             @Valid @RequestBody ApplicationCreateRequest request
@@ -48,7 +48,7 @@ public class MatchsController {
     }
 
     @Operation(summary = "프리랜서 제안 등록", description = "고용주가 프리랜서에게 제안을 보냅니다.")
-    @PostMapping("/api/v1/employer/proposals")
+    @PostMapping("/api/employer/proposals")
     public ResponseEntity<ApiResponse<Map<String, Long>>> createProposal(
             @RequestHeader("Authorization") String authorization,
             @Valid @RequestBody ProposalCreateRequest request
@@ -59,7 +59,7 @@ public class MatchsController {
     }
 
     @Operation(summary = "제안 상세 조회(고용주)", description = "고용주가 발송한 제안의 상세 정보를 조회합니다.")
-    @GetMapping("/api/v1/employer/proposals/{proposalId}")
+    @GetMapping("/api/employer/proposals/{proposalId}")
     public ResponseEntity<ApiResponse<ProposalResponseDTO>> getEmployerProposal(
             @PathVariable Long proposalId,
             @RequestHeader("Authorization") String authorization
@@ -69,7 +69,7 @@ public class MatchsController {
     }
 
     @Operation(summary = "제안 목록 조회(고용주)", description = "고용주가 발송한 제안 목록을 조회합니다.")
-    @GetMapping("/api/v1/employer/proposals")
+    @GetMapping("/api/employer/proposals")
     public ResponseEntity<ApiResponse<PagedResponseDTO<ProposalResponseDTO>>> getEmployerProposals(
             @RequestHeader("Authorization") String authorization,
             @RequestParam(defaultValue = "0") int page,
@@ -89,7 +89,7 @@ public class MatchsController {
     }
 
     @Operation(summary = "지원 목록 조회(고용주)", description = "고용주가 받은 지원 목록을 조회합니다.")
-    @GetMapping("/api/v1/employer/applications")
+    @GetMapping("/api/employer/applications")
     public ResponseEntity<ApiResponse<PagedResponseDTO<ApplicationResponseDTO>>> getEmployerApplications(
             @RequestHeader("Authorization") String authorization,
             @RequestParam(defaultValue = "0") int page,
@@ -109,7 +109,7 @@ public class MatchsController {
     }
 
     @Operation(summary = "지원 상세 조회(고용주)", description = "고용주가 특정 지원 상세 정보를 조회합니다.")
-    @GetMapping("/api/v1/employer/applications/{applicationId}")
+    @GetMapping("/api/employer/applications/{applicationId}")
     public ResponseEntity<ApiResponse<ApplicationResponseDTO>> getEmployerApplication(
             @PathVariable Long applicationId,
             @RequestHeader("Authorization") String authorization
@@ -119,7 +119,7 @@ public class MatchsController {
     }
 
     @Operation(summary = "지원 수락(고용주)", description = "고용주가 지원을 수락하고 프로젝트를 생성합니다.")
-    @PatchMapping("/api/v1/employer/agree/{applicationId}")
+    @PatchMapping("/api/employer/agree/{applicationId}")
     public ResponseEntity<ApiResponse<Map<String, Long>>> acceptApplication(
             @PathVariable Long applicationId,
             @RequestHeader("Authorization") String authorization
@@ -130,7 +130,7 @@ public class MatchsController {
     }
 
     @Operation(summary = "지원 거절(고용주)", description = "고용주가 지원을 거절합니다.")
-    @PatchMapping("/api/v1/employer/deny/{applicationId}")
+    @PatchMapping("/api/employer/deny/{applicationId}")
     public ResponseEntity<ApiResponse<Map<String, Long>>> rejectApplication(
             @PathVariable Long applicationId,
             @RequestHeader("Authorization") String authorization
@@ -141,7 +141,7 @@ public class MatchsController {
     }
 
     @Operation(summary = "내 지원 목록 조회(프리랜서)", description = "프리랜서가 본인이 등록한 지원 목록을 조회합니다.")
-    @GetMapping("/api/v1/freelancer/application")
+    @GetMapping("/api/freelancer/application")
     public ResponseEntity<ApiResponse<PagedResponseDTO<ApplicationResponseDTO>>> getFreelancerApplications(
             @RequestHeader("Authorization") String authorization,
             @RequestParam(defaultValue = "0") int page,
@@ -161,7 +161,7 @@ public class MatchsController {
     }
 
     @Operation(summary = "내 지원 상세 조회(프리랜서)", description = "프리랜서가 본인 지원의 상세 정보를 조회합니다.")
-    @GetMapping("/api/v1/freelancer/application/{applicationId}")
+    @GetMapping("/api/freelancer/application/{applicationId}")
     public ResponseEntity<ApiResponse<ApplicationResponseDTO>> getFreelancerApplication(
             @PathVariable Long applicationId,
             @RequestHeader("Authorization") String authorization
@@ -171,7 +171,7 @@ public class MatchsController {
     }
 
     @Operation(summary = "받은 제안 목록 조회(프리랜서)", description = "프리랜서가 받은 제안 목록을 조회합니다.")
-    @GetMapping("/api/v1/freelancer/proposal")
+    @GetMapping("/api/freelancer/proposal")
     public ResponseEntity<ApiResponse<PagedResponseDTO<ProposalResponseDTO>>> getFreelancerProposals(
             @RequestHeader("Authorization") String authorization,
             @RequestParam(defaultValue = "0") int page,
@@ -191,7 +191,7 @@ public class MatchsController {
     }
 
     @Operation(summary = "받은 제안 상세 조회(프리랜서)", description = "프리랜서가 받은 제안의 상세 정보를 조회합니다.")
-    @GetMapping("/api/v1/freelancer/proposal/{proposalId}")
+    @GetMapping("/api/freelancer/proposal/{proposalId}")
     public ResponseEntity<ApiResponse<ProposalResponseDTO>> getFreelancerProposal(
             @PathVariable Long proposalId,
             @RequestHeader("Authorization") String authorization
@@ -201,7 +201,7 @@ public class MatchsController {
     }
 
     @Operation(summary = "제안 거절(프리랜서)", description = "프리랜서가 받은 제안을 거절합니다.")
-    @PatchMapping("/api/v1/freelancer/deny/{proposalId}")
+    @PatchMapping("/api/freelancer/deny/{proposalId}")
     public ResponseEntity<ApiResponse<Map<String, Long>>> rejectProposal(
             @PathVariable Long proposalId,
             @RequestHeader("Authorization") String authorization
@@ -212,7 +212,7 @@ public class MatchsController {
     }
 
     @Operation(summary = "제안 수락(프리랜서)", description = "프리랜서가 제안을 수락하고 프로젝트를 생성합니다.")
-    @PatchMapping("/api/v1/freelancer/agree/{proposalId}")
+    @PatchMapping("/api/freelancer/agree/{proposalId}")
     public ResponseEntity<ApiResponse<Map<String, Long>>> acceptProposal(
             @PathVariable Long proposalId,
             @RequestHeader("Authorization") String authorization

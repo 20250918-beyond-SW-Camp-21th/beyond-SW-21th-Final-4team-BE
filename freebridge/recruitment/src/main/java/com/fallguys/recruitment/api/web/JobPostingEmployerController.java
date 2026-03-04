@@ -3,6 +3,7 @@ package com.fallguys.recruitment.api.web;
 import com.fallguys.common.response.ApiResponse;
 import com.fallguys.recruitment.api.dto.request.JobPostingCreateDTO;
 import com.fallguys.recruitment.api.dto.request.JobPostingUpdateDTO;
+import com.fallguys.recruitment.api.dto.response.AiRecommendationResponseDTO;
 import com.fallguys.recruitment.api.dto.response.EmployerProjectSearchDTO;
 import com.fallguys.recruitment.api.dto.response.JobPostingSearchDTO;
 import com.fallguys.recruitment.api.dto.response.PagedResponseDTO;
@@ -16,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -34,7 +36,7 @@ public class JobPostingEmployerController {
     private final TokenUserIdResolver tokenUserIdResolver;
 
     @Operation(summary = "내 채용 공고 목록 조회", description = "고용주가 등록한 채용 공고 목록을 조회합니다.")
-    @GetMapping("/api/v1/employer/jobs")
+    @GetMapping("/api/employer/jobs")
     public ResponseEntity<ApiResponse<PagedResponseDTO<JobPostingSearchDTO>>> getMyJobPostings(
             @RequestHeader("Authorization") String authorization,
             @RequestParam(defaultValue = "0") int page,
@@ -46,7 +48,7 @@ public class JobPostingEmployerController {
     }
 
     @Operation(summary = "고용주: 자신의 프로젝트 조회", description = "고용주의 프로젝트 목록을 조회합니다.")
-    @GetMapping("/api/v1/employer/project")
+    @GetMapping("/api/employer/project")
     public ResponseEntity<ApiResponse<PagedResponseDTO<EmployerProjectSearchDTO>>> getMyProjects(
             @RequestHeader("Authorization") String authorization,
             @RequestParam(defaultValue = "0") int page,
@@ -58,7 +60,7 @@ public class JobPostingEmployerController {
     }
 
     @Operation(summary = "채용 공고 등록", description = "새로운 채용 공고를 등록합니다.")
-    @PostMapping("/api/v1/employer/jobs/post")
+    @PostMapping("/api/employer/jobs/post")
     public ResponseEntity<ApiResponse<Void>> createJobPosting(
             @RequestHeader("Authorization") String authorization,
             @Valid @RequestBody JobPostingCreateDTO body
@@ -69,7 +71,7 @@ public class JobPostingEmployerController {
     }
 
     @Operation(summary = "채용 공고 수정", description = "기존 채용 공고 내용을 수정합니다.")
-    @PutMapping("/api/v1/employer/jobs/put")
+    @PutMapping("/api/employer/jobs/put")
     public ResponseEntity<ApiResponse<Void>> updateJobPosting(
             @RequestHeader("Authorization") String authorization,
             @RequestParam(name = "jobsNumber") Long jobsNumber,
@@ -81,13 +83,41 @@ public class JobPostingEmployerController {
     }
 
     @Operation(summary = "채용 공고 삭제", description = "등록된 채용 공고를 삭제합니다.")
-    @DeleteMapping("/api/v1/employer/jobs/del")
+    @DeleteMapping("/api/employer/jobs/del")
     public ResponseEntity<ApiResponse<Void>> deleteJobPosting(
             @RequestHeader("Authorization") String authorization,
             @RequestParam(name = "jobsNumber") Long jobsNumber
     ) {
         Long userId = tokenUserIdResolver.resolveUserId(authorization);
         jobPostingService.deleteJobPosting(jobsNumber, userId);
+        return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    @Operation(summary = "공고 맞춤 프리랜서 추천", description = "공고 내용을 분석하여 적합한 프리랜서 7명을 추천합니다.")
+    @GetMapping("/api/v1/employer/jobs/{jobPostingId}/recommendations")
+    public ResponseEntity<ApiResponse<List<AiRecommendationResponseDTO>>> getFreelancerRecommendations(
+            @RequestHeader("Authorization") String authorization,
+            @PathVariable Long jobPostingId
+    ) {
+        Long userId = tokenUserIdResolver.resolveUserId(authorization);
+
+        List<AiRecommendationResponseDTO> recommendations = jobPostingService.getRecommendedFreelancers(jobPostingId, userId);
+
+        return ResponseEntity.ok(ApiResponse.ok(recommendations));
+    }
+
+    @Operation(summary = "프로젝트 완료 처리", description = "고용주가 프로젝트를 완료 처리하고 해당 내용을 AI 서버에 동기화합니다.")
+    @PostMapping("/api/v1/employer/projects/{projectId}/complete")
+    public ResponseEntity<ApiResponse<Void>> completeProject(
+            @RequestHeader("Authorization") String authorization,
+            @PathVariable Long projectId
+    ) {
+        // 1. 토큰에서 유저 ID 추출
+        Long userId = tokenUserIdResolver.resolveUserId(authorization);
+
+        // 2. 서비스의 completeProject 호출
+        jobPostingService.completeProject(projectId, userId);
+
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 }

@@ -2,6 +2,8 @@ package com.fallguys.user.api.web;
 
 import com.fallguys.user.dto.LoginRequestDto;
 import com.fallguys.user.dto.LoginResponseDto;
+import com.fallguys.user.dto.PasswordUpdateRequest;
+import com.fallguys.user.dto.EmailNotificationSettingDto;
 import com.fallguys.user.dto.SignupRequestDto;
 import com.fallguys.user.dto.UserResponseDto;
 import com.fallguys.user.service.UserService;
@@ -147,5 +149,65 @@ public class UserController {
         response.put("data", userData);
 
         return ResponseEntity.ok(response);
+    }
+
+    /*
+     * 비밀번호 변경
+     * PUT /api/users/me/password
+     */
+    @PutMapping("/me/password")
+    public ResponseEntity<Map<String, Object>> updatePassword(
+            @org.springframework.security.core.annotation.AuthenticationPrincipal com.fallguys.common.security.CustomUserDetails userDetails,
+            @Valid @RequestBody PasswordUpdateRequest request) {
+
+        if (userDetails == null) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "인증 정보가 없습니다.");
+            return ResponseEntity.status(401).body(response);
+        }
+
+        try {
+            userService.updatePassword(userDetails.getId(), request);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "비밀번호가 성공적으로 변경되었습니다.");
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    /*
+     * 이메일 알림 수신 상태 변경
+     * PATCH /api/users/me/notifications/email
+     */
+    @PatchMapping("/me/notifications/email")
+    public ResponseEntity<Map<String, Object>> updateEmailNotificationSetting(
+            @org.springframework.security.core.annotation.AuthenticationPrincipal com.fallguys.common.security.CustomUserDetails userDetails,
+            @Valid @RequestBody EmailNotificationSettingDto request) {
+
+        if (userDetails == null) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "인증 정보가 없습니다.");
+            return ResponseEntity.status(401).body(response);
+        }
+
+        try {
+            userService.updateEmailNotificationSetting(userDetails.getId(), request);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "이메일 알림 설정이 성공적으로 변경되었습니다.");
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
     }
 }

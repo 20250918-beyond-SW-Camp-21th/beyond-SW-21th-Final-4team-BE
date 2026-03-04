@@ -40,7 +40,7 @@ public class FreelancerReviewController {
     private final ReviewTokenUserIdResolver reviewTokenUserIdResolver;
 
     @Operation(summary = "프리랜서가 리뷰 작성", description = "프리랜서가 프로젝트에 대한 후기를 작성합니다.")
-    @PostMapping("/api/v1/freelancer/projects/{projectId}/reviews")
+    @PostMapping("/api/freelancer/projects/{projectId}/reviews")
     public ResponseEntity<ApiResponse<Long>> createFreelancerReview(
             @RequestHeader("Authorization") String authorization,
             @PathVariable Long projectId,
@@ -60,7 +60,7 @@ public class FreelancerReviewController {
     }
 
     @Operation(summary = "프리랜서가 작성한 리뷰 수정", description = "프리랜서가 작성한 리뷰를 수정합니다.")
-    @PutMapping("/api/v1/freelancer/reviews/{reviewId}")
+    @PutMapping("/api/freelancer/reviews/{reviewId}")
     public ResponseEntity<ApiResponse<Void>> updateFreelancerReview(
             @RequestHeader("Authorization") String authorization,
             @PathVariable Long reviewId,
@@ -72,7 +72,7 @@ public class FreelancerReviewController {
     }
 
     @Operation(summary = "프리랜서가 작성한 리뷰 삭제", description = "프리랜서가 작성한 리뷰를 삭제합니다.")
-    @DeleteMapping("/api/v1/freelancer/reviews/{reviewId}")
+    @DeleteMapping("/api/freelancer/reviews/{reviewId}")
     public ResponseEntity<ApiResponse<Void>> deleteFreelancerReview(
             @RequestHeader("Authorization") String authorization,
             @PathVariable Long reviewId
@@ -83,7 +83,7 @@ public class FreelancerReviewController {
     }
 
     @Operation(summary = "프리랜서가 받은 전체 리뷰 조회", description = "고용주가 프리랜서에게 작성한 리뷰 목록을 조회합니다.")
-    @GetMapping("/api/v1/freelancer/reviews")
+    @GetMapping("/api/freelancer/reviews")
     public ResponseEntity<ApiResponse<PagedResponseDTO<EmployerReviewResponseDTO>>> getFreelancerReceivedReviews(
             @RequestHeader("Authorization") String authorization,
             @RequestParam(defaultValue = "0") int page,
@@ -109,7 +109,7 @@ public class FreelancerReviewController {
     }
 
     @Operation(summary = "프리랜서가 작성한 전체 리뷰 조회", description = "프리랜서가 고용주에게 작성한 리뷰 목록을 조회합니다.")
-    @GetMapping("/api/v1/freelancer/reviews/written")
+    @GetMapping("/api/freelancer/reviews/written")
     public ResponseEntity<ApiResponse<PagedResponseDTO<FreelancerReviewResponseDTO>>> getFreelancerWrittenReviews(
             @RequestHeader("Authorization") String authorization,
             @RequestParam(defaultValue = "0") int page,

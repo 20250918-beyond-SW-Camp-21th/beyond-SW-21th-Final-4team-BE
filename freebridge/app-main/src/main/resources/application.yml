@@ -1,19 +1,14 @@
 spring:
+  profiles:
+    include: secret
   application:
     name: freebridge
   datasource:
-    url: jdbc:mariadb://beyond21.iptime.org:4003/freebridge
-    username: fiveguys
-    password: '7276'
     driver-class-name: org.mariadb.jdbc.Driver
 
   data:
     mongodb:
-      host: beyond21.iptime.org
-      port: 4006
       database: freebridge
-      username: fbmongo
-      password: '7276'
       authentication-database: admin
 
   jpa:
@@ -28,8 +23,6 @@ spring:
   mail:
     host: smtp.gmail.com
     port: 587
-    username: yusk000@gmail.com
-    password: waqu qszg ytdc fabq
     properties:
       mail:
         smtp:
@@ -51,9 +44,6 @@ portone:
 
 fallguys:
   redis:
-    host: beyond21.iptime.org
-    port: 4005
-    password: '7276'
   rabbitmq:
     host: ${RABBIT_HOST:localhost}
     port: ${RABBIT_PORT:5672}

@@ -5,6 +5,7 @@ import com.fallguys.user.api.shared.response.ExternalUserResponse;
 import com.fallguys.user.entity.User;
 import com.fallguys.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ExternalUserApiImpl implements ExternalUserApi {
 
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     public ExternalUserResponse getUserById(Long userId) {
@@ -34,6 +36,27 @@ public class ExternalUserApiImpl implements ExternalUserApi {
         return userRepository.existsById(userId);
     }
 
+    @Override
+    @Transactional
+    public void updatePassword(Long userId, String currentPassword, String newPassword) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다. ID: " + userId));
+                
+        if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
+            throw new IllegalArgumentException("현재 비밀번호가 일치하지 않습니다.");
+        }
+        
+        user.updatePassword(passwordEncoder.encode(newPassword));
+    }
+
+    @Override
+    @Transactional
+    public void updateEmailNotificationSetting(Long userId, boolean emailEnabled) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다. ID: " + userId));
+        user.updateEmailEnabled(emailEnabled);
+    }
+
     /*
      * 내부 User Entity를 외부용 공유 DTO(ExternalUserResponse)로 변환
      */
@@ -45,6 +68,7 @@ public class ExternalUserApiImpl implements ExternalUserApi {
                 // Enum 대신 String으로 전달하여 타 모듈에서의 역직렬화 및 강결합 문제 방지
                 .role(user.getRole() != null ? user.getRole().name() : null)
                 .emailVerified(user.getEmailVerified())
+                .emailEnabled(user.getEmailEnabled())
                 .createdAt(user.getCreatedAt())
                 .build();
     }

@@ -2,6 +2,8 @@ package com.fallguys.user.service;
 
 import com.fallguys.common.event.EmailVerifiedEvent;
 import com.fallguys.user.dto.LoginRequestDto;
+import com.fallguys.user.dto.PasswordUpdateRequest;
+import com.fallguys.user.dto.EmailNotificationSettingDto;
 import com.fallguys.user.dto.SignupRequestDto;
 import com.fallguys.user.dto.LoginResponseDto;
 import com.fallguys.user.dto.UserResponseDto;
@@ -9,14 +11,16 @@ import com.fallguys.user.entity.Role;
 import com.fallguys.user.entity.User;
 import com.fallguys.user.repository.UserRepository;
 import com.fallguys.common.security.JwtTokenProvider;
-import com.fallguys.mypage.repository.FreelancerRepository;
-import com.fallguys.mypage.repository.EmployerRepository;
+import com.fallguys.mypage.repository.freelancer.FreelancerRepository;
+import com.fallguys.mypage.repository.employer.EmployerRepository;
 import com.fallguys.mypage.entity.freelancer.Freelancer;
 import com.fallguys.mypage.entity.freelancer.FreelancerGrade;
 import com.fallguys.mypage.entity.employer.Employer;
 import com.fallguys.mypage.entity.employer.Subscription;
 import com.fallguys.mypage.entity.employer.Scale;
+import com.fallguys.mypage.entity.resume.Resume;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import com.fallguys.mypage.repository.resume.ResumeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -37,6 +41,7 @@ public class UserService {
     private final JwtTokenProvider jwtTokenProvider;
     private final FreelancerRepository freelancerRepository;
     private final EmployerRepository employerRepository;
+    private final ResumeRepository resumeRepository;
     private final StringRedisTemplate redisTemplate;
 
     @Async
@@ -92,8 +97,12 @@ public class UserService {
         // 역할에 맞는 빈 프로필 자동 생성
         if (Role.FREELANCER.equals(savedUser.getRole())) {
             Freelancer freelancer = Freelancer.create(savedUser.getId(), "미입력", FreelancerGrade.JUNIOR);
-            freelancerRepository.save(freelancer);
+            Freelancer savedFreelancer = freelancerRepository.save(freelancer);
             log.info("프리랜서 빈 프로필 생성 완료 - userId: {}", savedUser.getId());
+            if (resumeRepository.findByFreelancerId(savedFreelancer.getFreelancerId()).isEmpty()) {
+                resumeRepository.save(new Resume(savedFreelancer.getFreelancerId()));
+                log.info("프리랜서 기본 이력서 생성 완료 - freelancerId: {}", savedFreelancer.getFreelancerId());
+            }
         } else if (Role.EMPLOYER.equals(savedUser.getRole())) {
             // 필수 뼈대값 대입 (가입 시 법인명은 유저 이름으로 임시 설정)
             Employer employer = Employer.create(savedUser.getId(), Subscription.BASIC, savedUser.getName(), Scale.S1_4);
@@ -193,5 +202,33 @@ public class UserService {
         String local = email.substring(0, atIndex);
         String domain = email.substring(atIndex);
         return local.charAt(0) + "***" + local.charAt(local.length() - 1) + domain;
+    }
+
+    /**
+     * 비밀번호 변경
+     */
+    @Transactional
+    public void updatePassword(Long userId, PasswordUpdateRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다."));
+
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new IllegalArgumentException("현재 비밀번호가 일치하지 않습니다.");
+        }
+
+        user.updatePassword(passwordEncoder.encode(request.getNewPassword()));
+        log.info("비밀번호 변경 완료 - userId: {}", userId);
+    }
+
+    /**
+     * 이메일 수신 동의 상태 변경
+     */
+    @Transactional
+    public void updateEmailNotificationSetting(Long userId, EmailNotificationSettingDto dto) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다."));
+
+        user.updateEmailEnabled(dto.getEmailEnabled());
+        log.info("이메일 수신 설정 변경 - userId: {}, emailEnabled: {}", userId, dto.getEmailEnabled());
     }
 }

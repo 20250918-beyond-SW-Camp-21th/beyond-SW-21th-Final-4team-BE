@@ -33,14 +33,12 @@ public class ChatRoomController {
 
     @PostMapping
     public ResponseEntity<ChatRoomResponse> createRoom(
-            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestHeader("Authorization") String authHeader,
             @Valid @RequestBody ChatRoomCreateRequest request) {
 
-        if (authHeader != null) {
-            String userId = extractUserId(authHeader);
-            if (!request.getParticipants().contains(userId)) {
-                throw new IllegalArgumentException("본인이 포함된 채팅방만 생성할 수 있습니다.");
-            }
+        String userId = extractUserId(authHeader);
+        if (!request.getParticipants().contains(userId)) {
+            throw new IllegalArgumentException("본인이 포함된 채팅방만 생성할 수 있습니다.");
         }
 
         ChatRoomResponse response = chatRoomService.createChatRoom(
@@ -70,13 +68,25 @@ public class ChatRoomController {
         // 인증된 사용자 식별. 방 소속 여부 등은 Service 내부 혹은 추후 방어코드 추가 가능
         String userId = extractUserId(authHeader);
 
+        if (size <= 0 || size > 100) {
+            throw new IllegalArgumentException("size는 1~100 사이여야 합니다.");
+        }
+
         LocalDateTime cursorDate = null;
+        String cursorId = null;
+
         if (cursorDateStr != null && !cursorDateStr.isEmpty()) {
-            cursorDate = LocalDateTime.parse(cursorDateStr);
+            String[] parts = cursorDateStr.split(",", 2);
+            if (parts.length > 0 && !parts[0].isEmpty()) {
+                cursorDate = LocalDateTime.parse(parts[0]);
+            }
+            if (parts.length > 1 && !parts[1].isEmpty()) {
+                cursorId = parts[1];
+            }
         }
 
         CursorPageResponse<ChatMessageResponse> messages = chatMessageService.getPreviousMessages(roomId, cursorDate,
-                size, userId);
+                cursorId, size, userId);
         return ResponseEntity.ok(messages);
     }
 }
