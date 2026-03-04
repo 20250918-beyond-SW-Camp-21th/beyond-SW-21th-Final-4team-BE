@@ -52,7 +52,7 @@ public class SwaggerConfig implements SwaggerConfigInterface {
         return GroupedOpenApi.builder()
                 .group("subscription")
                 .pathsToMatch(
-                        "/api/employer/subscription**"
+                        "/api/employer/subscription/**"
                 )
                 .addOpenApiCustomizer(openApi ->
                         openApi.setInfo(new io.swagger.v3.oas.models.info.Info()

@@ -32,6 +32,13 @@ public class Employer {
     @Column(nullable = false, length = 30)
     private Subscription subscription;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "pending_subscription", length = 30)
+    private Subscription pendingSubscription;
+
+    @Column(name = "plan_change_effective_date")
+    private LocalDateTime planChangeEffectiveDate;
+
     @Column(nullable = false, length = 100)
     private String companyName;
 
@@ -102,6 +109,22 @@ public class Employer {
 
     public void changeSubscription(Subscription subscription) {
         this.subscription = requireNonNull(subscription, "subscription");
+        // 즉시 변경 시 예약 내역 초기화
+        this.pendingSubscription = null;
+        this.planChangeEffectiveDate = null;
+    }
+
+    public void scheduleSubscriptionChange(Subscription targetSubscription, LocalDateTime effectiveDate) {
+        this.pendingSubscription = requireNonNull(targetSubscription, "targetSubscription");
+        this.planChangeEffectiveDate = requireNonNull(effectiveDate, "effectiveDate");
+    }
+
+    public void applyPendingSubscription() {
+        if (this.pendingSubscription != null) {
+            this.subscription = this.pendingSubscription;
+            this.pendingSubscription = null;
+            this.planChangeEffectiveDate = null;
+        }
     }
 
     public void changeScale(Scale scale) {

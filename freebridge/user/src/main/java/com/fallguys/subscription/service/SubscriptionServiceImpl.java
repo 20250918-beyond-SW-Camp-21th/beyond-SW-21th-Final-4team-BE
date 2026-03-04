@@ -51,12 +51,9 @@ public class SubscriptionServiceImpl implements SubscriptionService {
 
     /**
      * 구독 플랜 변경.
-     *
-     * <ul>
-     *   <li>업그레이드: 결제 성공 시 즉시 변경</li>
-     *   <li>다운그레이드(유료→유료): 결제 없이 다음 결제일로 변경 예약 (당월 현 플랜 유지)</li>
-     *   <li>BASIC으로 변경 시: 취소 처리를 위해 cancelSubscription 사용 권장이나, 직접 BASIC 요청 시도 처리</li>
-     * </ul>
+     *   업그레이드: 결제 성공 시 즉시 변경
+     *   다운그레이드(Prime→Pro): 결제 없이 다음 결제일로 변경 예약 (당월 현 플랜 유지)
+     *   BASIC으로 변경 시: 취소 처리를 위해 cancelSubscription 사용 권장이나, 직접 BASIC 요청 시도 처리
      */
     @Override
     @Transactional

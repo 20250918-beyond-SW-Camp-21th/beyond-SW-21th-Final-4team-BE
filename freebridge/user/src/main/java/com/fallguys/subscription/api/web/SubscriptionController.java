@@ -1,4 +1,4 @@
-package com.fallguys.subscription.api;
+package com.fallguys.subscription.api.web;
 
 import com.fallguys.common.response.ApiResponse;
 import com.fallguys.common.security.CustomUserDetails;
@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.*;
  * 구독 조회, 플랜 변경, 구독 취소 API를 제공합니다.
  * 인증은 JWT를 통해 처리되며, {@link CustomUserDetails}에서 userId를 추출합니다.
  */
-@Tag(name = "5. Employer Subscription", description = "고용주 구독 플랜 관리 API")
+@Tag(name = "Employer Subscription", description = "고용주 구독 플랜 관리 API")
 @RestController
 @RequestMapping("/api/employer/subscription")
 @RequiredArgsConstructor

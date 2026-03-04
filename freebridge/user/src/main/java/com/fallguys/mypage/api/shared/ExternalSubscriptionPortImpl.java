@@ -10,6 +10,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+
 /**
  * subscription 도메인의 {@link ExternalSubscriptionPort} 인터페이스를 구현하는 어댑터.
  * mypage 패키지 소속이지만, subscription 도메인이 Employer 데이터에
@@ -54,11 +56,20 @@ public class ExternalSubscriptionPortImpl implements ExternalSubscriptionPort {
     public void schedulePlanDowngrade(Long userId, PlanGrade targetGrade) {
         Employer employer = employerRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 고용주입니다. (userId: " + userId + ")"));
-        // TODO: Employer 엔티티에 pendingSubscription / planChangeEffectiveDate 컬럼 추가 후
-        //       즉시 전환 대신 다음 결제일에 전환하도록 스케줄링 로직 구현 필요.
-        //       현재는 정책 인터페이스만 구성하고, 로그로 예약 처리를 기록합니다.
-        log.info("[ExternalSubscriptionPortImpl] 다운그레이드 예약 등록 (userId: {}, 현재: {}, 예약플랜: {}) — 다음 결제일 적용 예정",
-                userId, employer.getSubscription(), targetGrade);
+        
+        // 다음 달 1일 오전 9시 정각으로 설정
+        LocalDateTime effectiveDate = LocalDateTime.now()
+                .plusMonths(1)
+                .withDayOfMonth(1)
+                .withHour(9)
+                .withMinute(0)
+                .withSecond(0)
+                .withNano(0);
+        
+        employer.scheduleSubscriptionChange(toSubscriptionEnum(targetGrade), effectiveDate);
+
+        log.info("[ExternalSubscriptionPortImpl] 다운그레이드 예약 등록 (userId: {}, 현재: {}, 예약플랜: {}, 변경예정일: {})",
+                userId, employer.getSubscription(), targetGrade, effectiveDate);
     }
 
     // ---- 변환 헬퍼 ----
