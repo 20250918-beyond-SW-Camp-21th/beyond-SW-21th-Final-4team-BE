@@ -91,12 +91,11 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
         billingKeyRepository.save(newBillingKey);
 
         // SubscriptionBilling 레코드 생성
+        // markPaid()가 status=PAID, paidDate, transactionId를 한 번에 처리하므로 중복 setter 제거
         SubscriptionBilling billing = new SubscriptionBilling();
         billing.setEmployerId(employerId);
         billing.setPlanType(planType);
         billing.setAmount(amount);
-        billing.setTransactionId(paymentInfo.getPaymentId());
-        billing.setStatus(SubscriptionBillingStatus.PAID);
         billing.setBillingDate(LocalDate.now());
         billing.markPaid(paymentInfo.getPaymentId());
         subscriptionBillingRepository.save(billing);
@@ -156,8 +155,7 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
                 return;
             }
 
-            billing.setStatus(SubscriptionBillingStatus.PAID);
-            billing.markPaid(paymentInfo.getPaymentId());
+            billing.markPaid(paymentInfo.getPaymentId()); // status=PAID, paidDate, transactionId 일괄 설정
             subscriptionBillingRepository.save(billing);
 
             billingKey.updateNextBillingDate();

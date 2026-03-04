@@ -8,7 +8,7 @@ Authorization: Bearer <token>
 ```
 The token is issued by the user module on login. The server extracts the caller's user ID from the token subject — no manual ID parameter is needed.
 
-Admin-only endpoints (wallet platform views, settlement admin list, generate/disburse) have no auth guard currently but are intended for admin role only.
+Admin-only endpoints (wallet platform views, settlement admin list, generate/disburse/cancel) are protected by `@PreAuthorize("hasRole('ADMIN')")`. Requests without an `ADMIN` role will receive `403 Forbidden`.
 
 ---
 
@@ -108,8 +108,8 @@ platformRevenue = employerFee + tax
 | GET | `/employer/transactions` | Employer JWT | Paginated transaction history; filter by `referenceType` |
 | GET | `/freelancer/summary` | Freelancer JWT | Current balance + transaction count |
 | GET | `/freelancer/transactions` | Freelancer JWT | Paginated transaction history |
-| GET | `/platform/escrow` | None (Admin) | PLATFORM_ESCROW wallet balance |
-| GET | `/platform/revenue` | None (Admin) | PLATFORM_REVENUE wallet balance |
+| GET | `/platform/escrow` | Admin JWT (ROLE_ADMIN) | PLATFORM_ESCROW wallet balance |
+| GET | `/platform/revenue` | Admin JWT (ROLE_ADMIN) | PLATFORM_REVENUE wallet balance |
 
 `referenceType` values: `ALL`, `CONTRACT_PAYMENT`, `FREELANCER_DISBURSEMENT`, `PLATFORM_FEE`, `SUBSCRIPTION_PAYMENT`, `REFUND`
 
@@ -168,11 +168,13 @@ platformRevenue = employerFee + tax
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/admin` | None (Admin) | All settlements across all contracts, paginated |
-| POST | `/generate?contractId=` | None (Admin) | Manually generate settlement records for a contract |
-| POST | `/disburse/run` | None (Admin) | Manually trigger the disbursement scheduler |
+| GET | `/admin` | Admin JWT (ROLE_ADMIN) | All settlements across all contracts, paginated |
+| POST | `/generate?contractId=` | Admin JWT (ROLE_ADMIN) | Manually generate settlement records for a contract |
+| POST | `/disburse/run` | Admin JWT (ROLE_ADMIN) | Manually trigger the disbursement scheduler |
+| POST | `/cancel?contractId=` | Admin JWT (ROLE_ADMIN) | Cancel PAID installments, call PortOne refund API, credit employer wallet |
 
 `/generate` is safe to call multiple times — it skips if records already exist for that contract.
+`/cancel` calls PortOne `cancelPayment()` before any DB state change. On PortOne failure the operation throws and no DB records are modified.
 
 ---
 
@@ -190,18 +192,19 @@ platformRevenue = employerFee + tax
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/subscription` | None (internal) | Process a subscription payment with a billing key |
+| POST | `/subscription` | Employer JWT | Process a subscription payment with a billing key |
 | GET | `/subscription/{billingId}` | None (internal) | Look up a single billing record by ID |
 
 **POST `/subscription` body:**
 ```json
 {
-  "employerId": 1,
   "planType": "PRO",
   "amount": 29000,
   "billingKey": "portone_billing_key"
 }
 ```
+
+> **Note:** `employerId`는 요청 바디에서 읽지 않고 JWT 인증 토큰(`@AuthenticationPrincipal`)에서 추출합니다. 바디에 `employerId`를 포함해도 무시됩니다.
 
 `planType` values: `FREE`, `PRO`, `PRIME`
 

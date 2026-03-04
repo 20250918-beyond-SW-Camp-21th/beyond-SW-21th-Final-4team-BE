@@ -7,6 +7,7 @@ import com.fallguys.contract.api.shared.ContractQuery;
 import com.fallguys.payment.api.web.dto.*;
 import com.fallguys.payment.api.web.dto.CancellationResult;
 import com.fallguys.payment.entity.*;
+import com.fallguys.payment.portone.PortOneApiClient;
 import com.fallguys.payment.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +32,7 @@ public class AdminSettlementService {
     private final WalletTransactionRepository walletTransactionRepository;
     private final ContractQuery contractQuery;
     private final EmployerSettlementService employerSettlementService;
+    private final PortOneApiClient portOneApiClient;
 
     /**
      * 계약 정산 레코드 수동 생성 (포트원 검증 없이, 어드민/테스트 용도)
@@ -165,6 +167,10 @@ public class AdminSettlementService {
             return new CancellationResult(contractId, 0, 0L);
         }
 
+        // 모든 PAID 회차는 동일한 transactionId(PortOne paymentId)를 공유
+        String paymentId = toCancel.get(0).getTransactionId();
+        Long employerId = toCancel.get(0).getEmployerId();
+
         Wallet escrowWallet = walletRepository.findByWalletType(WalletType.PLATFORM_ESCROW)
                 .orElseThrow(() -> new BusinessException(ErrorCode.WALLET_NOT_FOUND));
 
@@ -178,7 +184,7 @@ public class AdminSettlementService {
             walletTransactionRepository.save(new WalletTransaction(
                     escrowWallet.getId(), TransactionType.DEBIT, es.getTotalPayment(),
                     TransactionReferenceType.REFUND, es.getId(),
-                    "계약 취소 에스크로 환불 (회차 #" + es.getInstallmentNumber() + ")",
+                    "계약 취소 에스크로 출금 (회차 #" + es.getInstallmentNumber() + ")",
                     escrowWallet.getBalance()));
 
             es.cancel();
@@ -186,6 +192,19 @@ public class AdminSettlementService {
             refundTotal += es.getTotalPayment();
         }
         walletRepository.save(escrowWallet);
+
+        // PortOne 실제 환불 호출 (고용주의 결제 수단으로 환불)
+        portOneApiClient.cancelPayment(paymentId, refundTotal, "관리자 계약 취소 환불");
+
+        // 고용주 지갑 credit + 트랜잭션 기록
+        Wallet employerWallet = employerSettlementService.getOrCreateUserWallet(employerId, WalletType.EMPLOYER);
+        employerWallet.credit(refundTotal);
+        walletRepository.save(employerWallet);
+        walletTransactionRepository.save(new WalletTransaction(
+                employerWallet.getId(), TransactionType.CREDIT, refundTotal,
+                TransactionReferenceType.REFUND, contractId,
+                "계약 취소 환불 입금 (계약 #" + contractId + ")",
+                employerWallet.getBalance()));
 
         log.info("계약 정산 취소 완료: contractId={}, cancelledInstallments={}, refundedAmount={}",
                 contractId, toCancel.size(), refundTotal);

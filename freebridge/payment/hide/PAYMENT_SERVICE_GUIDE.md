@@ -22,7 +22,7 @@ Detailed documentation for every service class and every public method in the pa
 
 **Purpose:** Read-only queries for wallet balances and transaction history. Never writes to the database — all wallet mutations happen inside `EmployerSettlementService` and `AdminSettlementService`.
 
-**Dependencies:** `WalletRepository`, `WalletTransactionRepository`
+**Dependencies:** `WalletRepository`, `WalletTransactionRepository`, `FreelancerSettlementRepository`
 
 ---
 
@@ -61,7 +61,7 @@ Returns aggregate statistics for a freelancer's wallet.
 - Looks up the `FREELANCER` wallet by `ownerId`.
 - If no wallet exists yet, returns zeros.
 - `totalEarned` = current wallet `balance` (cumulative net payments received).
-- `pendingAmount` = always `0L` (reserved for future use; pending amounts are tracked via `FreelancerSettlement` records, not directly on the wallet).
+- `pendingAmount` = `FreelancerSettlementRepository.sumNetAmountByFreelancerIdAndStatusPending(freelancerId)` — PENDING 상태 정산의 netAmount 합산. 지갑이 아직 생성되지 않은 프리랜서도 조회 가능.
 - `transactionCount` = total number of credit transactions.
 
 **Returns:** `{ totalEarned: Long, pendingAmount: Long, transactionCount: int }`
@@ -180,7 +180,9 @@ Returns the S3 URL of the invoice PDF for a specific settlement.
 
 6. **Escrow crediting** — credits `PLATFORM_ESCROW` wallet by the total verified amount. Creates the wallet if it does not exist.
 
-7. **Transaction recording** — saves two `WalletTransaction` records: a DEBIT on the employer's virtual wallet and a CREDIT on the escrow wallet.
+7. **Employer wallet debit** — calls `employerWallet.debit(totalExpected)` and saves before creating the WalletTransaction record, so that the `balanceAfter` snapshot is accurate.
+
+8. **Transaction recording** — saves two `WalletTransaction` records: a DEBIT on the employer's virtual wallet and a CREDIT on the escrow wallet.
 
 **Returns:** `{ success: true, contractId, totalVerifiedAmount, installmentsCreated }`
 
@@ -274,9 +276,9 @@ Registers a tax invoice request for a PAID settlement.
 
 ## 4. AdminSettlementService
 
-**Purpose:** Admin and scheduler operations — manually generating settlement records and running the disbursement process.
+**Purpose:** Admin and scheduler operations — manually generating settlement records, running the disbursement process, and cancelling contracts with PortOne refund.
 
-**Dependencies:** `EmployerSettlementRepository`, `FreelancerSettlementRepository`, `WalletRepository`, `WalletTransactionRepository`, `ContractQuery`, `EmployerSettlementService`
+**Dependencies:** `EmployerSettlementRepository`, `FreelancerSettlementRepository`, `WalletRepository`, `WalletTransactionRepository`, `ContractQuery`, `EmployerSettlementService`, `PortOneApiClient`
 
 ---
 
@@ -325,6 +327,31 @@ Executes the money movement for a single freelancer settlement:
 
 ---
 
+### `cancelContractSettlements(Long contractId) → CancellationResult`
+
+관리자 전용 계약 취소 처리. 에스크로에 묶인 `PAID` 상태 회차만 처리하며, `DISBURSED` 회차는 이미 프리랜서에게 지급 완료이므로 제외.
+
+**Steps:**
+
+1. `contractId`로 모든 `EmployerSettlement` 조회 → `status = PAID`인 것만 필터링. 없으면 즉시 반환.
+
+2. 취소 대상의 첫 번째 레코드에서 `paymentId`(`transactionId`)와 `employerId` 추출 (모든 PAID 회차는 동일 PortOne paymentId 공유).
+
+3. 루프: 각 `EmployerSettlement`에 대해:
+   - `escrowWallet.debit(es.getTotalPayment())` + WalletTransaction(DEBIT, REFUND) 기록.
+   - `es.cancel()` + `fs.cancel()` 상태 변경.
+   - `refundTotal` 누산.
+
+4. `walletRepository.save(escrowWallet)` — 에스크로 잔고 저장.
+
+5. **`portOneApiClient.cancelPayment(paymentId, refundTotal, "관리자 계약 취소 환불")`** — PortOne에 실제 환불 요청. 실패 시 예외 발생.
+
+6. 고용주 지갑 `credit(refundTotal)` + `walletRepository.save()` + WalletTransaction(CREDIT, REFUND) 기록.
+
+**Returns:** `CancellationResult(contractId, cancelledInstallments, refundedAmount)`
+
+---
+
 ### `listAllSettlements(String status, int page, int size) → PageResponse<EmployerSettlementItem>`
 
 Admin view of all settlements across all contracts, sorted newest first by `createdAt`.
@@ -360,7 +387,7 @@ Processes a new subscription payment. Called on plan purchase or upgrade.
    - Deactivates any existing active `BillingKey` for this employer (calls `deactivate()` + saves).
    - Saves a new `BillingKey(employerId, billingKey, planType)` with `active = true`.
 
-4. **Creates `SubscriptionBilling` record** with `status = PAID`, `transactionId` from PortOne, `paidDate = today`.
+4. **Creates `SubscriptionBilling` record** — `setBillingDate(today)` 후 `markPaid(paymentId)` 단 한 번 호출. `markPaid()`가 `status = PAID`, `paidDate = today`, `transactionId`를 한꺼번에 처리하므로 별도 setter를 호출하지 않음.
 
 5. **Credits `PLATFORM_REVENUE` wallet** by `amount`. Creates wallet if it does not exist.
 

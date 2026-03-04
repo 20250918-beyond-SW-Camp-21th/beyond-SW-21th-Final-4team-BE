@@ -1,12 +1,14 @@
 package com.fallguys.payment.api.web;
 
 import com.fallguys.common.response.ApiResponse;
+import com.fallguys.common.security.CustomUserDetails;
 import com.fallguys.payment.api.web.dto.*;
 import com.fallguys.payment.service.SubscriptionPaymentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -41,9 +43,13 @@ public class InternalPaymentController {
                     """)
     @PostMapping("/subscription")
     public ResponseEntity<ApiResponse<SubscriptionPaymentResponse>> processSubscriptionPayment(
+            @AuthenticationPrincipal CustomUserDetails user,
             @RequestBody SubscriptionPaymentRequest request) {
 
-        SubscriptionPaymentResponse response = subscriptionPaymentService.processPayment(request);
+        // employerId는 클라이언트 바디가 아닌 인증 토큰에서 추출 (임의 위조 방지)
+        SubscriptionPaymentRequest secureRequest = new SubscriptionPaymentRequest(
+                user.getId(), request.getPlanType(), request.getAmount(), request.getBillingKey());
+        SubscriptionPaymentResponse response = subscriptionPaymentService.processPayment(secureRequest);
         ApiResponse<SubscriptionPaymentResponse> apiResponse = ApiResponse.ok(response);
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }

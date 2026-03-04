@@ -341,6 +341,21 @@
               "path": ["api", "v1", "settlements", "disburse", "run"]
             }
           }
+        },
+        {
+          "name": "[Admin] 계약 정산 취소 (PortOne 환불 포함)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/settlements/cancel?contractId={{contractId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "settlements", "cancel"],
+              "query": [
+                { "key": "contractId", "value": "{{contractId}}", "description": "취소할 계약 ID" }
+              ]
+            }
+          }
         }
       ]
     },
@@ -378,8 +393,14 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"employerId\": 1,\n  \"planType\": \"PRO\",\n  \"amount\": 29000,\n  \"billingKey\": \"billing_test_key_abc123\"\n}"
+              "raw": "{\n  \"planType\": \"PRO\",\n  \"amount\": 29000,\n  \"billingKey\": \"billing_test_key_abc123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
+            "description": "employerId는 JWT 토큰에서 자동 추출됩니다. 바디에 포함하지 않아도 됩니다.",
             "url": {
               "raw": "{{baseUrl}}/api/v1/internal/payments/subscription",
               "host": ["{{baseUrl}}"],

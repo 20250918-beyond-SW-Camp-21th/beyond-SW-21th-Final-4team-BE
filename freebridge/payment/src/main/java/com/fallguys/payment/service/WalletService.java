@@ -1,9 +1,11 @@
 package com.fallguys.payment.service;
 
 import com.fallguys.payment.api.web.dto.*;
+import com.fallguys.payment.entity.FreelancerSettlementStatus;
 import com.fallguys.payment.entity.TransactionReferenceType;
 import com.fallguys.payment.entity.Wallet;
 import com.fallguys.payment.entity.WalletType;
+import com.fallguys.payment.repository.FreelancerSettlementRepository;
 import com.fallguys.payment.repository.WalletRepository;
 import com.fallguys.payment.repository.WalletTransactionRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +23,7 @@ public class WalletService {
 
     private final WalletRepository walletRepository;
     private final WalletTransactionRepository walletTransactionRepository;
+    private final FreelancerSettlementRepository freelancerSettlementRepository;
 
     @Transactional(readOnly = true)
     public EmployerWalletSummaryResponse getEmployerSummary(Long employerId) {
@@ -69,14 +72,19 @@ public class WalletService {
     public FreelancerWalletSummaryResponse getFreelancerSummary(Long freelancerId) {
         Wallet wallet = walletRepository.findByOwnerIdAndWalletType(freelancerId, WalletType.FREELANCER)
                 .orElse(null);
+
+        // PENDING 상태 정산의 예정 수령액 (지갑 미생성 상태에서도 조회 가능)
+        Long pendingAmount = freelancerSettlementRepository
+                .sumNetAmountByFreelancerIdAndStatusPending(freelancerId);
+
         if (wallet == null) {
-            return new FreelancerWalletSummaryResponse(0L, 0L, 0);
+            return new FreelancerWalletSummaryResponse(0L, pendingAmount, 0);
         }
 
         Long totalEarned = wallet.getBalance();
         Integer transactionCount = walletTransactionRepository.countByWalletId(wallet.getId());
 
-        return new FreelancerWalletSummaryResponse(totalEarned, 0L, transactionCount);
+        return new FreelancerWalletSummaryResponse(totalEarned, pendingAmount, transactionCount);
     }
 
     @Transactional(readOnly = true)

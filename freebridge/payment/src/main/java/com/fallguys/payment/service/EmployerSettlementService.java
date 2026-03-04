@@ -169,8 +169,10 @@ public class EmployerSettlementService {
         escrowWallet.credit(totalExpected);
         walletRepository.save(escrowWallet);
 
-        // 고용주 지갑 데빗 기록 (가상)
+        // 고용주 지갑 데빗: balance 차감 후 저장해야 balanceAfter 스냅샷도 정확해짐
         Wallet employerWallet = getOrCreateUserWallet(employerId, WalletType.EMPLOYER);
+        employerWallet.debit(totalExpected);
+        walletRepository.save(employerWallet);
         walletTransactionRepository.save(new WalletTransaction(
                 employerWallet.getId(), TransactionType.DEBIT, totalExpected,
                 TransactionReferenceType.CONTRACT_PAYMENT, contractId,
@@ -290,8 +292,9 @@ public class EmployerSettlementService {
         if (refundAmount > 0) {
             portOneApiClient.cancelPayment(paymentId, refundAmount, reason);
 
+            // escrow 잔고 차감: setBalance 직접 조작 대신 debit() 사용으로 일관성 확보
             Wallet escrowWallet = getOrCreatePlatformWallet(WalletType.PLATFORM_ESCROW);
-            escrowWallet.setBalance(escrowWallet.getBalance() - refundAmount);
+            escrowWallet.debit(refundAmount);
             walletRepository.save(escrowWallet);
 
             walletTransactionRepository.save(new WalletTransaction(
@@ -299,8 +302,11 @@ public class EmployerSettlementService {
                     TransactionReferenceType.CONTRACT_PAYMENT, contractId,
                     "계약 취소 환불 - 에스크로 출금 (계약 #" + contractId + ")", escrowWallet.getBalance()));
 
+            // 고용주 지갑 credit: 잔고 반영 + 트랜잭션 기록 모두 필요
             Long employerId = relatedEs.get(0).getEmployerId();
             Wallet employerWallet = getOrCreateUserWallet(employerId, WalletType.EMPLOYER);
+            employerWallet.credit(refundAmount);
+            walletRepository.save(employerWallet);
 
             walletTransactionRepository.save(new WalletTransaction(
                     employerWallet.getId(), TransactionType.CREDIT, refundAmount,

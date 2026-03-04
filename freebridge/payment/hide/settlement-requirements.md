@@ -808,7 +808,9 @@ Employer (Frontend)
 ### Access Control
 - An employer can only view their own `EmployerSettlement` records (ownership verified via `employerId` on the entity).
 - A freelancer can only view their own `FreelancerSettlement` records (ownership verified via `freelancerId` on the entity).
-- Settlement generation, manual disbursement trigger, and admin list are admin-only operations.
+- Settlement generation, manual disbursement trigger, contract cancellation (`/cancel`), and admin list are admin-only operations — enforced via `@PreAuthorize("hasRole('ADMIN')")` at the class level on `AdminSettlementController`. Requests without `ROLE_ADMIN` receive `403 Forbidden`.
+- Platform wallet endpoints (`/platform/escrow`, `/platform/revenue`) are also admin-only — enforced via `@PreAuthorize("hasRole('ADMIN')")` at the method level on `WalletController`.
+- Subscription payment endpoint (`POST /api/v1/internal/payments/subscription`) requires a valid Employer JWT; `employerId` is extracted from `@AuthenticationPrincipal` to prevent client-side `employerId` forgery.
 - All cross-domain data access is strictly through interface APIs — no direct repository or entity access from outside the domain boundary.
 
 ---

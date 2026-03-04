@@ -585,6 +585,8 @@ JSON 형식:
 
 `POST /api/v1/settlements/generate`
 
+**Auth:** Admin JWT (ROLE_ADMIN 필요)
+
 ---
 
 용도: 특정 계약의 정산 레코드를 관리자가 수동으로 생성합니다. 정상 시나리오에서는 계약 서명 시 자동으로 처리되며, 이 API는 오류 복구용입니다.
@@ -637,6 +639,8 @@ JSON 형식:
 
 `POST /api/v1/settlements/disburse/run`
 
+**Auth:** Admin JWT (ROLE_ADMIN 필요)
+
 ---
 
 용도: scheduledDate가 오늘 이하인 PENDING 상태의 프리랜서 정산을 관리자가 즉시 수동으로 지급 처리합니다. 정상 시나리오에서는 매일 00:00 KST에 자동 실행됩니다.
@@ -670,9 +674,69 @@ JSON 형식:
 
 ---
 
+## 계약 정산 취소 (Admin)
+
+`POST /api/v1/settlements/cancel`
+
+**Auth:** Admin JWT (ROLE_ADMIN 필요)
+
+---
+
+용도: PAID 상태(에스크로 보유 중)인 미지급 회차만 취소합니다. DISBURSED 회차는 이미 프리랜서에게 지급 완료이므로 취소 대상에서 제외됩니다. PortOne 환불 API를 호출한 뒤 DB 상태를 변경합니다.
+
+단일/페이징: 단일
+
+Query Parameters:
+```
+contractId : Long (필수)
+```
+
+JSON 형식:
+
+```json
+// 요청
+// 없음 — Query Parameter: contractId
+// 예시: POST /api/v1/settlements/cancel?contractId=101
+
+// 성공 응답 (200 OK)
+{
+  "success": true,
+  "data": {
+    "contractId": 101,
+    "cancelledInstallments": 3,
+    "refundedAmount": 5499996
+  },
+  "error": null
+}
+
+// 실패 응답
+// 404 Not Found — 에스크로 지갑 없음
+{
+  "success": false,
+  "data": null,
+  "error": {
+    "code": "WALLET_NOT_FOUND",
+    "message": "에스크로 지갑을 찾을 수 없습니다."
+  }
+}
+// 500 Internal Server Error — PortOne 환불 실패
+{
+  "success": false,
+  "data": null,
+  "error": {
+    "code": "PAYMENT_FAILED",
+    "message": "PortOne 환불 처리에 실패했습니다."
+  }
+}
+```
+
+---
+
 ## 전체 정산 목록 조회 (Admin)
 
 `GET /api/v1/settlements/admin`
+
+**Auth:** Admin JWT (ROLE_ADMIN 필요)
 
 ---
 
@@ -942,6 +1006,8 @@ JSON 형식:
 
 `GET /api/v1/wallets/platform/escrow`
 
+**Auth:** Admin JWT (ROLE_ADMIN 필요)
+
 ---
 
 용도: 프리랜서에게 지급 예정으로 플랫폼이 보유 중인 에스크로 잔액을 조회합니다. PENDING 상태 FreelancerSettlement의 billingAmount 합산과 일치해야 합니다.
@@ -982,6 +1048,8 @@ JSON 형식:
 ## 플랫폼 수익 잔액 조회 (Admin)
 
 `GET /api/v1/wallets/platform/revenue`
+
+**Auth:** Admin JWT (ROLE_ADMIN 필요)
 
 ---
 
@@ -1090,21 +1158,24 @@ JSON 형식:
 
 `POST /api/v1/internal/payments/subscription`
 
+**Auth:** Employer JWT 필요 (`employerId`는 토큰에서 자동 추출)
+
 ---
 
-용도: 구독 모듈이 고용주의 플랜 업그레이드 시 호출하는 내부 API입니다. PortOne imp_uid를 검증하고 SubscriptionBilling을 생성하며, 성공 시 PLATFORM_REVENUE에 크레딧합니다. 동일 imp_uid 재호출 시 기존 결과를 반환합니다(멱등성).
+용도: 고용주가 플랜 업그레이드 시 호출하는 API입니다. PortOne 빌링키로 즉시 결제를 처리하고 SubscriptionBilling을 생성하며, 성공 시 PLATFORM_REVENUE에 크레딧합니다.
+
+> **주의:** `employerId`는 요청 바디에서 읽지 않고 JWT 인증 토큰에서 자동 추출됩니다. 바디에 포함해도 무시됩니다.
 
 단일/페이징: 단일
 
 JSON 형식:
 
 ```json
-// 요청
+// 요청 (employerId 불필요 — 토큰에서 자동 추출)
 {
-  "employerId": 7,
   "planType": "PRIME",
   "amount": 99000,
-  "imp_uid": "imp_1234567890"
+  "billingKey": "portone_billing_key_abc123"
 }
 
 // 성공 응답 (200 OK)

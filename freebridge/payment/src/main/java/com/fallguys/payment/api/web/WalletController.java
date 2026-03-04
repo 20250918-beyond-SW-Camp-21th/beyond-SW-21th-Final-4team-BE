@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -74,6 +75,7 @@ public class WalletController {
 
     @Operation(summary = "[Admin] 플랫폼 에스크로 잔액 조회",
             description = "프리랜서에게 지급 예정인 보유 금액 (PLATFORM_ESCROW 지갑)")
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/platform/escrow")
     public ResponseEntity<ApiResponse<PlatformWalletResponse>> escrowBalance() {
 
@@ -84,6 +86,7 @@ public class WalletController {
 
     @Operation(summary = "[Admin] 플랫폼 수익 잔액 조회",
             description = "수수료 및 구독 수익 (PLATFORM_REVENUE 지갑)")
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/platform/revenue")
     public ResponseEntity<ApiResponse<PlatformWalletResponse>> revenueBalance() {
 
