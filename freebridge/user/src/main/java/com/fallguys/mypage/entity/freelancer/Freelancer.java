@@ -63,6 +63,12 @@ public class Freelancer {
     private Integer statContract;
     private Integer topPercentile;
 
+    @Column(nullable = false, columnDefinition = "TINYINT(1) DEFAULT 1")
+    private Boolean requestNotificationEnabled = true; // 프로젝트 제안 알림
+
+    @Column(nullable = false, columnDefinition = "TINYINT(1) DEFAULT 1")
+    private Boolean contractNotificationEnabled = true; // 계약 상태 변경 알림
+
     @Embedded
     private PortfolioInfo portfolioInfo;
 
@@ -154,6 +160,11 @@ public class Freelancer {
     public void updatePortfolioInfo(PortfolioInfo portfolioInfo) {
         if (portfolioInfo == null) throw new IllegalArgumentException("portfolioInfo is required");
         this.portfolioInfo = portfolioInfo;
+    }
+
+    public void updateNotificationSettings(Boolean requestNotificationEnabled, Boolean contractNotificationEnabled) {
+        if (requestNotificationEnabled != null) this.requestNotificationEnabled = requestNotificationEnabled;
+        if (contractNotificationEnabled != null) this.contractNotificationEnabled = contractNotificationEnabled;
     }
 
     /* --------------------------------
