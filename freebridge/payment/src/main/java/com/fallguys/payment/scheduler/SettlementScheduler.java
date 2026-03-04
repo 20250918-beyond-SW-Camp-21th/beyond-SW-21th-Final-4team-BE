@@ -40,13 +40,15 @@ public class SettlementScheduler {
     }
 
     /**
-     * 매월 1일 자정: 활성 빌링키 보유 고용주에게 구독 자동결제
+     * 매일 자정: 활성 빌링키 보유 고용주 중 결제일이 도래한 대상에게 구독 자동결제
      */
-    @Scheduled(cron = "0 0 0 1 * ?")
+    @Scheduled(cron = "0 0 0 * * ?")
     public void runMonthlySubscriptionBilling() {
         log.info("[스케줄러] 구독 자동결제 시작");
 
-        List<BillingKey> activeBillingKeys = billingKeyRepository.findByActiveTrue();
+        java.time.LocalDate today = java.time.LocalDate.now();
+        List<BillingKey> activeBillingKeys = billingKeyRepository
+                .findByActiveTrueAndNextBillingDateLessThanEqual(today);
         if (activeBillingKeys.isEmpty()) {
             log.info("[스케줄러] 활성 빌링키 없음. 구독 자동결제 건너뜀.");
             return;
