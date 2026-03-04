@@ -29,7 +29,7 @@ public class JobPostingFreelancerController {
     private final TokenUserIdResolver tokenUserIdResolver;
 
     @Operation(summary = "채용 공고 검색", description = "프리랜서가 조건에 맞는 채용 공고를 조회합니다.")
-    @GetMapping("/api/v1/freelancer/jobs")
+    @GetMapping("/api/freelancer/jobs")
     public ResponseEntity<ApiResponse<PagedResponseDTO<FreelancerJobPostingSearchDTO>>> searchJobPostings(
             @RequestHeader("Authorization") String authorization,
             @RequestParam(required = false) String keyword,
@@ -46,7 +46,7 @@ public class JobPostingFreelancerController {
     }
 
     @Operation(summary = "관심 공고 등록", description = "채용 공고를 관심 목록에 추가합니다.")
-    @PostMapping("/api/v1/freelancer/jobs/{jobPostingId}/like")
+    @PostMapping("/api/freelancer/jobs/{jobPostingId}/like")
     public ResponseEntity<ApiResponse<Void>> addFavorite(
             @RequestHeader("Authorization") String authorization,
             @PathVariable Long jobPostingId
@@ -57,7 +57,7 @@ public class JobPostingFreelancerController {
     }
 
     @Operation(summary = "관심 공고 해제", description = "관심 목록에서 채용 공고를 제거합니다.")
-    @DeleteMapping("/api/v1/freelancer/jobs/{jobPostingId}/like")
+    @DeleteMapping("/api/freelancer/jobs/{jobPostingId}/like")
     public ResponseEntity<ApiResponse<Void>> removeFavorite(
             @RequestHeader("Authorization") String authorization,
             @PathVariable Long jobPostingId
