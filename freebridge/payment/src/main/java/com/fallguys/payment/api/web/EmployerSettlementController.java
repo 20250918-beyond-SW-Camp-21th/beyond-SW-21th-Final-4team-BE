@@ -92,4 +92,22 @@ public class EmployerSettlementController {
         ApiResponse<VerifyPaymentResponse> apiResponse = ApiResponse.ok(response);
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
+
+    @Operation(summary = "계약 취소 및 환불 요청",
+            description = """
+                    PENDING(에스크로 보관) 상태인 회차를 취소하고 PortOne 환불을 처리합니다.
+                    - DISBURSED(이미 프리랜서에게 지급 완료)된 회차는 취소 대상에서 제외됩니다.
+                    - 본인 계약이 아닌 contractId로 요청 시 403 반환합니다.
+                    - 취소할 PENDING 회차가 없으면 200으로 응답하되 아무 처리도 하지 않습니다.
+                    """)
+    @PostMapping("/cancel-refund")
+    public ResponseEntity<ApiResponse<Void>> cancelAndRefund(
+            @RequestParam Long contractId,
+            @RequestParam(defaultValue = "계약 취소") String reason,
+            @AuthenticationPrincipal CustomUserDetails user) {
+
+        employerSettlementService.cancelAndRefund(contractId, user.getId(), reason);
+        ApiResponse<Void> apiResponse = ApiResponse.ok(null);
+        return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
+    }
 }

@@ -262,7 +262,7 @@ public class EmployerSettlementService {
     }
 
     @Transactional
-    public void cancelAndRefund(Long contractId, String reason) {
+    public void cancelAndRefund(Long contractId, Long employerId, String reason) {
         List<FreelancerSettlement> pendingFs = freelancerSettlementRepository.findByContractIdAndStatus(contractId,
                 FreelancerSettlementStatus.PENDING);
         if (pendingFs.isEmpty()) {
@@ -270,7 +270,16 @@ public class EmployerSettlementService {
         }
 
         List<EmployerSettlement> relatedEs = employerSettlementRepository.findByContractId(contractId);
-        String paymentId = relatedEs.isEmpty() ? null : relatedEs.get(0).getTransactionId();
+        if (relatedEs.isEmpty()) {
+            throw new BusinessException(ErrorCode.SETTLEMENT_NOT_FOUND);
+        }
+
+        // 요청한 고용주가 이 계약의 실제 고용주인지 검증
+        if (!relatedEs.get(0).getEmployerId().equals(employerId)) {
+            throw new BusinessException(ErrorCode.SETTLEMENT_FORBIDDEN);
+        }
+
+        String paymentId = relatedEs.get(0).getTransactionId();
         if (paymentId == null) {
             throw new BusinessException(ErrorCode.SETTLEMENT_NOT_FOUND);
         }
@@ -303,7 +312,6 @@ public class EmployerSettlementService {
                     "계약 취소 환불 - 에스크로 출금 (계약 #" + contractId + ")", escrowWallet.getBalance()));
 
             // 고용주 지갑 credit: 잔고 반영 + 트랜잭션 기록 모두 필요
-            Long employerId = relatedEs.get(0).getEmployerId();
             Wallet employerWallet = getOrCreateUserWallet(employerId, WalletType.EMPLOYER);
             employerWallet.credit(refundAmount);
             walletRepository.save(employerWallet);
