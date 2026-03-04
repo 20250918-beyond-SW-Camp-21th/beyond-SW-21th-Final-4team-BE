@@ -1,5 +1,6 @@
 package com.fallguys.mypage.service.freelancer;
 
+
 import com.fallguys.common.port.FileStorage;
 import com.fallguys.mypage.api.web.dto.freelancer.request.FreelancerProfileUpdateRequestDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerBasicProfileDto;
@@ -8,6 +9,7 @@ import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerStatsDto;
 import com.fallguys.mypage.entity.freelancer.Freelancer;
 import com.fallguys.mypage.repository.freelancer.FreelancerRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -18,6 +20,7 @@ import java.io.IOException;
 import java.util.Set;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class FreelancerProfileService {
@@ -95,7 +98,7 @@ public class FreelancerProfileService {
                 public void afterCompletion(int status) {
                     if (status == STATUS_ROLLED_BACK) {
                         try {
-                            fileStorage.delete(key);
+                            fileStorage.deleteByKey(key);
                         } catch (Exception ex) {
                             log.error("S3 롤백 삭제 실패 - key: {}", key, ex);
                         }
