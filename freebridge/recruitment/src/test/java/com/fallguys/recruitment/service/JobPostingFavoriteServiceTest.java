@@ -1,5 +1,6 @@
 package com.fallguys.recruitment.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fallguys.common.ai.port.RecommendationEngine;
 import com.fallguys.common.exception.BusinessException;
 import com.fallguys.common.exception.ErrorCode;
@@ -22,6 +23,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
@@ -32,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -55,8 +59,22 @@ class JobPostingFavoriteServiceTest {
     @Mock
     private RecommendationEngine recommendationEngine;
 
+    @Mock
+    private RedisTemplate<String, Object> redisTemplate;
+
+    @Mock
+    private ValueOperations<String, Object> valueOperations;
+
+    @Mock
+    private ObjectMapper objectMapper;
+
     @InjectMocks
     private JobPostingServiceImpl jobPostingService;
+
+    @org.junit.jupiter.api.BeforeEach
+    void setUp() {
+        lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+    }
 
     @Test
     @DisplayName("[TDD] 관심 공고 등록 시 freelancer 기준으로 즐겨찾기가 저장된다")
