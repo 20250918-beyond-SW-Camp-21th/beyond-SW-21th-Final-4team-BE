@@ -14,11 +14,11 @@ public class ReviewSwaggerConfig implements SwaggerConfigInterface {
         return GroupedOpenApi.builder()
                 .group("review")
                 .pathsToMatch(
-                        "/api/v1/employer/reviews/**",
-                        "/api/v1/employer/projects/*/reviews",
-                        "/api/v1/freelancer/reviews/**",
-                        "/api/v1/freelancer/projects/*/reviews",
-                        "/api/v1/reviews/**"
+                        "/api/employer/reviews/**",
+                        "/api/employer/projects/*/reviews",
+                        "/api/freelancer/reviews/**",
+                        "/api/freelancer/projects/*/reviews",
+                        "/api/reviews/**"
                 )
                 .addOpenApiCustomizer(openApi ->
                         openApi.setInfo(new Info()
