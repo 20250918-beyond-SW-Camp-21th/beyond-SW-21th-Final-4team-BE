@@ -1,0 +1,184 @@
+package com.fallguys.recruitment.service;
+
+import com.fallguys.common.ai.port.RecommendationEngine;
+import com.fallguys.common.exception.BusinessException;
+import com.fallguys.common.exception.ErrorCode;
+import com.fallguys.recruitment.api.dto.request.JobPostingCreateDTO;
+import com.fallguys.recruitment.api.dto.request.JobPostingUpdateDTO;
+import com.fallguys.recruitment.api.dto.response.AiRecommendationResponseDTO;
+import com.fallguys.recruitment.entity.JobPosting;
+import com.fallguys.recruitment.entity.JobPostingStatus;
+import com.fallguys.recruitment.entity.Project;
+import com.fallguys.recruitment.entity.ProjectStatus;
+import com.fallguys.recruitment.entity.Status;
+import com.fallguys.recruitment.repository.JobPostingFavoriteRepo;
+import com.fallguys.recruitment.repository.JobPostingRepo;
+import com.fallguys.recruitment.repository.ProjectPostingRepo;
+import com.fallguys.recruitment.service.port.RecruitmentUser;
+import com.fallguys.recruitment.service.port.RecruitmentUserReader;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import java.util.List;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class JobPostingServiceCoreTest {
+
+    @Mock
+    private JobPostingRepo jobPostingRepo;
+    @Mock
+    private JobPostingFavoriteRepo jobPostingFavoriteRepo;
+    @Mock
+    private ProjectPostingRepo projectPostingRepo;
+    @Mock
+    private RecruitmentUserReader recruitmentUserReader;
+    @Mock
+    private RecommendationEngine recommendationEngine;
+
+    @InjectMocks
+    private JobPostingServiceImpl service;
+
+    @Test
+    @DisplayName("[TDD] 채용공고 생성 시 고용주 정보로 저장된다")
+    void createJobPosting_savesByEmployer() {
+        // given
+        Long userId = 1L;
+        JobPostingCreateDTO request = new JobPostingCreateDTO("Backend", "desc", List.of("Java"), 1000L, 3, 2);
+        when(recruitmentUserReader.getEmployerByIdOrThrow(userId))
+                .thenReturn(new RecruitmentUser(userId, "employer", null, null, "ACTIVE"));
+
+        // when
+        service.createJobPosting(request, userId);
+
+        // then
+        ArgumentCaptor<JobPosting> captor = ArgumentCaptor.forClass(JobPosting.class);
+        verify(jobPostingRepo, times(1)).save(captor.capture());
+        assertEquals(userId, captor.getValue().getEmployerId());
+        assertEquals("employer", captor.getValue().getEmployerName());
+        assertEquals("Backend", captor.getValue().getTitle());
+    }
+
+    @Test
+    @DisplayName("[TDD] 채용공고 수정 시 소유자가 다르면 JOB_POSTING_FORBIDDEN 예외")
+    void updateJobPosting_forbiddenOwner_throws() {
+        // given
+        Long userId = 1L;
+        Long postingId = 10L;
+        JobPosting posting = posting(postingId, 99L, Status.ACTIVE);
+        when(recruitmentUserReader.getEmployerByIdOrThrow(userId))
+                .thenReturn(new RecruitmentUser(userId, "employer", null, null, "ACTIVE"));
+        when(jobPostingRepo.findById(postingId)).thenReturn(Optional.of(posting));
+
+        // when
+        BusinessException ex = assertThrows(
+                BusinessException.class,
+                () -> service.updateJobPosting(new JobPostingUpdateDTO("new", null, null, null, null, null, null), postingId, userId)
+        );
+
+        // then
+        assertEquals(ErrorCode.JOB_POSTING_FORBIDDEN, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("[TDD] 채용공고 삭제 시 soft delete 된다")
+    void deleteJobPosting_softDelete() {
+        // given
+        Long userId = 1L;
+        Long postingId = 11L;
+        JobPosting posting = posting(postingId, userId, Status.ACTIVE);
+        when(recruitmentUserReader.getEmployerByIdOrThrow(userId))
+                .thenReturn(new RecruitmentUser(userId, "employer", null, null, "ACTIVE"));
+        when(jobPostingRepo.findById(postingId)).thenReturn(Optional.of(posting));
+
+        // when
+        service.deleteJobPosting(postingId, userId);
+
+        // then
+        assertEquals(Status.DELETED, posting.getStatus());
+    }
+
+    @Test
+    @DisplayName("[TDD] 추천 프리랜서 조회 시 공고 소유자가 다르면 JOB_POSTING_FORBIDDEN 예외")
+    void getRecommendedFreelancers_forbiddenOwner_throws() {
+        // given
+        Long userId = 1L;
+        Long postingId = 30L;
+        when(jobPostingRepo.findById(postingId)).thenReturn(Optional.of(posting(postingId, 99L, Status.ACTIVE)));
+
+        // when
+        BusinessException ex = assertThrows(
+                BusinessException.class,
+                () -> service.getRecommendedFreelancers(postingId, userId)
+        );
+
+        // then
+        assertEquals(ErrorCode.JOB_POSTING_FORBIDDEN, ex.getErrorCode());
+        verify(recommendationEngine, never()).recommendFreelancers(any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("[TDD] 프리랜서 추천공고 조회 시 skills/experience 공백은 '없음'으로 전달")
+    void getRecommendedJobsForFreelancer_blankProfile_usesDefaultText() {
+        // given
+        Long userId = 2L;
+        when(recruitmentUserReader.getFreelancerByIdOrThrow(userId))
+                .thenReturn(new RecruitmentUser(userId, "freelancer", "  ", null, "ACTIVE"));
+        when(recommendationEngine.recommendJobs(eq(userId), any(), any(), eq(AiRecommendationResponseDTO.class)))
+                .thenReturn(List.of());
+
+        // when
+        service.getRecommendedJobsForFreelancer(userId);
+
+        // then
+        verify(recommendationEngine, times(1))
+                .recommendJobs(userId, "없음", "없음", AiRecommendationResponseDTO.class);
+    }
+
+    @Test
+    @DisplayName("[TDD] 프로젝트 완료 시 이미 완료된 프로젝트면 PROJECT_ALREADY_COMPLETED 예외")
+    void completeProject_alreadyCompleted_throws() {
+        // given
+        Long projectId = 40L;
+        Long userId = 5L;
+        Project project = Project.create(posting(100L, userId, Status.ACTIVE), 77L);
+        ReflectionTestUtils.setField(project, "status", ProjectStatus.COMPLETED);
+        when(projectPostingRepo.findById(projectId)).thenReturn(Optional.of(project));
+
+        // when
+        BusinessException ex = assertThrows(
+                BusinessException.class,
+                () -> service.completeProject(projectId, userId)
+        );
+
+        // then
+        assertEquals(ErrorCode.PROJECT_ALREADY_COMPLETED, ex.getErrorCode());
+    }
+
+    private JobPosting posting(Long id, Long employerId, Status status) {
+        JobPosting posting = JobPosting.from(
+                new JobPostingCreateDTO("title", "desc", List.of("Java"), 1000L, 3, 2),
+                employerId,
+                "employer"
+        );
+        ReflectionTestUtils.setField(posting, "id", id, Long.class);
+        ReflectionTestUtils.setField(posting, "status", status);
+        ReflectionTestUtils.setField(posting, "postingStatus", JobPostingStatus.OPEN);
+        return posting;
+    }
+}
