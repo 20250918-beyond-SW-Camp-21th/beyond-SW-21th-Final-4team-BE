@@ -38,6 +38,15 @@ public class AdminSettlementController {
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 
+    @Operation(summary = "[Admin] 계약 정산 취소",
+            description = "PAID 상태(에스크로)인 미지급 회차만 취소. DISBURSED 회차는 이미 프리랜서에게 지급 완료로 제외.")
+    @PostMapping("/cancel")
+    public ResponseEntity<ApiResponse<CancellationResult>> cancel(@RequestParam Long contractId) {
+        CancellationResult result = adminSettlementService.cancelContractSettlements(contractId);
+        ApiResponse<CancellationResult> apiResponse = ApiResponse.ok(result);
+        return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
+    }
+
     @Operation(summary = "[Admin] 전체 정산 목록 조회", description = "모든 계약의 정산 레코드 조회 (상태 필터링 가능)")
     @GetMapping("/admin")
     public ResponseEntity<ApiResponse<PageResponse<EmployerSettlementItem>>> listAll(

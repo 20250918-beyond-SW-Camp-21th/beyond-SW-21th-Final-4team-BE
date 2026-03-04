@@ -28,6 +28,16 @@ public class PortOnePaymentInfo {
     @JsonProperty("method")
     private MethodInfo method;
 
+    private CustomDataInfo customData;
+
+    @Getter
+    @NoArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class CustomDataInfo {
+        private Long contractId;
+        private Long employerId;
+    }
+
     @Getter
     @NoArgsConstructor
     @JsonIgnoreProperties(ignoreUnknown = true)

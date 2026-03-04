@@ -63,8 +63,7 @@ public class PortOneApiClient {
      * 테스트 모드에서는 테스트 빌링키를 사용하며 실제 결제가 발생하지 않습니다.
      * channelKey를 명시하여 테스트 채널로 정확히 라우팅합니다.
      */
-    public PortOnePaymentInfo chargeBillingKey(String billingKey, long amount,
-                                                String orderName, String customerId) {
+    public PortOnePaymentInfo chargeBillingKey(String billingKey, long amount, String orderName, String customerId) {
         String paymentId = "sub-" + UUID.randomUUID();
 
         Map<String, Object> body = new HashMap<>();
@@ -92,6 +91,31 @@ public class PortOneApiClient {
         } catch (WebClientResponseException e) {
             log.error("PortOne chargeBillingKey 오류: billingKey={}, status={}, body={}",
                     billingKey, e.getStatusCode(), e.getResponseBodyAsString());
+            throw new BusinessException(ErrorCode.PAYMENT_FAILED);
+        }
+    }
+
+    /**
+     * 포트원 결제 부분 취소
+     * POST /payments/{paymentId}/cancel
+     */
+    public PortOnePaymentInfo cancelPayment(String paymentId, long amount, String reason) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("amount", amount);
+        body.put("reason", reason);
+
+        log.info("PortOne 결제 취소 요청: paymentId={}, amount={}, reason={}", paymentId, amount, reason);
+
+        try {
+            return webClient.post()
+                    .uri("/payments/{paymentId}/cancel", paymentId)
+                    .bodyValue(body)
+                    .retrieve()
+                    .bodyToMono(PortOnePaymentInfo.class)
+                    .block();
+        } catch (WebClientResponseException e) {
+            log.error("PortOne cancelPayment 오류: paymentId={}, status={}, body={}",
+                    paymentId, e.getStatusCode(), e.getResponseBodyAsString());
             throw new BusinessException(ErrorCode.PAYMENT_FAILED);
         }
     }
