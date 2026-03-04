@@ -63,11 +63,11 @@ public class Freelancer {
     private Integer statContract;
     private Integer topPercentile;
 
-    @Column(columnDefinition = "TINYINT(1) DEFAULT 1")
-    private Boolean requestNotificationEnabled; // 프로젝트 제안 알림
+    @Column(nullable = false, columnDefinition = "TINYINT(1) DEFAULT 1")
+    private Boolean requestNotificationEnabled = true; // 프로젝트 제안 알림
 
-    @Column(columnDefinition = "TINYINT(1) DEFAULT 1")
-    private Boolean contractNotificationEnabled; // 계약 상태 변경 알림
+    @Column(nullable = false, columnDefinition = "TINYINT(1) DEFAULT 1")
+    private Boolean contractNotificationEnabled = true; // 계약 상태 변경 알림
 
     @Embedded
     private PortfolioInfo portfolioInfo;
