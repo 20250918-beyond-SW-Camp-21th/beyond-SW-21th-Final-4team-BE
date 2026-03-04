@@ -56,7 +56,14 @@ public class FreelancerProjectService {
             List<Map<String, Object>> rawList = (List<Map<String, Object>>) rawData;
 
             return rawList.stream()
-                    .map(this::toAppliedProjectDto)
+                    .map(data -> {
+                        try {
+                            return toAppliedProjectDto(data);
+                        } catch (Exception e) {
+                            log.error("Failed to parse individual project item for freelancerId: {}", freelancerId, e);
+                            return null;
+                        }
+                    })
                     .filter(Objects::nonNull)
                     .filter(dto -> statusFilter == null || statusFilter.isBlank()
                             || Objects.equals(dto.applyStatus(), statusFilter))
