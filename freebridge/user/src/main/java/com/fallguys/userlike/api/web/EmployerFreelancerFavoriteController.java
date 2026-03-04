@@ -22,7 +22,7 @@ public class EmployerFreelancerFavoriteController {
     private final UserLikeTokenUserIdResolver tokenUserIdResolver;
 
     @Operation(summary = "프리랜서 즐겨찾기 등록", description = "고용주가 프리랜서를 즐겨찾기에 등록합니다.")
-    @PostMapping("/api/v1/employer/freelancers/{freelancerId}/like")
+    @PostMapping("/api/employer/freelancers/{freelancerId}/like")
     public ResponseEntity<ApiResponse<Void>> addFavorite(
             @RequestHeader("Authorization") String authorization,
             @PathVariable Long freelancerId
@@ -33,7 +33,7 @@ public class EmployerFreelancerFavoriteController {
     }
 
     @Operation(summary = "프리랜서 즐겨찾기 삭제", description = "고용주가 프리랜서 즐겨찾기를 해제합니다.")
-    @DeleteMapping("/api/v1/employer/freelancers/{freelancerId}/like")
+    @DeleteMapping("/api/employer/freelancers/{freelancerId}/like")
     public ResponseEntity<ApiResponse<Void>> removeFavorite(
             @RequestHeader("Authorization") String authorization,
             @PathVariable Long freelancerId
