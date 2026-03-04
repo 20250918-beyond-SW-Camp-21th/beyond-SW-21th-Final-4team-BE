@@ -160,6 +160,9 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
             billing.markPaid(paymentInfo.getPaymentId());
             subscriptionBillingRepository.save(billing);
 
+            billingKey.updateNextBillingDate();
+            billingKeyRepository.save(billingKey);
+
             // PLATFORM_REVENUE 지갑 크레딧
             Wallet revenueWallet = walletRepository.findByWalletType(WalletType.PLATFORM_REVENUE)
                     .orElseGet(() -> {
@@ -217,7 +220,6 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
                 response.amount(),
                 response.status(),
                 response.errorCode(),
-                response.message()
-        );
+                response.message());
     }
 }

@@ -200,7 +200,8 @@ public class EmployerSettlementService {
 
         int totalMonths = (int) ChronoUnit.MONTHS.between(
                 startDate.withDayOfMonth(1), endDate.withDayOfMonth(1)) + 1;
-        if (totalMonths < 1) totalMonths = 1;
+        if (totalMonths < 1)
+            totalMonths = 1;
 
         long baseInstallment = budget / totalMonths;
         List<EmployerSettlement> result = new ArrayList<>();
@@ -258,6 +259,58 @@ public class EmployerSettlementService {
         return base.withDayOfMonth(day);
     }
 
+    @Transactional
+    public void cancelAndRefund(Long contractId, String reason) {
+        List<FreelancerSettlement> pendingFs = freelancerSettlementRepository.findByContractIdAndStatus(contractId,
+                FreelancerSettlementStatus.PENDING);
+        if (pendingFs.isEmpty()) {
+            return;
+        }
+
+        List<EmployerSettlement> relatedEs = employerSettlementRepository.findByContractId(contractId);
+        String paymentId = relatedEs.isEmpty() ? null : relatedEs.get(0).getTransactionId();
+        if (paymentId == null) {
+            throw new BusinessException(ErrorCode.SETTLEMENT_NOT_FOUND);
+        }
+
+        long refundAmount = 0;
+        for (FreelancerSettlement fs : pendingFs) {
+            EmployerSettlement es = employerSettlementRepository.findById(fs.getEmployerSettlementId())
+                    .orElseThrow(() -> new BusinessException(ErrorCode.SETTLEMENT_NOT_FOUND));
+
+            refundAmount += es.getTotalPayment();
+
+            es.setStatus(EmployerSettlementStatus.CANCELLED);
+            employerSettlementRepository.save(es);
+
+            fs.setStatus(FreelancerSettlementStatus.CANCELLED);
+            freelancerSettlementRepository.save(fs);
+        }
+
+        if (refundAmount > 0) {
+            portOneApiClient.cancelPayment(paymentId, refundAmount, reason);
+
+            Wallet escrowWallet = getOrCreatePlatformWallet(WalletType.PLATFORM_ESCROW);
+            escrowWallet.setBalance(escrowWallet.getBalance() - refundAmount);
+            walletRepository.save(escrowWallet);
+
+            walletTransactionRepository.save(new WalletTransaction(
+                    escrowWallet.getId(), TransactionType.DEBIT, refundAmount,
+                    TransactionReferenceType.CONTRACT_PAYMENT, contractId,
+                    "계약 취소 환불 - 에스크로 출금 (계약 #" + contractId + ")", escrowWallet.getBalance()));
+
+            Long employerId = relatedEs.get(0).getEmployerId();
+            Wallet employerWallet = getOrCreateUserWallet(employerId, WalletType.EMPLOYER);
+
+            walletTransactionRepository.save(new WalletTransaction(
+                    employerWallet.getId(), TransactionType.CREDIT, refundAmount,
+                    TransactionReferenceType.CONTRACT_PAYMENT, contractId,
+                    "계약 취소 환불 입금 (계약 #" + contractId + ")", employerWallet.getBalance()));
+
+            log.info("계약 취소/환불 완료: paymentId={}, contractId={}, refundAmount={}", paymentId, contractId, refundAmount);
+        }
+    }
+
     Wallet getOrCreatePlatformWallet(WalletType walletType) {
         return walletRepository.findByWalletType(walletType)
                 .orElseGet(() -> {
@@ -292,10 +345,10 @@ public class EmployerSettlementService {
     private LocalDate[] parseDateRange(String dateRange) {
         LocalDate now = LocalDate.now();
         return switch (dateRange) {
-            case "LAST_3_MONTHS" -> new LocalDate[]{now.minusMonths(3), now};
-            case "LAST_6_MONTHS" -> new LocalDate[]{now.minusMonths(6), now};
-            case "LAST_1_YEAR" -> new LocalDate[]{now.minusYears(1), now};
-            default -> new LocalDate[]{LocalDate.of(2000, 1, 1), now};
+            case "LAST_3_MONTHS" -> new LocalDate[] { now.minusMonths(3), now };
+            case "LAST_6_MONTHS" -> new LocalDate[] { now.minusMonths(6), now };
+            case "LAST_1_YEAR" -> new LocalDate[] { now.minusYears(1), now };
+            default -> new LocalDate[] { LocalDate.of(2000, 1, 1), now };
         };
     }
 }
