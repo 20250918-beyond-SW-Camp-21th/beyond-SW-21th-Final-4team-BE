@@ -10,6 +10,8 @@ import com.fallguys.mypage.repository.freelancer.FreelancerRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -86,6 +88,20 @@ public class FreelancerProfileService {
             String extension = getExtension(file.getOriginalFilename());
             String key = "freelancers/avatar/" + UUID.randomUUID() + extension;
             String uploadedUrl = fileStorage.upload(fileBytes, key, file.getContentType());
+
+            // DB 트랜잭션 롤백 시 업로드된 S3 파일 삭제 (고아 파일 방지)
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCompletion(int status) {
+                    if (status == STATUS_ROLLED_BACK) {
+                        try {
+                            fileStorage.delete(key);
+                        } catch (Exception ex) {
+                            log.error("S3 롤백 삭제 실패 - key: {}", key, ex);
+                        }
+                    }
+                }
+            });
 
             freelancer.updateBasicProfile(null, uploadedUrl, null);
 
