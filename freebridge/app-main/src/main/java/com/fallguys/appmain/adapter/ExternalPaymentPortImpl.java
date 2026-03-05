@@ -49,4 +49,16 @@ public class ExternalPaymentPortImpl implements ExternalPaymentPort {
                 null
         );
     }
+
+    @Override
+    public java.time.LocalDateTime getNextBillingDate(Long employerId) {
+        log.warn("[ExternalPaymentPortImpl] 실제 결제 모듈 주입 대기 중입니다. Stub(가짜) 결제 예정일을 반환합니다.");
+        
+        /* TODO: payment 모듈 구현 완료 시 교체
+        return subscriptionPaymentQuery.getNextBillingDate(employerId);
+        */
+        
+        // 결제 모듈 구현 전까지 임시로 다음달 1일 09시 리턴
+        return java.time.LocalDateTime.now().plusMonths(1).withDayOfMonth(1).withHour(9).withMinute(0).withSecond(0).withNano(0);
+    }
 }
