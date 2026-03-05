@@ -17,7 +17,9 @@ public class SubscriptionSharedApiImpl implements SubscriptionSharedApi {
 
     @Override
     public PlanGrade getPlanGrade(Long userId) {
-        if (userId == null) return PlanGrade.BASIC;
+        if (userId == null) {
+            throw new IllegalArgumentException("SubscriptionSharedApiImpl.getPlanGrade: userId must not be null");
+        }
         return externalSubscriptionPort.getCurrentPlan(userId);
     }
 

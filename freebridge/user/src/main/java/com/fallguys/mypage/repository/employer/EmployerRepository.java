@@ -13,6 +13,7 @@ public interface EmployerRepository extends JpaRepository<Employer, Long> {
 
     Optional<Employer> findByUserId(Long userId);
 
-    // 예약된 구독 변경건(다운그레이드) 중, 적용일이 지났거나 도래한 목록 조회
+    // ?덉빟??援щ룆 蹂寃쎄굔(?ㅼ슫洹몃젅?대뱶) 以? ?곸슜?쇱씠 吏?ш굅???꾨옒??紐⑸줉 議고쉶
     List<Employer> findByPendingSubscriptionIsNotNullAndPlanChangeEffectiveDateLessThanEqual(LocalDateTime effectiveDate);
+    List<Employer> findByNextBillingDateLessThanEqualAndBillingKeyIsNotNull(LocalDateTime billingDate);
 }

@@ -5,7 +5,6 @@ import com.fallguys.common.exception.ErrorCode;
 import com.fallguys.subscription.api.request.SubscriptionChangeRequest;
 import com.fallguys.subscription.api.response.SubscriptionChangeResultResponse;
 import com.fallguys.subscription.api.response.SubscriptionResponse;
-import com.fallguys.subscription.api.shared.ExternalPaymentPort;
 import com.fallguys.subscription.api.shared.ExternalSubscriptionPort;
 import com.fallguys.subscription.entity.PlanGrade;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +20,6 @@ import java.time.LocalDateTime;
 public class SubscriptionServiceImpl implements SubscriptionService {
 
     private final ExternalSubscriptionPort externalSubscriptionPort;
-    private final ExternalPaymentPort externalPaymentPort;
 
     @Override
     @Transactional(readOnly = true)
@@ -31,7 +29,7 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         PlanGrade currentGrade = externalSubscriptionPort.getCurrentPlan(userId);
         LocalDateTime nextBillingDate = null;
         if (currentGrade != PlanGrade.BASIC) {
-            nextBillingDate = externalPaymentPort.getNextBillingDate(userId);
+            nextBillingDate = externalSubscriptionPort.getNextBillingDate(userId);
         }
 
         return new SubscriptionResponse(
@@ -63,43 +61,41 @@ public class SubscriptionServiceImpl implements SubscriptionService {
             throw new BusinessException(ErrorCode.SUBSCRIPTION_SAME_PLAN);
         }
 
-        // BASIC 전환은 취소 API에서 nextBillingDate 예약 정책으로만 처리
         if (targetGrade == PlanGrade.BASIC) {
             throw new BusinessException(ErrorCode.SUBSCRIPTION_CANCEL_REQUIRED);
         }
 
         boolean isUpgrade = targetGrade.ordinal() > currentGrade.ordinal();
+        LocalDateTime nextBillingDate = resolveNextBillingDate(userId, LocalDateTime.now());
 
         if (isUpgrade) {
             if (request.billingKey() == null || request.billingKey().isBlank()) {
                 throw new BusinessException(ErrorCode.SUBSCRIPTION_BILLING_KEY_REQUIRED);
             }
 
-            log.info("[SubscriptionService] 업그레이드 결제 요청 (userId: {}, {} -> {})", userId, currentGrade, targetGrade);
-            ExternalPaymentPort.PaymentResult paymentResult = externalPaymentPort.requestSubscriptionPayment(
-                    userId,
-                    targetGrade.name(),
-                    targetGrade.getMonthlyPrice(),
-                    request.billingKey()
-            );
-
-            if (!paymentResult.success()) {
-                throw new BusinessException(ErrorCode.PAYMENT_FAILED);
-            }
-
+            // No external payment call here; only DB state updates.
             externalSubscriptionPort.changePlan(userId, targetGrade);
-            LocalDateTime nextBillingDate = externalPaymentPort.getNextBillingDate(userId);
+            externalSubscriptionPort.saveBillingKey(userId, request.billingKey());
+
+            if (nextBillingDate == null) {
+                nextBillingDate = computeInitialNextBillingDate(LocalDateTime.now());
+                externalSubscriptionPort.setNextBillingDate(userId, nextBillingDate);
+            }
 
             return new SubscriptionChangeResultResponse(
                     targetGrade.name(),
                     null,
                     "ACTIVE",
                     nextBillingDate,
-                    "업그레이드가 즉시 반영되었습니다."
+                    "Upgrade applied immediately. Billing runs on nextBillingDate."
             );
         }
 
-        LocalDateTime nextBillingDate = externalPaymentPort.getNextBillingDate(userId);
+        if (nextBillingDate == null) {
+            nextBillingDate = computeInitialNextBillingDate(LocalDateTime.now());
+            externalSubscriptionPort.setNextBillingDate(userId, nextBillingDate);
+        }
+
         externalSubscriptionPort.schedulePlanDowngrade(userId, targetGrade, nextBillingDate);
 
         return new SubscriptionChangeResultResponse(
@@ -107,7 +103,7 @@ public class SubscriptionServiceImpl implements SubscriptionService {
                 targetGrade.name(),
                 "CHANGE_RESERVED",
                 nextBillingDate,
-                "다음 결제일에 다운그레이드가 반영됩니다."
+                "Downgrade reserved for next billing date."
         );
     }
 
@@ -121,7 +117,12 @@ public class SubscriptionServiceImpl implements SubscriptionService {
             throw new BusinessException(ErrorCode.SUBSCRIPTION_ALREADY_BASIC);
         }
 
-        LocalDateTime nextBillingDate = externalPaymentPort.getNextBillingDate(userId);
+        LocalDateTime nextBillingDate = resolveNextBillingDate(userId, LocalDateTime.now());
+        if (nextBillingDate == null) {
+            nextBillingDate = computeInitialNextBillingDate(LocalDateTime.now());
+            externalSubscriptionPort.setNextBillingDate(userId, nextBillingDate);
+        }
+
         externalSubscriptionPort.cancelSubscription(userId, nextBillingDate);
 
         return new SubscriptionChangeResultResponse(
@@ -129,7 +130,7 @@ public class SubscriptionServiceImpl implements SubscriptionService {
                 PlanGrade.BASIC.name(),
                 "CANCEL_RESERVED",
                 nextBillingDate,
-                "다음 결제일에 BASIC으로 전환됩니다."
+                "Cancellation reserved for next billing date."
         );
     }
 
@@ -137,5 +138,21 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         if (userId == null || userId <= 0) {
             throw new BusinessException(ErrorCode.SUBSCRIPTION_INVALID_REQUEST);
         }
+    }
+
+    private LocalDateTime resolveNextBillingDate(Long userId, LocalDateTime now) {
+        LocalDateTime nextBillingDate = externalSubscriptionPort.getNextBillingDate(userId);
+        if (nextBillingDate != null && nextBillingDate.isAfter(now)) {
+            return nextBillingDate;
+        }
+        return null;
+    }
+
+    private LocalDateTime computeInitialNextBillingDate(LocalDateTime now) {
+        LocalDateTime base = now.withHour(9).withMinute(0).withSecond(0).withNano(0);
+        if (!base.isBefore(now)) {
+            return base;
+        }
+        return base.plusDays(1);
     }
 }

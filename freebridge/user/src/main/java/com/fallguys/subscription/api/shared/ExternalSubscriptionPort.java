@@ -26,6 +26,8 @@ public interface ExternalSubscriptionPort {
      */
     double getFeeRate(Long userId);
 
+    LocalDateTime getNextBillingDate(Long userId);
+
     /**
      * userId로 Employer의 구독 플랜을 변경
      *
@@ -33,6 +35,10 @@ public interface ExternalSubscriptionPort {
      * @param targetGrade  변경할 목표 플랜 등급
      */
     void changePlan(Long userId, PlanGrade targetGrade);
+
+    void saveBillingKey(Long userId, String billingKey);
+
+    void setNextBillingDate(Long userId, LocalDateTime nextBillingDate);
 
     /**
      * 다운그레이드 예약 (즉시 변경 아님).
@@ -51,4 +57,6 @@ public interface ExternalSubscriptionPort {
      * @param userId 고용주 회원 식별자
      */
     void cancelSubscription(Long userId, LocalDateTime effectiveDate);
+
+    void applyPendingSubscription(Long userId);
 }

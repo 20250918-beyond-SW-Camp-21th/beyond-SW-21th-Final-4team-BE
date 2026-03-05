@@ -39,7 +39,7 @@ public class SubscriptionController {
         return ApiResponse.ok(response);
     }
 
-    @Operation(summary = "구독 플랜 변경", description = "구독 요금제(플랜)를 다른 등급으로 변경합니다.\n* 업그레이드(BASIC->PRO/PRIME): billingKey 필수, 즉시 결제 후 전환\n* 다운그레이드(PRIME->PRO): 결제 없이 다음 달 자동 전환 예약")
+    @Operation(summary = "구독 플랜 변경", description = "플랜 변경 요청을 처리합니다.\n* 업그레이드(BASIC->PRO/PRIME): billingKey 필수, 결제는 스케줄러에서 처리\n* 다운그레이드(PRIME->PRO): 결제 없이 다음 결제일 전환 예약")
     @ApiResponses(value = {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "플랜 변경(또는 예약) 완료"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "유효하지 않은 플랜 값이거나 billingKey 누락"),

@@ -39,6 +39,12 @@ public class Employer {
     @Column(name = "plan_change_effective_date")
     private LocalDateTime planChangeEffectiveDate;
 
+    @Column(name = "billing_key", length = 200)
+    private String billingKey;
+
+    @Column(name = "next_billing_date")
+    private LocalDateTime nextBillingDate;
+
     @Column(nullable = false, length = 100)
     private String companyName;
 
@@ -71,7 +77,7 @@ public class Employer {
 
     /*
      * =========================
-     * 생성 메소드
+     * ?앹꽦 硫붿냼??
      * =========================
      */
     public static Employer create(
@@ -90,7 +96,7 @@ public class Employer {
 
     /*
      * =========================
-     * UPDATE 메소드
+     * UPDATE 硫붿냼??
      * =========================
      */
 
@@ -98,7 +104,7 @@ public class Employer {
         if (newStatus == null)
             throw new IllegalArgumentException("newStatus is required");
         if (this.status == EmployerStatus.LEFT) {
-            throw new IllegalStateException("이미 이탈한 고용주의 상태는 변경할 수 없습니다.");
+            throw new IllegalStateException("?대? ?댄깉??怨좎슜二쇱쓽 ?곹깭??蹂寃쏀븷 ???놁뒿?덈떎.");
         }
         this.status = newStatus;
     }
@@ -109,9 +115,17 @@ public class Employer {
 
     public void changeSubscription(Subscription subscription) {
         this.subscription = requireNonNull(subscription, "subscription");
-        // 즉시 변경 시 예약 내역 초기화
+        // 利됱떆 蹂寃????덉빟 ?댁뿭 珥덇린??
         this.pendingSubscription = null;
         this.planChangeEffectiveDate = null;
+    }
+
+    public void updateBillingKey(String billingKey) {
+        this.billingKey = normalizeNullable(billingKey);
+    }
+
+    public void updateNextBillingDate(LocalDateTime nextBillingDate) {
+        this.nextBillingDate = nextBillingDate;
     }
 
     public void scheduleSubscriptionChange(Subscription targetSubscription, LocalDateTime effectiveDate) {
@@ -119,7 +133,7 @@ public class Employer {
         LocalDateTime nonNullEffectiveDate = requireNonNull(effectiveDate, "effectiveDate");
         
         if (!nonNullEffectiveDate.isAfter(LocalDateTime.now())) {
-            throw new IllegalArgumentException("변경 적용일(effectiveDate)은 현재 시점보다 미래여야 합니다.");
+            throw new IllegalArgumentException("蹂寃??곸슜??effectiveDate)? ?꾩옱 ?쒖젏蹂대떎 誘몃옒?ъ빞 ?⑸땲??");
         }
         
         this.planChangeEffectiveDate = nonNullEffectiveDate;
@@ -149,7 +163,7 @@ public class Employer {
     }
 
     public void updateWebsiteUrl(String websiteUrl) {
-        // URL 정교 검증까지는 과할 수 있어서 기본 정리만
+        // URL ?뺢탳 寃利앷퉴吏??怨쇳븷 ???덉뼱??湲곕낯 ?뺣━留?
         this.websiteUrl = normalizeNullable(websiteUrl);
     }
 
@@ -180,15 +194,15 @@ public class Employer {
 
     /*
      * =========================
-     * 내부 유틸
+     * ?대? ?좏떥
      * =========================
      */
     private static String normalize(String value, String fieldName) {
         if (value == null)
-            throw new IllegalArgumentException(fieldName + " 값이 비어있습니다.");
+            throw new IllegalArgumentException(fieldName + " 媛믪씠 鍮꾩뼱?덉뒿?덈떎.");
         String v = value.trim();
         if (v.isEmpty())
-            throw new IllegalArgumentException(fieldName + " 값이 비어있습니다.");
+            throw new IllegalArgumentException(fieldName + " 媛믪씠 鍮꾩뼱?덉뒿?덈떎.");
         return v;
     }
 
@@ -201,7 +215,7 @@ public class Employer {
 
     private static <T> T requireNonNull(T value, String fieldName) {
         if (value == null)
-            throw new IllegalArgumentException(fieldName + " 값이 비어있습니다.");
+            throw new IllegalArgumentException(fieldName + " 媛믪씠 鍮꾩뼱?덉뒿?덈떎.");
         return value;
     }
 }

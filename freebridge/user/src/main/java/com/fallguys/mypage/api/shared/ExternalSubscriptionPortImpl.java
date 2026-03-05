@@ -34,6 +34,14 @@ public class ExternalSubscriptionPortImpl implements ExternalSubscriptionPort {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public LocalDateTime getNextBillingDate(Long userId) {
+        return employerRepository.findByUserId(userId)
+                .map(Employer::getNextBillingDate)
+                .orElse(null);
+    }
+
+    @Override
     @Transactional
     public void changePlan(Long userId, PlanGrade targetGrade) {
         Employer employer = employerRepository.findByUserId(userId)
@@ -45,13 +53,18 @@ public class ExternalSubscriptionPortImpl implements ExternalSubscriptionPort {
 
     @Override
     @Transactional
-    public void cancelSubscription(Long userId, LocalDateTime effectiveDate) {
+    public void saveBillingKey(Long userId, String billingKey) {
         Employer employer = employerRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 고용주입니다. (userId: " + userId + ")"));
+        employer.updateBillingKey(billingKey);
+    }
 
-        // Keep current paid plan until billing day, then switch to BASIC.
-        employer.scheduleSubscriptionChange(Subscription.BASIC, effectiveDate);
-        log.info("[ExternalSubscriptionPortImpl] 구독 취소 예약 완료 (userId: {}, effectiveDate: {})", userId, effectiveDate);
+    @Override
+    @Transactional
+    public void setNextBillingDate(Long userId, LocalDateTime nextBillingDate) {
+        Employer employer = employerRepository.findByUserId(userId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 고용주입니다. (userId: " + userId + ")"));
+        employer.updateNextBillingDate(nextBillingDate);
     }
 
     @Override
@@ -63,6 +76,24 @@ public class ExternalSubscriptionPortImpl implements ExternalSubscriptionPort {
         employer.scheduleSubscriptionChange(toSubscriptionEnum(targetGrade), effectiveDate);
         log.info("[ExternalSubscriptionPortImpl] 다운그레이드 예약 등록 (userId: {}, current: {}, target: {}, effectiveDate: {})",
                 userId, employer.getSubscription(), targetGrade, effectiveDate);
+    }
+
+    @Override
+    @Transactional
+    public void cancelSubscription(Long userId, LocalDateTime effectiveDate) {
+        Employer employer = employerRepository.findByUserId(userId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 고용주입니다. (userId: " + userId + ")"));
+
+        employer.scheduleSubscriptionChange(Subscription.BASIC, effectiveDate);
+        log.info("[ExternalSubscriptionPortImpl] 구독 취소 예약 완료 (userId: {}, effectiveDate: {})", userId, effectiveDate);
+    }
+
+    @Override
+    @Transactional
+    public void applyPendingSubscription(Long userId) {
+        Employer employer = employerRepository.findByUserId(userId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 고용주입니다. (userId: " + userId + ")"));
+        employer.applyPendingSubscription();
     }
 
     private PlanGrade toPlanGrade(Subscription subscription) {
