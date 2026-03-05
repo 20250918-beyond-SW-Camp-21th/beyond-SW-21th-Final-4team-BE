@@ -5,6 +5,7 @@ import com.fallguys.common.exception.ErrorCode;
 import com.fallguys.subscription.api.request.SubscriptionChangeRequest;
 import com.fallguys.subscription.api.response.SubscriptionChangeResultResponse;
 import com.fallguys.subscription.api.response.SubscriptionResponse;
+import com.fallguys.subscription.api.shared.ExternalPaymentPort;
 import com.fallguys.subscription.api.shared.ExternalSubscriptionPort;
 import com.fallguys.subscription.entity.PlanGrade;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,7 @@ import java.time.LocalDateTime;
 public class SubscriptionServiceImpl implements SubscriptionService {
 
     private final ExternalSubscriptionPort externalSubscriptionPort;
+    private final ExternalPaymentPort externalPaymentPort;
 
     @Override
     @Transactional(readOnly = true)
@@ -66,21 +68,31 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         }
 
         boolean isUpgrade = targetGrade.ordinal() > currentGrade.ordinal();
-        LocalDateTime nextBillingDate = resolveNextBillingDate(userId, LocalDateTime.now());
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime nextBillingDate = resolveNextBillingDate(userId, now);
 
         if (isUpgrade) {
             if (request.billingKey() == null || request.billingKey().isBlank()) {
                 throw new BusinessException(ErrorCode.SUBSCRIPTION_BILLING_KEY_REQUIRED);
             }
 
-            // No external payment call here; only DB state updates.
+            ExternalPaymentPort.PaymentResult result = externalPaymentPort.requestSubscriptionPayment(
+                    userId,
+                    targetGrade.name(),
+                    targetGrade.getMonthlyPrice(),
+                    request.billingKey()
+            );
+            if (!result.success()) {
+                log.warn("[Subscription] upgrade payment failed userId={}, code={}, msg={}",
+                        userId, result.errorCode(), result.errorMessage());
+                throw new BusinessException(ErrorCode.PAYMENT_FAILED);
+            }
+
             externalSubscriptionPort.changePlan(userId, targetGrade);
             externalSubscriptionPort.saveBillingKey(userId, request.billingKey());
 
-            if (nextBillingDate == null) {
-                nextBillingDate = computeInitialNextBillingDate(LocalDateTime.now());
-                externalSubscriptionPort.setNextBillingDate(userId, nextBillingDate);
-            }
+            nextBillingDate = computeNextMonthlyBillingDate(now);
+            externalSubscriptionPort.setNextBillingDate(userId, nextBillingDate);
 
             return new SubscriptionChangeResultResponse(
                     targetGrade.name(),
@@ -91,10 +103,7 @@ public class SubscriptionServiceImpl implements SubscriptionService {
             );
         }
 
-        if (nextBillingDate == null) {
-            nextBillingDate = computeInitialNextBillingDate(LocalDateTime.now());
-            externalSubscriptionPort.setNextBillingDate(userId, nextBillingDate);
-        }
+        nextBillingDate = resolveOrComputeMonthlyBillingDate(userId, now);
 
         externalSubscriptionPort.schedulePlanDowngrade(userId, targetGrade, nextBillingDate);
 
@@ -111,17 +120,14 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     @Transactional
     public SubscriptionChangeResultResponse cancelSubscription(Long userId) {
         validateUserId(userId);
+        LocalDateTime now = LocalDateTime.now();
 
         PlanGrade currentPlan = externalSubscriptionPort.getCurrentPlan(userId);
         if (currentPlan == PlanGrade.BASIC) {
             throw new BusinessException(ErrorCode.SUBSCRIPTION_ALREADY_BASIC);
         }
 
-        LocalDateTime nextBillingDate = resolveNextBillingDate(userId, LocalDateTime.now());
-        if (nextBillingDate == null) {
-            nextBillingDate = computeInitialNextBillingDate(LocalDateTime.now());
-            externalSubscriptionPort.setNextBillingDate(userId, nextBillingDate);
-        }
+        LocalDateTime nextBillingDate = resolveOrComputeMonthlyBillingDate(userId, now);
 
         externalSubscriptionPort.cancelSubscription(userId, nextBillingDate);
 
@@ -148,11 +154,18 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         return null;
     }
 
-    private LocalDateTime computeInitialNextBillingDate(LocalDateTime now) {
-        LocalDateTime base = now.withHour(9).withMinute(0).withSecond(0).withNano(0);
-        if (!base.isBefore(now)) {
-            return base;
+    private LocalDateTime resolveOrComputeMonthlyBillingDate(Long userId, LocalDateTime now) {
+        LocalDateTime nextBillingDate = externalSubscriptionPort.getNextBillingDate(userId);
+        if (nextBillingDate != null && nextBillingDate.isAfter(now)) {
+            return nextBillingDate;
         }
-        return base.plusDays(1);
+        LocalDateTime computed = computeNextMonthlyBillingDate(now);
+        externalSubscriptionPort.setNextBillingDate(userId, computed);
+        return computed;
+    }
+
+    private LocalDateTime computeNextMonthlyBillingDate(LocalDateTime now) {
+        LocalDateTime nextMonth = now.plusMonths(1);
+        return nextMonth.withHour(9).withMinute(0).withSecond(0).withNano(0);
     }
 }

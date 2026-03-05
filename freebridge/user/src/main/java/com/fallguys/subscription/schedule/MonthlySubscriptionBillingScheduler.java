@@ -7,6 +7,9 @@ import com.fallguys.subscription.api.shared.ExternalPaymentPort;
 import com.fallguys.subscription.entity.PlanGrade;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,14 +29,48 @@ public class MonthlySubscriptionBillingScheduler {
     @Transactional
     public void processMonthlyBilling() {
         LocalDateTime now = LocalDateTime.now();
-        List<Employer> targets = employerRepository
-                .findByNextBillingDateLessThanEqualAndBillingKeyIsNotNull(now);
+        int page = 0;
+        int pageSize = 200;
+        int maxPageRetries = 1;
+        boolean stopOnPageFailure = false;
 
-        if (targets.isEmpty()) {
-            return;
+        while (true) {
+            Pageable pageable = PageRequest.of(page, pageSize);
+            Page<Employer> employerPage = employerRepository
+                    .findByNextBillingDateLessThanEqualAndBillingKeyIsNotNull(now, pageable);
+
+            if (employerPage.isEmpty()) {
+                return;
+            }
+
+            boolean pageProcessed = false;
+            int attempt = 0;
+            while (!pageProcessed && attempt <= maxPageRetries) {
+                try {
+                    processEmployers(employerPage.getContent(), now);
+                    pageProcessed = true;
+                } catch (Exception ex) {
+                    attempt++;
+                    log.warn("[MonthlyBilling] page processing failed page={}, attempt={}, msg={}",
+                            page, attempt, ex.getMessage(), ex);
+                    if (attempt > maxPageRetries) {
+                        if (stopOnPageFailure) {
+                            return;
+                        }
+                        break;
+                    }
+                }
+            }
+
+            if (employerPage.isLast()) {
+                return;
+            }
+            page++;
         }
+    }
 
-        for (Employer employer : targets) {
+    private void processEmployers(List<Employer> employers, LocalDateTime now) {
+        for (Employer employer : employers) {
             if (employer.getSubscription() == Subscription.BASIC) {
                 continue;
             }

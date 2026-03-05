@@ -1,4 +1,4 @@
-﻿package com.fallguys.appmain.adapter;
+package com.fallguys.appmain.adapter;
 
 import com.fallguys.payment.api.shared.SubscriptionPaymentQuery;
 import com.fallguys.payment.api.shared.SubscriptionPaymentResult;

@@ -43,7 +43,6 @@ public class SubscriptionController {
     @ApiResponses(value = {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "플랜 변경(또는 예약) 완료"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "유효하지 않은 플랜 값이거나 billingKey 누락"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "402", description = "결제 실패")
     })
     @PutMapping
     public ApiResponse<SubscriptionChangeResultResponse> changePlan(

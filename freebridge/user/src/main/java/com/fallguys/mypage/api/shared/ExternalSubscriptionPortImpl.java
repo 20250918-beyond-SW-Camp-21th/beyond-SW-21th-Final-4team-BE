@@ -1,4 +1,4 @@
-﻿package com.fallguys.mypage.api.shared;
+package com.fallguys.mypage.api.shared;
 
 import com.fallguys.common.exception.BusinessException;
 import com.fallguys.common.exception.ErrorCode;
@@ -95,8 +95,7 @@ public class ExternalSubscriptionPortImpl implements ExternalSubscriptionPort {
     private Employer getEmployerOrThrow(Long userId) {
         return employerRepository.findByUserId(userId)
                 .orElseThrow(() -> new BusinessException(
-                        ErrorCode.USER_NOT_FOUND,
-                        "Employer not found (userId: " + userId + ")"
+                        ErrorCode.USER_NOT_FOUND
                 ));
     }
 

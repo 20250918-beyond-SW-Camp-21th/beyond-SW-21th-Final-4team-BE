@@ -6,6 +6,7 @@ import com.fallguys.subscription.api.request.SubscriptionChangeRequest;
 import com.fallguys.subscription.api.response.SubscriptionChangeResultResponse;
 import com.fallguys.subscription.api.response.SubscriptionResponse;
 import com.fallguys.subscription.api.shared.ExternalSubscriptionPort;
+import com.fallguys.subscription.api.shared.ExternalPaymentPort;
 import com.fallguys.subscription.entity.PlanGrade;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -31,11 +32,14 @@ class SubscriptionServiceTest {
     @Mock
     private ExternalSubscriptionPort externalSubscriptionPort;
 
+    @Mock
+    private ExternalPaymentPort externalPaymentPort;
+
     @InjectMocks
     private SubscriptionServiceImpl subscriptionService;
 
     @Test
-    @DisplayName("구독 조회: PRO로 변경시, nextBillingDate에 -PRO-가 나와야한다.")
+    @DisplayName("구독 조회: PRO�?변경시, nextBillingDate?� ?�금 ?�보가 ?�상 반환?�다.")
     void getSubscription_ProPlan_Success_WithBillingDate() {
         Long userId = 1L;
         LocalDateTime mockDate = LocalDateTime.of(2026, 4, 1, 9, 0);
@@ -54,7 +58,7 @@ class SubscriptionServiceTest {
     }
 
     @Test
-    @DisplayName("구독 조회: 비어있는 userID의 경우 Null Exception을 발생시킨다.")
+    @DisplayName("구독 조회: 비어?�는 userID??경우 Null Exception??발생?�킨??")
     void getSubscription_NullUserId_ThrowsException() {
         assertThatThrownBy(() -> subscriptionService.getSubscription(null))
                 .isInstanceOf(BusinessException.class)
@@ -63,7 +67,7 @@ class SubscriptionServiceTest {
     }
 
     @Test
-    @DisplayName("구독 변경: 동일한 플랜으로 변경 시 BusinessException을 일으킨다.")
+    @DisplayName("구독 변�? ?�일???�랜?�로 변�???BusinessException???�으?�다.")
     void changePlan_SamePlan_ThrowsException() {
         Long userId = 1L;
         SubscriptionChangeRequest request = new SubscriptionChangeRequest("PRO", "billing-key");
@@ -76,7 +80,7 @@ class SubscriptionServiceTest {
     }
 
     @Test
-    @DisplayName("구독 변경: 유효하지 않은 플랜은 BusinessException을 일으킨다.")
+    @DisplayName("구독 변�? ?�효?��? ?��? ?�랜?� BusinessException???�으?�다.")
     void changePlan_InvalidPlanName_ThrowsException() {
         Long userId = 1L;
         SubscriptionChangeRequest request = new SubscriptionChangeRequest("GOLD", null);
@@ -88,13 +92,15 @@ class SubscriptionServiceTest {
     }
 
     @Test
-    @DisplayName("구독 변경: BASIC->PRO 플랜 업그레이드, billingKey, nextBillingDate")
-    void changePlan_Upgrade_BasicToPro_NoPaymentCall() {
+    @DisplayName("���׷��̵�: BASIC->PRO, ���� ��û �� nextBillingDate ����")
+    void changePlan_Upgrade_BasicToPro_PaymentAndSchedule() {
         Long userId = 1L;
         SubscriptionChangeRequest request = new SubscriptionChangeRequest("PRO", "billing-key-123");
 
         when(externalSubscriptionPort.getCurrentPlan(userId)).thenReturn(PlanGrade.BASIC);
         when(externalSubscriptionPort.getNextBillingDate(userId)).thenReturn(null);
+        when(externalPaymentPort.requestSubscriptionPayment(anyLong(), any(), anyLong(), any()))
+                .thenReturn(new ExternalPaymentPort.PaymentResult(true, 1L, null, null));
 
         SubscriptionChangeResultResponse result = subscriptionService.changePlan(userId, request);
 
@@ -103,6 +109,7 @@ class SubscriptionServiceTest {
         assertThat(result.status()).isEqualTo("ACTIVE");
         assertThat(result.nextBillingDate()).isNotNull();
 
+        verify(externalPaymentPort).requestSubscriptionPayment(anyLong(), any(), anyLong(), any());
         verify(externalSubscriptionPort).changePlan(userId, PlanGrade.PRO);
         verify(externalSubscriptionPort).saveBillingKey(userId, "billing-key-123");
         verify(externalSubscriptionPort).setNextBillingDate(anyLong(), any(LocalDateTime.class));
@@ -110,7 +117,7 @@ class SubscriptionServiceTest {
     }
 
     @Test
-    @DisplayName("구독 변경 : 다운그레이드 reserves change for nextBillingDate")
+    @DisplayName("구독 변�?: ?�운그레?�드 reserves change for nextBillingDate")
     void changePlan_Downgrade_PrimeToPro_ScheduledNoPayment() {
         Long userId = 1L;
         LocalDateTime mockDate = LocalDateTime.of(2026, 4, 1, 9, 0);
