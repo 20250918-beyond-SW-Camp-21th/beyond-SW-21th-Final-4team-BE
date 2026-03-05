@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.HttpStatus;
+import com.fallguys.common.exception.BusinessException;
 
 @Slf4j
 @RestController
@@ -59,9 +61,12 @@ public class WebhookController {
 
             return ResponseEntity.ok("OK");
 
+        } catch (BusinessException e) {
+            log.error("웹훅 비즈니스 처리 실패", e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Rejected");
         } catch (Exception e) {
-            log.error("웹훅 처리 중 에러 발생: {}", e.getMessage(), e);
-            return ResponseEntity.ok("Error handled");
+            log.error("웹훅 처리 중 시스템 오류", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Retry later");
         }
     }
 }

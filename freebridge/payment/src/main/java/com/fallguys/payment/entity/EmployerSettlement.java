@@ -32,10 +32,11 @@ public class EmployerSettlement {
     private Long freelancerId;
 
     // PortOne imp_uid — shared across all installments of the same contract
-    @Column(length = 100)
+    @Column(length = 100, unique = true)
     private String transactionId;
 
-    // Installment amount ≈ budget / totalMonths (last installment absorbs remainder)
+    // Installment amount ≈ budget / totalMonths (last installment absorbs
+    // remainder)
     @Column(nullable = false)
     private Long billingAmount;
 
@@ -57,7 +58,8 @@ public class EmployerSettlement {
     @Column(columnDefinition = "TEXT")
     private String invoicePdfUrl;
 
-    // Scheduled disbursement date — derived from contract paymentDay for this installment month
+    // Scheduled disbursement date — derived from contract paymentDay for this
+    // installment month
     @Column(nullable = false)
     private LocalDate dueDate;
 

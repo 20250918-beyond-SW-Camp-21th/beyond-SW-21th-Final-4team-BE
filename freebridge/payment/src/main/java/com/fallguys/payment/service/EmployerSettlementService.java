@@ -11,6 +11,7 @@ import com.fallguys.payment.portone.PortOnePaymentInfo;
 import com.fallguys.payment.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -44,7 +45,12 @@ public class EmployerSettlementService {
         Page<EmployerSettlement> pageResult;
 
         if (!"ALL".equalsIgnoreCase(status)) {
-            EmployerSettlementStatus statusEnum = EmployerSettlementStatus.valueOf(status);
+            EmployerSettlementStatus statusEnum;
+            try {
+                statusEnum = EmployerSettlementStatus.valueOf(status != null ? status.trim().toUpperCase() : "");
+            } catch (IllegalArgumentException e) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+            }
             pageResult = employerSettlementRepository.findByEmployerIdAndStatus(employerId, statusEnum, pageable);
         } else if (!"ALL".equalsIgnoreCase(dateRange)) {
             LocalDate[] range = parseDateRange(dateRange);
@@ -153,7 +159,13 @@ public class EmployerSettlementService {
         ContractInfo contract = contractQuery.getContractInfo(contractId);
 
         // 회차별 정산 레코드 생성
-        List<EmployerSettlement> settlements = createSettlementRecords(contract, paymentId, employerId);
+        List<EmployerSettlement> settlements;
+        try {
+            settlements = createSettlementRecords(contract, paymentId, employerId);
+        } catch (DataIntegrityViolationException e) {
+            log.info("동시 정산 생성 감지 - 기존 정산 레코드 사용: {}", paymentId);
+            settlements = employerSettlementRepository.findByContractId(contractId);
+        }
 
         // 금액 검증: PortOne 결제 금액 == 전체 회차 totalPayment 합산
         long totalExpected = settlements.stream().mapToLong(EmployerSettlement::getTotalPayment).sum();
@@ -392,7 +404,12 @@ public class EmployerSettlementService {
                     Wallet w = new Wallet();
                     w.setWalletType(walletType);
                     w.setBalance(0L);
-                    return walletRepository.save(w);
+                    try {
+                        return walletRepository.save(w);
+                    } catch (DataIntegrityViolationException e) {
+                        return walletRepository.findByWalletTypeWithLock(walletType)
+                                .orElseThrow(() -> new BusinessException(ErrorCode.WALLET_NOT_FOUND));
+                    }
                 });
     }
 
@@ -403,7 +420,12 @@ public class EmployerSettlementService {
                     w.setOwnerId(ownerId);
                     w.setWalletType(walletType);
                     w.setBalance(0L);
-                    return walletRepository.save(w);
+                    try {
+                        return walletRepository.save(w);
+                    } catch (DataIntegrityViolationException e) {
+                        return walletRepository.findByOwnerIdAndWalletTypeWithLock(ownerId, walletType)
+                                .orElseThrow(() -> new BusinessException(ErrorCode.WALLET_NOT_FOUND));
+                    }
                 });
     }
 

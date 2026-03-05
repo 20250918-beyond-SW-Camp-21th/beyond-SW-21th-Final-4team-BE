@@ -18,21 +18,20 @@ import org.springframework.security.access.prepost.PreAuthorize;
 @RequiredArgsConstructor
 public class SubscriptionBillingController {
 
-    private final SubscriptionBillingService subscriptionBillingService;
+        private final SubscriptionBillingService subscriptionBillingService;
 
-    @Operation(summary = "구독 결제 내역 조회",
-            description = "인증된 고용주의 구독 업그레이드 결제 내역 페이지네이션 조회")
-    @PreAuthorize("isAuthenticated()")
-    @GetMapping("/billing-history")
-    public ResponseEntity<ApiResponse<PageResponse<SubscriptionBillingItem>>> billingHistory(
-            @AuthenticationPrincipal CustomUserDetails user,
-            @RequestParam(defaultValue = "ALL") String status,
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int size) {
+        @Operation(summary = "구독 결제 내역 조회", description = "인증된 고용주의 구독 업그레이드 결제 내역 페이지네이션 조회")
+        @PreAuthorize("hasRole('EMPLOYER')")
+        @GetMapping("/billing-history")
+        public ResponseEntity<ApiResponse<PageResponse<SubscriptionBillingItem>>> billingHistory(
+                        @AuthenticationPrincipal CustomUserDetails user,
+                        @RequestParam(defaultValue = "ALL") String status,
+                        @RequestParam(defaultValue = "1") int page,
+                        @RequestParam(defaultValue = "10") int size) {
 
-        PageResponse<SubscriptionBillingItem> response =
-                subscriptionBillingService.getBillingHistory(user.getId(), status, page, size);
-        ApiResponse<PageResponse<SubscriptionBillingItem>> apiResponse = ApiResponse.ok(response);
-        return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
-    }
+                PageResponse<SubscriptionBillingItem> response = subscriptionBillingService
+                                .getBillingHistory(user.getId(), status, page, size);
+                ApiResponse<PageResponse<SubscriptionBillingItem>> apiResponse = ApiResponse.ok(response);
+                return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
+        }
 }

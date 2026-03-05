@@ -21,7 +21,11 @@ public class AdminSettlementDisbursementService {
         private final FreelancerSettlementRepository freelancerSettlementRepository;
 
         @Transactional(propagation = Propagation.REQUIRES_NEW)
-        public void processSingleDisbursement(FreelancerSettlement fs, Wallet escrowWallet, Wallet revenueWallet) {
+        public void processSingleDisbursement(Long fsId) {
+                // [Atomicity] 비관적 락을 사용하여 FreelancerSettlement를 최신 상태로 조회
+                FreelancerSettlement fs = freelancerSettlementRepository.findByIdWithLock(fsId)
+                                .orElseThrow(() -> new BusinessException(ErrorCode.SETTLEMENT_NOT_FOUND));
+
                 // Guard: skip if already processed by a concurrent run
                 if (fs.getStatus() != FreelancerSettlementStatus.PENDING) {
                         log.warn("정산 이미 처리됨, 건너뜀: freelancerSettlementId={}, status={}",
@@ -29,7 +33,8 @@ public class AdminSettlementDisbursementService {
                         return;
                 }
 
-                EmployerSettlement es = employerSettlementRepository.findById(fs.getEmployerSettlementId())
+                // [Atomicity] 비관적 락을 사용하여 EmployerSettlement를 최신 상태로 조회
+                EmployerSettlement es = employerSettlementRepository.findByIdWithLock(fs.getEmployerSettlementId())
                                 .orElseThrow(() -> new BusinessException(ErrorCode.SETTLEMENT_NOT_FOUND));
 
                 // PLATFORM_ESCROW 에서 차감 (billingAmount + platformFee = totalPayment)
