@@ -33,6 +33,12 @@ public class ExternalSubscriptionPortImpl implements ExternalSubscriptionPort {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public double getFeeRate(Long userId) {
+        return getCurrentPlan(userId).getFeeRate();
+    }
+
+    @Override
     @Transactional
     public void changePlan(Long userId, PlanGrade targetGrade) {
         Employer employer = employerRepository.findByUserId(userId)
@@ -43,28 +49,20 @@ public class ExternalSubscriptionPortImpl implements ExternalSubscriptionPort {
 
     @Override
     @Transactional
-    public void cancelSubscription(Long userId) {
+    public void cancelSubscription(Long userId, LocalDateTime effectiveDate) {
         Employer employer = employerRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 고용주입니다. (userId: " + userId + ")"));
-        // 취소 예약: BASIC으로 전환 (현재 테이블 구조에서는 즉시 BASIC 처리; 다음 결제일 관리 테이블 추가 시 개선)
-        employer.changeSubscription(Subscription.BASIC);
-        log.info("[ExternalSubscriptionPortImpl] 구독 취소 처리 완료 (userId: {})", userId);
+        
+        // 당월 말까지는 기존 프로/프라임 등급 유지, 다음 결제일에 BASIC으로 예약 전환
+        employer.scheduleSubscriptionChange(Subscription.BASIC, effectiveDate);
+        log.info("[ExternalSubscriptionPortImpl] 구독 취소 예약 완료 (userId: {}, 적용예정일: {})", userId, effectiveDate);
     }
 
     @Override
     @Transactional
-    public void schedulePlanDowngrade(Long userId, PlanGrade targetGrade) {
+    public void schedulePlanDowngrade(Long userId, PlanGrade targetGrade, LocalDateTime effectiveDate) {
         Employer employer = employerRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 고용주입니다. (userId: " + userId + ")"));
-        
-        // 다음 달 1일 오전 9시 정각으로 설정
-        LocalDateTime effectiveDate = LocalDateTime.now()
-                .plusMonths(1)
-                .withDayOfMonth(1)
-                .withHour(9)
-                .withMinute(0)
-                .withSecond(0)
-                .withNano(0);
         
         employer.scheduleSubscriptionChange(toSubscriptionEnum(targetGrade), effectiveDate);
 
