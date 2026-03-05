@@ -43,12 +43,12 @@ public class ExternalSubscriptionPortImpl implements ExternalSubscriptionPort {
 
     @Override
     @Transactional
-    public void cancelSubscription(Long userId, String cancelReason) {
+    public void cancelSubscription(Long userId) {
         Employer employer = employerRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 고용주입니다. (userId: " + userId + ")"));
         // 취소 예약: BASIC으로 전환 (현재 테이블 구조에서는 즉시 BASIC 처리; 다음 결제일 관리 테이블 추가 시 개선)
         employer.changeSubscription(Subscription.BASIC);
-        log.info("[ExternalSubscriptionPortImpl] 구독 취소 처리 완료 (userId: {}, reason: {})", userId, cancelReason);
+        log.info("[ExternalSubscriptionPortImpl] 구독 취소 처리 완료 (userId: {})", userId);
     }
 
     @Override

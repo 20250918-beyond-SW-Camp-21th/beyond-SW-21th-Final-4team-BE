@@ -2,7 +2,6 @@ package com.fallguys.subscription.api.web;
 
 import com.fallguys.common.response.ApiResponse;
 import com.fallguys.common.security.CustomUserDetails;
-import com.fallguys.subscription.api.request.SubscriptionCancelRequest;
 import com.fallguys.subscription.api.request.SubscriptionChangeRequest;
 import com.fallguys.subscription.api.response.SubscriptionResponse;
 import com.fallguys.subscription.service.SubscriptionService;
@@ -52,16 +51,15 @@ public class SubscriptionController {
         return ApiResponse.ok(null);
     }
 
-    @Operation(summary = "구독 취소", description = "구독을 해지하고 BASIC 플랜으로 전환합니다. (선택적으로 취소 사유 입력 가능)")
+    @Operation(summary = "구독 취소", description = "구독을 해지하고 BASIC 플랜으로 전환합니다.")
     @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "구독 취소 및 BASIC 전환 완료"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "이미 BASIC 플랜 사용 중인 경우")
     })
     @DeleteMapping("/cancel")
     public ApiResponse<Void> cancelSubscription(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
-            @RequestBody(required = false) SubscriptionCancelRequest request) {
-        subscriptionService.cancelSubscription(userDetails.getId(), request);
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        subscriptionService.cancelSubscription(userDetails.getId());
         return ApiResponse.ok(null);
     }
 }

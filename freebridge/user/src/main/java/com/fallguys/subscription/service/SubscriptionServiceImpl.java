@@ -1,6 +1,5 @@
 package com.fallguys.subscription.service;
 
-import com.fallguys.subscription.api.request.SubscriptionCancelRequest;
 import com.fallguys.subscription.api.request.SubscriptionChangeRequest;
 import com.fallguys.subscription.api.response.SubscriptionResponse;
 import com.fallguys.subscription.api.shared.ExternalPaymentPort;
@@ -121,18 +120,16 @@ public class SubscriptionServiceImpl implements SubscriptionService {
 
     @Override
     @Transactional
-    public void cancelSubscription(Long userId, SubscriptionCancelRequest request) {
+    public void cancelSubscription(Long userId) {
         if (userId == null || userId <= 0) {
             throw new IllegalArgumentException("유효하지 않은 사용자 ID입니다.");
         }
-
-        PlanGrade currentGrade = externalSubscriptionPort.getCurrentPlan(userId);
-        if (currentGrade == PlanGrade.BASIC) {
-            throw new IllegalStateException("이미 무료(BASIC) 플랜 사용 중이므로 취소할 수 없습니다.");
+        PlanGrade currentPlan = externalSubscriptionPort.getCurrentPlan(userId);
+        if (currentPlan == PlanGrade.BASIC) {
+            throw new IllegalStateException("이미 BASIC 플랜을 사용 중이므로 구독을 취소할 수 없습니다.");
         }
 
-        String cancelReason = (request != null) ? request.cancelReason() : null;
-        log.info("[SubscriptionService] 구독 취소 요청 (userId: {}, reason: {})", userId, cancelReason);
-        externalSubscriptionPort.cancelSubscription(userId, cancelReason);
+        log.info("[SubscriptionService] 구독 취소 요청 (userId: {})", userId);
+        externalSubscriptionPort.cancelSubscription(userId);
     }
 }

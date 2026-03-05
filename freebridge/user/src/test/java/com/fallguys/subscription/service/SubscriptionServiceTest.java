@@ -1,6 +1,5 @@
 package com.fallguys.subscription.service;
 
-import com.fallguys.subscription.api.request.SubscriptionCancelRequest;
 import com.fallguys.subscription.api.request.SubscriptionChangeRequest;
 import com.fallguys.subscription.api.response.SubscriptionResponse;
 import com.fallguys.subscription.api.shared.ExternalPaymentPort;
@@ -208,12 +207,11 @@ class SubscriptionServiceTest {
     @DisplayName("구독 취소: PRO 플랜 사용 중인 고용주가 취소 요청 시 정상 처리된다")
     void cancelSubscription_ProPlan_Success() {
         Long userId = 1L;
-        SubscriptionCancelRequest request = new SubscriptionCancelRequest("서비스 이용 빈도 감소");
         when(externalSubscriptionPort.getCurrentPlan(userId)).thenReturn(PlanGrade.PRO);
 
-        subscriptionService.cancelSubscription(userId, request);
+        subscriptionService.cancelSubscription(userId);
 
-        verify(externalSubscriptionPort, times(1)).cancelSubscription(userId, "서비스 이용 빈도 감소");
+        verify(externalSubscriptionPort, times(1)).cancelSubscription(userId);
     }
 
     @Test
@@ -222,19 +220,19 @@ class SubscriptionServiceTest {
         Long userId = 1L;
         when(externalSubscriptionPort.getCurrentPlan(userId)).thenReturn(PlanGrade.BASIC);
 
-        assertThatThrownBy(() -> subscriptionService.cancelSubscription(userId, null))
+        assertThatThrownBy(() -> subscriptionService.cancelSubscription(userId))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("무료(BASIC) 플랜");
+                .hasMessageContaining("BASIC");
     }
 
     @Test
-    @DisplayName("구독 취소: request가 null이어도 정상 처리된다 (reason 없이 취소)")
-    void cancelSubscription_NullRequest_Success() {
+    @DisplayName("구독 취소: 정상 처리된다")
+    void cancelSubscription_Success() {
         Long userId = 1L;
         when(externalSubscriptionPort.getCurrentPlan(userId)).thenReturn(PlanGrade.PRIME);
 
-        subscriptionService.cancelSubscription(userId, null);
+        subscriptionService.cancelSubscription(userId);
 
-        verify(externalSubscriptionPort, times(1)).cancelSubscription(userId, null);
+        verify(externalSubscriptionPort, times(1)).cancelSubscription(userId);
     }
 }

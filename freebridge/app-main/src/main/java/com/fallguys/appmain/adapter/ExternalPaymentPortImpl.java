@@ -13,30 +13,40 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
+// @RequiredArgsConstructor // TODO: payment 모듈 연동 시 주석 해제 및 의존성 주입
 public class ExternalPaymentPortImpl implements ExternalPaymentPort {
 
-    private final SubscriptionPaymentQuery subscriptionPaymentQuery;
+    // private final SubscriptionPaymentQuery subscriptionPaymentQuery; // TODO: payment 모듈 구현 완료 시 주석 해제
 
     @Override
     public PaymentResult requestSubscriptionPayment(Long employerId, String planType, long amount, String billingKey) {
-        log.info("[ExternalPaymentPortImpl] 결제 모듈로 정기결제 요청 전달 (employerId: {}, planType: {}, amount: {})",
+        log.warn("[ExternalPaymentPortImpl] 실제 결제 모듈(SubscriptionPaymentQuery) 주입 대기 중입니다. Stub(가짜) 결제 성공으로 처리합니다.");
+        log.info("[ExternalPaymentPortImpl] 결제 가짜(Stub) 요청 (employerId: {}, planType: {}, amount: {})",
                 employerId, planType, amount);
 
-        // payment 모듈의 공유 API 호출
+        /* TODO: payment 모듈 구현 완료 및 빈 등록이 확인되면 아래 코드로 복구
         SubscriptionPaymentResult result = subscriptionPaymentQuery.processSubscriptionPayment(
                 employerId, planType, amount, billingKey
         );
 
-        log.info("[ExternalPaymentPortImpl] 결제 처리 결과 수신 (success: {}, errorCode: {})",
-                result.success(), result.errorCode());
-
-        // payment 모듈의 결과를 subscription 도메인의 DTO로 매핑하여 반환
+        if (result == null) {
+            log.error("[ExternalPaymentPortImpl] 결제 모듈 응답이 null 입니다. (employerId: {})", employerId);
+            return new PaymentResult(false, null, "PAYMENT_RESULT_NULL", "결제 모듈 응답이 비어 있습니다.");
+        }
         return new PaymentResult(
                 result.success(),
                 result.billingId(),
                 result.errorCode(),
                 result.errorMessage()
+        );
+        */
+
+        // payment 모듈 없이 즉시 결제 성공 객체 리턴
+        return new PaymentResult(
+                true,
+                Math.abs(java.util.UUID.randomUUID().getMostSignificantBits()), // 임의의 billingId
+                null,
+                null
         );
     }
 }

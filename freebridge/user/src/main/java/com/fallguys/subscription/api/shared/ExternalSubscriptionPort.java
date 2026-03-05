@@ -39,10 +39,9 @@ public interface ExternalSubscriptionPort {
     void schedulePlanDowngrade(Long userId, PlanGrade targetGrade);
 
     /**
-     * userId로 Employer의 구독 취소 예약
+     * 구독을 취소하고 BASIC 플랜으로 전환 요청을 처리합니다.
      *
-     * @param userId 취소 대상 사용자의 고유 ID
-     * @param cancelReason 취소 이유 (옵셔널, 리서치용)
+     * @param userId 고용주 회원 식별자
      */
-    void cancelSubscription(Long userId, String cancelReason);
+    void cancelSubscription(Long userId);
 }

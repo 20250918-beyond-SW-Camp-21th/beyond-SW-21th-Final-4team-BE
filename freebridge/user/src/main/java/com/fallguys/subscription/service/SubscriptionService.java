@@ -1,6 +1,5 @@
 package com.fallguys.subscription.service;
 
-import com.fallguys.subscription.api.request.SubscriptionCancelRequest;
 import com.fallguys.subscription.api.request.SubscriptionChangeRequest;
 import com.fallguys.subscription.api.response.SubscriptionResponse;
 
@@ -26,11 +25,11 @@ public interface SubscriptionService {
     void changePlan(Long userId, SubscriptionChangeRequest request);
 
     /**
-     * userId (고용주)의 구독을 취소합니다.
-     * 취소 예약 처리되며, 다음 결제일부터 BASIC으로 전환됩니다.
+     * 유료 구독을 취소하고 자동 결제를 해지합니다.
+     * 취소 시 즉시 BASIC 플랜으로 전환됩니다.
      *
-     * @param userId  요청자 사용자 ID
-     * @param request 취소 요청 정보 (사유 포함)
+     * @param userId 취소할 고용주의 사용자 ID
+     * @throws IllegalStateException 이미 BASIC 플랜인 경우 발생
      */
-    void cancelSubscription(Long userId, SubscriptionCancelRequest request);
+    void cancelSubscription(Long userId);
 }
