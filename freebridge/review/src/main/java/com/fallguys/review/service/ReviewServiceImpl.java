@@ -2,6 +2,7 @@ package com.fallguys.review.service;
 
 import com.fallguys.common.exception.BusinessException;
 import com.fallguys.common.exception.ErrorCode;
+import com.fallguys.common.port.ProjectExternalApi;
 import com.fallguys.review.api.dto.request.EmployerReviewCreateRequest;
 import com.fallguys.review.api.dto.request.EmployerReviewUpdateRequest;
 import com.fallguys.review.api.dto.request.FreelancerReviewCreateRequest;
@@ -12,15 +13,17 @@ import com.fallguys.review.entity.ReviewStatus;
 import com.fallguys.review.repository.EmployerReviewRepository;
 import com.fallguys.review.repository.FreelancerReviewRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.SQLException;
 import java.util.Locale;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -28,6 +31,7 @@ public class ReviewServiceImpl implements ReviewService {
 
     private final EmployerReviewRepository employerReviewRepository;
     private final FreelancerReviewRepository freelancerReviewRepository;
+    private final ProjectExternalApi projectExternalApi;
 
     @Override
     public Page<FreelancerReview> getEmployerReceivedReviews(Long employerId, Pageable pageable) {
@@ -75,7 +79,24 @@ public class ReviewServiceImpl implements ReviewService {
                 .build();
 
         try {
-            return employerReviewRepository.save(review).getId();
+            // 리뷰 저장
+            EmployerReview savedReview = employerReviewRepository.save(review);
+
+            // 외부 모듈 API 호출
+            projectExternalApi.completeProjectWithReview(
+                    new ProjectExternalApi.ProjectCompletionData(
+                            savedReview.getProjectId(),
+                            savedReview.getFreelancerId(),
+                            savedReview.getDescription(),
+                            savedReview.getCommunication(),
+                            savedReview.getDebugging(),
+                            savedReview.getFramework(),
+                            savedReview.getLanguage(),
+                            savedReview.getSchedule()
+                    )
+            );
+
+            return savedReview.getId();
         } catch (DataIntegrityViolationException e) {
             if (!isDuplicateKeyViolation(e)) {
                 throw e;
