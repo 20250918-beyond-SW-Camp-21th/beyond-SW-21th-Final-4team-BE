@@ -1,5 +1,7 @@
 package com.fallguys.payment.service;
 
+import com.fallguys.common.exception.BusinessException;
+import com.fallguys.common.exception.ErrorCode;
 import com.fallguys.payment.api.web.dto.*;
 import com.fallguys.payment.entity.SubscriptionBillingStatus;
 import com.fallguys.payment.repository.SubscriptionBillingRepository;
@@ -16,25 +18,36 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SubscriptionBillingService {
 
-    private final SubscriptionBillingRepository subscriptionBillingRepository;
+        private final SubscriptionBillingRepository subscriptionBillingRepository;
 
-    @Transactional(readOnly = true)
-    public PageResponse<SubscriptionBillingItem> getBillingHistory(Long employerId, String status, int page, int size) {
-        Pageable pageable = PageRequest.of(Math.max(0, page - 1), size,
-                Sort.by(Sort.Direction.DESC, "billingDate"));
+        @Transactional(readOnly = true)
+        public PageResponse<SubscriptionBillingItem> getBillingHistory(Long employerId, String status, int page,
+                        int size) {
+                Pageable pageable = PageRequest.of(Math.max(0, page - 1), size,
+                                Sort.by(Sort.Direction.DESC, "billingDate"));
 
-        var pageResult = "ALL".equalsIgnoreCase(status)
-                ? subscriptionBillingRepository.findByEmployerId(employerId, pageable)
-                : subscriptionBillingRepository.findByEmployerIdAndStatus(
-                        employerId, SubscriptionBillingStatus.valueOf(status), pageable);
+                SubscriptionBillingStatus parsedStatus = null;
+                if (!"ALL".equalsIgnoreCase(status)) {
+                        try {
+                                String statusUpper = status != null ? status.trim().toUpperCase() : "";
+                                parsedStatus = SubscriptionBillingStatus.valueOf(statusUpper);
+                        } catch (IllegalArgumentException e) {
+                                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+                        }
+                }
 
-        List<SubscriptionBillingItem> items = pageResult.getContent().stream()
-                .map(b -> new SubscriptionBillingItem(
-                        b.getId(), b.getPlanType().name(), b.getAmount(),
-                        b.getStatus().name(), b.getBillingDate(), b.getPaidDate()))
-                .toList();
+                var pageResult = (parsedStatus == null)
+                                ? subscriptionBillingRepository.findByEmployerId(employerId, pageable)
+                                : subscriptionBillingRepository.findByEmployerIdAndStatus(employerId, parsedStatus,
+                                                pageable);
 
-        return new PageResponse<>(items, pageResult.getTotalElements(),
-                pageResult.getTotalPages(), page);
-    }
+                List<SubscriptionBillingItem> items = pageResult.getContent().stream()
+                                .map(b -> new SubscriptionBillingItem(
+                                                b.getId(), b.getPlanType().name(), b.getAmount(),
+                                                b.getStatus().name(), b.getBillingDate(), b.getPaidDate()))
+                                .toList();
+
+                return new PageResponse<>(items, pageResult.getTotalElements(),
+                                pageResult.getTotalPages(), page);
+        }
 }

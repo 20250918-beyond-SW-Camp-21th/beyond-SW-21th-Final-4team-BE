@@ -2,6 +2,7 @@ package com.fallguys.payment.api.web;
 
 import com.fallguys.common.response.ApiResponse;
 import com.fallguys.common.security.CustomUserDetails;
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.fallguys.payment.api.web.dto.*;
 import com.fallguys.payment.service.FreelancerSettlementService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -16,6 +17,8 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/settlements/freelancer")
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('FREELANCER')")
+
 public class FreelancerSettlementController {
 
     private final FreelancerSettlementService freelancerSettlementService;

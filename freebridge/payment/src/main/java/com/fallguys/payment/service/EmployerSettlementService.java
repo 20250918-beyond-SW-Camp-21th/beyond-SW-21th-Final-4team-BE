@@ -193,6 +193,7 @@ public class EmployerSettlementService {
     /**
      * 계약 정산 레코드 생성 (AdminSettlementService에서도 사용)
      */
+    @Transactional
     public List<EmployerSettlement> createSettlementRecords(ContractInfo contract, String paymentId, Long employerId) {
         LocalDate startDate = contract.startDate();
         LocalDate endDate = contract.endDate();
@@ -261,12 +262,12 @@ public class EmployerSettlementService {
         return base.withDayOfMonth(day);
     }
 
-    @Transactional
-    public void cancelAndRefund(Long contractId, Long employerId, String reason) {
+    @Transactional(readOnly = true)
+    public RefundPreparation prepareRefund(Long contractId, Long employerId) {
         List<FreelancerSettlement> pendingFs = freelancerSettlementRepository.findByContractIdAndStatus(contractId,
                 FreelancerSettlementStatus.PENDING);
         if (pendingFs.isEmpty()) {
-            return;
+            return null;
         }
 
         List<EmployerSettlement> relatedEs = employerSettlementRepository.findByContractId(contractId);
@@ -274,7 +275,6 @@ public class EmployerSettlementService {
             throw new BusinessException(ErrorCode.SETTLEMENT_NOT_FOUND);
         }
 
-        // 요청한 고용주가 이 계약의 실제 고용주인지 검증
         if (!relatedEs.get(0).getEmployerId().equals(employerId)) {
             throw new BusinessException(ErrorCode.SETTLEMENT_FORBIDDEN);
         }
@@ -285,11 +285,55 @@ public class EmployerSettlementService {
         }
 
         long refundAmount = 0;
+        List<Long> freelancerSettlementIds = new ArrayList<>();
         for (FreelancerSettlement fs : pendingFs) {
             EmployerSettlement es = employerSettlementRepository.findById(fs.getEmployerSettlementId())
                     .orElseThrow(() -> new BusinessException(ErrorCode.SETTLEMENT_NOT_FOUND));
-
             refundAmount += es.getTotalPayment();
+            freelancerSettlementIds.add(fs.getId());
+        }
+
+        return new RefundPreparation(paymentId, refundAmount, freelancerSettlementIds);
+    }
+
+    @Transactional
+    public void markAsCancelPending(List<Long> freelancerSettlementIds) {
+        for (Long fsId : freelancerSettlementIds) {
+            FreelancerSettlement fs = freelancerSettlementRepository.findById(fsId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.SETTLEMENT_NOT_FOUND));
+            EmployerSettlement es = employerSettlementRepository.findById(fs.getEmployerSettlementId())
+                    .orElseThrow(() -> new BusinessException(ErrorCode.SETTLEMENT_NOT_FOUND));
+
+            fs.setStatus(FreelancerSettlementStatus.CANCEL_PENDING);
+            es.setStatus(EmployerSettlementStatus.CANCEL_PENDING);
+            freelancerSettlementRepository.save(fs);
+            employerSettlementRepository.save(es);
+        }
+    }
+
+    @Transactional
+    public void rollbackCancelPending(List<Long> freelancerSettlementIds) {
+        for (Long fsId : freelancerSettlementIds) {
+            FreelancerSettlement fs = freelancerSettlementRepository.findById(fsId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.SETTLEMENT_NOT_FOUND));
+            EmployerSettlement es = employerSettlementRepository.findById(fs.getEmployerSettlementId())
+                    .orElseThrow(() -> new BusinessException(ErrorCode.SETTLEMENT_NOT_FOUND));
+
+            fs.setStatus(FreelancerSettlementStatus.PENDING);
+            es.setStatus(EmployerSettlementStatus.PAID);
+            freelancerSettlementRepository.save(fs);
+            employerSettlementRepository.save(es);
+        }
+    }
+
+    @Transactional
+    public void completeCancelAndRefund(Long contractId, Long employerId, List<Long> freelancerSettlementIds,
+            long refundAmount) {
+        for (Long fsId : freelancerSettlementIds) {
+            FreelancerSettlement fs = freelancerSettlementRepository.findById(fsId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.SETTLEMENT_NOT_FOUND));
+            EmployerSettlement es = employerSettlementRepository.findById(fs.getEmployerSettlementId())
+                    .orElseThrow(() -> new BusinessException(ErrorCode.SETTLEMENT_NOT_FOUND));
 
             es.setStatus(EmployerSettlementStatus.CANCELLED);
             employerSettlementRepository.save(es);
@@ -298,35 +342,52 @@ public class EmployerSettlementService {
             freelancerSettlementRepository.save(fs);
         }
 
-        if (refundAmount > 0) {
-            portOneApiClient.cancelPayment(paymentId, refundAmount, reason);
+        // escrow 잔고 차감
+        Wallet escrowWallet = getOrCreatePlatformWallet(WalletType.PLATFORM_ESCROW);
+        escrowWallet.debit(refundAmount);
+        walletRepository.save(escrowWallet);
 
-            // escrow 잔고 차감: setBalance 직접 조작 대신 debit() 사용으로 일관성 확보
-            Wallet escrowWallet = getOrCreatePlatformWallet(WalletType.PLATFORM_ESCROW);
-            escrowWallet.debit(refundAmount);
-            walletRepository.save(escrowWallet);
+        walletTransactionRepository.save(new WalletTransaction(
+                escrowWallet.getId(), TransactionType.DEBIT, refundAmount,
+                TransactionReferenceType.CONTRACT_PAYMENT, contractId,
+                "계약 취소 환불 - 에스크로 출금 (계약 #" + contractId + ")", escrowWallet.getBalance()));
 
-            walletTransactionRepository.save(new WalletTransaction(
-                    escrowWallet.getId(), TransactionType.DEBIT, refundAmount,
-                    TransactionReferenceType.CONTRACT_PAYMENT, contractId,
-                    "계약 취소 환불 - 에스크로 출금 (계약 #" + contractId + ")", escrowWallet.getBalance()));
+        // 고용주 지갑 credit
+        Wallet employerWallet = getOrCreateUserWallet(employerId, WalletType.EMPLOYER);
+        employerWallet.credit(refundAmount);
+        walletRepository.save(employerWallet);
 
-            // 고용주 지갑 credit: 잔고 반영 + 트랜잭션 기록 모두 필요
-            Wallet employerWallet = getOrCreateUserWallet(employerId, WalletType.EMPLOYER);
-            employerWallet.credit(refundAmount);
-            walletRepository.save(employerWallet);
+        walletTransactionRepository.save(new WalletTransaction(
+                employerWallet.getId(), TransactionType.CREDIT, refundAmount,
+                TransactionReferenceType.CONTRACT_PAYMENT, contractId,
+                "계약 취소 환불 입금 (계약 #" + contractId + ")", employerWallet.getBalance()));
+    }
 
-            walletTransactionRepository.save(new WalletTransaction(
-                    employerWallet.getId(), TransactionType.CREDIT, refundAmount,
-                    TransactionReferenceType.CONTRACT_PAYMENT, contractId,
-                    "계약 취소 환불 입금 (계약 #" + contractId + ")", employerWallet.getBalance()));
+    public void cancelAndRefund(Long contractId, Long employerId, String reason) {
+        RefundPreparation prep = prepareRefund(contractId, employerId);
+        if (prep == null || prep.refundAmount() <= 0) {
+            return;
+        }
 
-            log.info("계약 취소/환불 완료: paymentId={}, contractId={}, refundAmount={}", paymentId, contractId, refundAmount);
+        markAsCancelPending(prep.freelancerSettlementIds());
+
+        try {
+            portOneApiClient.cancelPayment(prep.paymentId(), prep.refundAmount(), reason);
+            completeCancelAndRefund(contractId, employerId, prep.freelancerSettlementIds(), prep.refundAmount());
+            log.info("계약 취소/환불 완료: paymentId={}, contractId={}, refundAmount={}",
+                    prep.paymentId(), contractId, prep.refundAmount());
+        } catch (Exception e) {
+            log.error("계약 취소 환불 외부 API 호출 실패: contractId={}, error={}", contractId, e.getMessage());
+            rollbackCancelPending(prep.freelancerSettlementIds());
+            throw e;
         }
     }
 
+    public record RefundPreparation(String paymentId, long refundAmount, List<Long> freelancerSettlementIds) {
+    }
+
     Wallet getOrCreatePlatformWallet(WalletType walletType) {
-        return walletRepository.findByWalletType(walletType)
+        return walletRepository.findByWalletTypeWithLock(walletType)
                 .orElseGet(() -> {
                     Wallet w = new Wallet();
                     w.setWalletType(walletType);
@@ -336,7 +397,7 @@ public class EmployerSettlementService {
     }
 
     Wallet getOrCreateUserWallet(Long ownerId, WalletType walletType) {
-        return walletRepository.findByOwnerIdAndWalletType(ownerId, walletType)
+        return walletRepository.findByOwnerIdAndWalletTypeWithLock(ownerId, walletType)
                 .orElseGet(() -> {
                     Wallet w = new Wallet();
                     w.setOwnerId(ownerId);

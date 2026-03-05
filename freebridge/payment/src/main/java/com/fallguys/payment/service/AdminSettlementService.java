@@ -7,7 +7,6 @@ import com.fallguys.common.api.contract.ContractQuery;
 import com.fallguys.payment.api.web.dto.*;
 import com.fallguys.payment.api.web.dto.CancellationResult;
 import com.fallguys.payment.entity.*;
-import com.fallguys.payment.portone.PortOneApiClient;
 import com.fallguys.payment.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,10 +28,9 @@ public class AdminSettlementService {
         private final EmployerSettlementRepository employerSettlementRepository;
         private final FreelancerSettlementRepository freelancerSettlementRepository;
         private final WalletRepository walletRepository;
-        private final WalletTransactionRepository walletTransactionRepository;
         private final ContractQuery contractQuery;
         private final EmployerSettlementService employerSettlementService;
-        private final PortOneApiClient portOneApiClient;
+        private final AdminSettlementDisbursementService adminSettlementDisbursementService;
 
         /**
          * 계약 정산 레코드 수동 생성 (포트원 검증 없이, 어드민/테스트 용도)
@@ -82,7 +80,8 @@ public class AdminSettlementService {
                 int successCount = 0;
                 for (FreelancerSettlement fs : pendingList) {
                         try {
-                                processSingleDisbursement(fs, escrowWallet, revenueWallet);
+                                adminSettlementDisbursementService.processSingleDisbursement(fs, escrowWallet,
+                                                revenueWallet);
                                 successCount++;
                         } catch (Exception e) {
                                 log.error("정산 처리 실패: freelancerSettlementId={}, error={}", fs.getId(), e.getMessage());
@@ -92,126 +91,29 @@ public class AdminSettlementService {
                 log.info("정산 실행 완료: 성공={}/{}", successCount, pendingList.size());
         }
 
-        private void processSingleDisbursement(FreelancerSettlement fs, Wallet escrowWallet, Wallet revenueWallet) {
-                // Guard: skip if already processed by a concurrent run
-                if (fs.getStatus() != FreelancerSettlementStatus.PENDING) {
-                        log.warn("정산 이미 처리됨, 건너뜀: freelancerSettlementId={}, status={}",
-                                        fs.getId(), fs.getStatus());
-                        return;
-                }
-
-                EmployerSettlement es = employerSettlementRepository.findById(fs.getEmployerSettlementId())
-                                .orElseThrow(() -> new BusinessException(ErrorCode.SETTLEMENT_NOT_FOUND));
-
-                // PLATFORM_ESCROW 에서 차감 (billingAmount + platformFee = totalPayment)
-                escrowWallet.debit(es.getTotalPayment());
-                walletRepository.save(escrowWallet);
-
-                // PLATFORM_REVENUE 에 플랫폼 수수료(고용주 측) + 세금(프리랜서 측) 크레딧
-                long revenueAmount = es.getPlatformFee() + fs.getTax();
-                revenueWallet.credit(revenueAmount);
-                walletRepository.save(revenueWallet);
-
-                // 프리랜서 지갑 크레딧
-                Wallet freelancerWallet = walletRepository
-                                .findByOwnerIdAndWalletType(fs.getFreelancerId(), WalletType.FREELANCER)
-                                .orElseGet(() -> {
-                                        Wallet w = new Wallet();
-                                        w.setOwnerId(fs.getFreelancerId());
-                                        w.setWalletType(WalletType.FREELANCER);
-                                        w.setBalance(0L);
-                                        return walletRepository.save(w);
-                                });
-                freelancerWallet.credit(fs.getNetAmount());
-                walletRepository.save(freelancerWallet);
-
-                // WalletTransaction 기록
-                walletTransactionRepository.save(new WalletTransaction(
-                                escrowWallet.getId(), TransactionType.DEBIT, es.getTotalPayment(),
-                                TransactionReferenceType.FREELANCER_DISBURSEMENT, fs.getId(),
-                                "정산 에스크로 출금 (회차 #" + fs.getInstallmentNumber() + ")", escrowWallet.getBalance()));
-
-                walletTransactionRepository.save(new WalletTransaction(
-                                revenueWallet.getId(), TransactionType.CREDIT, revenueAmount,
-                                TransactionReferenceType.PLATFORM_FEE, fs.getId(),
-                                "플랫폼 수수료 수익 (회차 #" + fs.getInstallmentNumber() + ")", revenueWallet.getBalance()));
-
-                walletTransactionRepository.save(new WalletTransaction(
-                                freelancerWallet.getId(), TransactionType.CREDIT, fs.getNetAmount(),
-                                TransactionReferenceType.FREELANCER_DISBURSEMENT, fs.getId(),
-                                "프리랜서 정산 지급 (회차 #" + fs.getInstallmentNumber() + ")", freelancerWallet.getBalance()));
-
-                // EmployerSettlement DISBURSED 처리
-                es.markDisbursed();
-                employerSettlementRepository.save(es);
-
-                // FreelancerSettlement PAID 처리
-                fs.markPaid();
-                freelancerSettlementRepository.save(fs);
-
-                log.debug("정산 지급 완료: freelancerId={}, installment={}, netAmount={}",
-                                fs.getFreelancerId(), fs.getInstallmentNumber(), fs.getNetAmount());
-        }
-
         /**
          * 계약 취소 — 에스크로에 묶인 PAID 회차만 환불 처리
          * DISBURSED 회차는 이미 프리랜서에게 지급됐으므로 취소 대상에서 제외
          */
-        @Transactional
         public CancellationResult cancelContractSettlements(Long contractId) {
-                List<EmployerSettlement> toCancel = employerSettlementRepository
-                                .findByContractId(contractId).stream()
-                                .filter(e -> e.getStatus() == EmployerSettlementStatus.PAID)
-                                .toList();
-
-                if (toCancel.isEmpty()) {
-                        log.info("취소할 정산 레코드 없음 (이미 지급 완료 또는 레코드 없음): contractId={}", contractId);
+                // AdminSettlementService는 EmployerSettlementService의 정교한 취소 로직을 재사용합니다.
+                // 먼저 해당 계약의 고용주 ID를 조회합니다.
+                List<EmployerSettlement> settlements = employerSettlementRepository.findByContractId(contractId);
+                if (settlements.isEmpty()) {
                         return new CancellationResult(contractId, 0, 0L);
                 }
+                Long employerId = settlements.get(0).getEmployerId();
 
-                // 모든 PAID 회차는 동일한 transactionId(PortOne paymentId)를 공유
-                String paymentId = toCancel.get(0).getTransactionId();
-                Long employerId = toCancel.get(0).getEmployerId();
+                // EmployerSettlementService가 제공하는 안전한 취소 프로세스를 호출합니다.
+                employerSettlementService.cancelAndRefund(contractId, employerId, "관리자 계약 취소");
 
-                Wallet escrowWallet = walletRepository.findByWalletType(WalletType.PLATFORM_ESCROW)
-                                .orElseThrow(() -> new BusinessException(ErrorCode.WALLET_NOT_FOUND));
+                // 결과를 집계하여 반환합니다 (이미 취소된 상태이므로 CANCELLED 기준으로 집계)
+                List<EmployerSettlement> cancelled = employerSettlementRepository.findByContractId(contractId).stream()
+                                .filter(e -> e.getStatus() == EmployerSettlementStatus.CANCELLED)
+                                .toList();
+                long refundTotal = cancelled.stream().mapToLong(EmployerSettlement::getTotalPayment).sum();
 
-                long refundTotal = 0L;
-                for (EmployerSettlement es : toCancel) {
-                        FreelancerSettlement fs = freelancerSettlementRepository
-                                        .findByEmployerSettlementId(es.getId())
-                                        .orElseThrow(() -> new BusinessException(ErrorCode.SETTLEMENT_NOT_FOUND));
-
-                        escrowWallet.debit(es.getTotalPayment());
-                        walletTransactionRepository.save(new WalletTransaction(
-                                        escrowWallet.getId(), TransactionType.DEBIT, es.getTotalPayment(),
-                                        TransactionReferenceType.REFUND, es.getId(),
-                                        "계약 취소 에스크로 출금 (회차 #" + es.getInstallmentNumber() + ")",
-                                        escrowWallet.getBalance()));
-
-                        es.cancel();
-                        fs.cancel();
-                        refundTotal += es.getTotalPayment();
-                }
-                walletRepository.save(escrowWallet);
-
-                // PortOne 실제 환불 호출 (고용주의 결제 수단으로 환불)
-                portOneApiClient.cancelPayment(paymentId, refundTotal, "관리자 계약 취소 환불");
-
-                // 고용주 지갑 credit + 트랜잭션 기록
-                Wallet employerWallet = employerSettlementService.getOrCreateUserWallet(employerId,
-                                WalletType.EMPLOYER);
-                employerWallet.credit(refundTotal);
-                walletRepository.save(employerWallet);
-                walletTransactionRepository.save(new WalletTransaction(
-                                employerWallet.getId(), TransactionType.CREDIT, refundTotal,
-                                TransactionReferenceType.REFUND, contractId,
-                                "계약 취소 환불 입금 (계약 #" + contractId + ")",
-                                employerWallet.getBalance()));
-
-                log.info("계약 정산 취소 완료: contractId={}, cancelledInstallments={}, refundedAmount={}",
-                                contractId, toCancel.size(), refundTotal);
-                return new CancellationResult(contractId, toCancel.size(), refundTotal);
+                return new CancellationResult(contractId, cancelled.size(), refundTotal);
         }
 
         @Transactional(readOnly = true)

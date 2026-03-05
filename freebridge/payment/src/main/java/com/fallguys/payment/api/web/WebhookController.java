@@ -26,6 +26,10 @@ public class WebhookController {
             // Record 방식: payload.getType() -> payload.type()
             if ("Transaction.Paid".equals(payload.type())) {
 
+                if (payload.data() == null) {
+                    log.warn("웹훅 데이터 누락: payload={}", payload);
+                    return ResponseEntity.ok("Invalid payload");
+                }
                 // Record 방식: payload.getData().getPaymentId() -> payload.data().paymentId()
                 String paymentId = payload.data().paymentId();
 
@@ -42,6 +46,11 @@ public class WebhookController {
                 }
 
             } else if ("Transaction.Failed".equals(payload.type())) {
+
+                if (payload.data() == null) {
+                    log.warn("웹훅 데이터 누락 (Failed): payload={}", payload);
+                    return ResponseEntity.ok("Invalid payload");
+                }
                 String paymentId = payload.data().paymentId();
                 log.warn("포트원 결제 실패 웹훅 수신: paymentId={}", paymentId);
                 // 정상 흐름에서는 PAID 확인 후 정산 레코드가 생성되므로

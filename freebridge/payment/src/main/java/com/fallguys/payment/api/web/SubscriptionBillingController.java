@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 @Tag(name = "Subscription Billing", description = "구독 결제 내역 API (Payment 모듈 소유)")
 @RestController
@@ -21,6 +22,7 @@ public class SubscriptionBillingController {
 
     @Operation(summary = "구독 결제 내역 조회",
             description = "인증된 고용주의 구독 업그레이드 결제 내역 페이지네이션 조회")
+    @PreAuthorize("isAuthenticated()")
     @GetMapping("/billing-history")
     public ResponseEntity<ApiResponse<PageResponse<SubscriptionBillingItem>>> billingHistory(
             @AuthenticationPrincipal CustomUserDetails user,

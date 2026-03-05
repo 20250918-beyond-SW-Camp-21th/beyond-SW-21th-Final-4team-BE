@@ -100,8 +100,8 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
         billing.markPaid(paymentInfo.getPaymentId());
         subscriptionBillingRepository.save(billing);
 
-        // PLATFORM_REVENUE 지갑 크레딧
-        Wallet revenueWallet = walletRepository.findByWalletType(WalletType.PLATFORM_REVENUE)
+        // PLATFORM_REVENUE 지갑 크레딧 - 비관적 락 적용하여 동시성 이슈 해결
+        Wallet revenueWallet = walletRepository.findByWalletTypeWithLock(WalletType.PLATFORM_REVENUE)
                 .orElseGet(() -> {
                     Wallet w = new Wallet();
                     w.setWalletType(WalletType.PLATFORM_REVENUE);
@@ -161,8 +161,8 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
             billingKey.updateNextBillingDate();
             billingKeyRepository.save(billingKey);
 
-            // PLATFORM_REVENUE 지갑 크레딧
-            Wallet revenueWallet = walletRepository.findByWalletType(WalletType.PLATFORM_REVENUE)
+            // PLATFORM_REVENUE 지갑 크레딧 - 비관적 락 적용하여 동시성 이슈 해결
+            Wallet revenueWallet = walletRepository.findByWalletTypeWithLock(WalletType.PLATFORM_REVENUE)
                     .orElseGet(() -> {
                         Wallet w = new Wallet();
                         w.setWalletType(WalletType.PLATFORM_REVENUE);
