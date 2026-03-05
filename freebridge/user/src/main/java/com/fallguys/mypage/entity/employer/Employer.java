@@ -16,6 +16,8 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Employer {
 
+    private static final int MAX_BILLING_KEY_LENGTH = 200;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "employer_id")
@@ -31,6 +33,19 @@ public class Employer {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private Subscription subscription;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "pending_subscription", length = 30)
+    private Subscription pendingSubscription;
+
+    @Column(name = "plan_change_effective_date")
+    private LocalDateTime planChangeEffectiveDate;
+
+    @Column(name = "billing_key", length = 200)
+    private String billingKey;
+
+    @Column(name = "next_billing_date")
+    private LocalDateTime nextBillingDate;
 
     @Column(nullable = false, length = 100)
     private String companyName;
@@ -64,7 +79,7 @@ public class Employer {
 
     /*
      * =========================
-     * 생성 메소드
+     * ?앹꽦 硫붿냼??
      * =========================
      */
     public static Employer create(
@@ -83,7 +98,7 @@ public class Employer {
 
     /*
      * =========================
-     * UPDATE 메소드
+     * UPDATE 硫붿냼??
      * =========================
      */
 
@@ -91,7 +106,7 @@ public class Employer {
         if (newStatus == null)
             throw new IllegalArgumentException("newStatus is required");
         if (this.status == EmployerStatus.LEFT) {
-            throw new IllegalStateException("이미 이탈한 고용주의 상태는 변경할 수 없습니다.");
+            throw new IllegalStateException("?대? ?댄깉??怨좎슜二쇱쓽 ?곹깭??蹂寃쏀븷 ???놁뒿?덈떎.");
         }
         this.status = newStatus;
     }
@@ -102,6 +117,42 @@ public class Employer {
 
     public void changeSubscription(Subscription subscription) {
         this.subscription = requireNonNull(subscription, "subscription");
+        // 利됱떆 蹂寃????덉빟 ?댁뿭 珥덇린??
+        this.pendingSubscription = null;
+        this.planChangeEffectiveDate = null;
+    }
+
+    public void updateBillingKey(String billingKey) {
+        if (billingKey != null && billingKey.length() > MAX_BILLING_KEY_LENGTH) {
+            throw new IllegalArgumentException("billingKey length must be <= " + MAX_BILLING_KEY_LENGTH);
+        }
+        this.billingKey = normalizeNullable(billingKey);
+    }
+
+    public void updateNextBillingDate(LocalDateTime nextBillingDate) {
+        this.nextBillingDate = nextBillingDate;
+    }
+
+    public void scheduleSubscriptionChange(Subscription targetSubscription, LocalDateTime effectiveDate) {
+        this.pendingSubscription = requireNonNull(targetSubscription, "targetSubscription");
+        LocalDateTime nonNullEffectiveDate = requireNonNull(effectiveDate, "effectiveDate");
+        
+        if (!nonNullEffectiveDate.isAfter(LocalDateTime.now())) {
+            throw new IllegalArgumentException("蹂寃??곸슜??effectiveDate)? ?꾩옱 ?쒖젏蹂대떎 誘몃옒?ъ빞 ?⑸땲??");
+        }
+        
+        this.planChangeEffectiveDate = nonNullEffectiveDate;
+    }
+
+    public void applyPendingSubscription() {
+        if (this.pendingSubscription != null) {
+            LocalDateTime now = LocalDateTime.now();
+            if (this.planChangeEffectiveDate == null || !this.planChangeEffectiveDate.isAfter(now)) {
+                this.subscription = this.pendingSubscription;
+                this.pendingSubscription = null;
+                this.planChangeEffectiveDate = null;
+            }
+        }
     }
 
     public void changeScale(Scale scale) {
@@ -117,7 +168,7 @@ public class Employer {
     }
 
     public void updateWebsiteUrl(String websiteUrl) {
-        // URL 정교 검증까지는 과할 수 있어서 기본 정리만
+        // URL ?뺢탳 寃利앷퉴吏??怨쇳븷 ???덉뼱??湲곕낯 ?뺣━留?
         this.websiteUrl = normalizeNullable(websiteUrl);
     }
 
@@ -148,15 +199,15 @@ public class Employer {
 
     /*
      * =========================
-     * 내부 유틸
+     * ?대? ?좏떥
      * =========================
      */
     private static String normalize(String value, String fieldName) {
         if (value == null)
-            throw new IllegalArgumentException(fieldName + " 값이 비어있습니다.");
+            throw new IllegalArgumentException(fieldName + " 媛믪씠 鍮꾩뼱?덉뒿?덈떎.");
         String v = value.trim();
         if (v.isEmpty())
-            throw new IllegalArgumentException(fieldName + " 값이 비어있습니다.");
+            throw new IllegalArgumentException(fieldName + " 媛믪씠 鍮꾩뼱?덉뒿?덈떎.");
         return v;
     }
 
@@ -169,7 +220,7 @@ public class Employer {
 
     private static <T> T requireNonNull(T value, String fieldName) {
         if (value == null)
-            throw new IllegalArgumentException(fieldName + " 값이 비어있습니다.");
+            throw new IllegalArgumentException(fieldName + " 媛믪씠 鍮꾩뼱?덉뒿?덈떎.");
         return value;
     }
 }
