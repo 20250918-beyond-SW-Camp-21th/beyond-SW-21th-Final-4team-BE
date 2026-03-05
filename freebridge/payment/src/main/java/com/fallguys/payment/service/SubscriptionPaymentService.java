@@ -2,8 +2,8 @@ package com.fallguys.payment.service;
 
 import com.fallguys.common.exception.BusinessException;
 import com.fallguys.common.exception.ErrorCode;
-import com.fallguys.payment.api.shared.SubscriptionPaymentQuery;
-import com.fallguys.payment.api.shared.SubscriptionPaymentResult;
+import com.fallguys.common.api.payment.SubscriptionPaymentQuery;
+import com.fallguys.common.api.payment.SubscriptionPaymentResult;
 import com.fallguys.payment.api.web.dto.*;
 import com.fallguys.payment.entity.*;
 import com.fallguys.payment.portone.PortOneApiClient;
