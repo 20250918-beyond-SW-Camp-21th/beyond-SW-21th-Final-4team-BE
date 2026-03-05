@@ -149,7 +149,8 @@ public class UserService {
                 user.getId(), user.getEmail(), user.getRole().name(), user.getName(), grade);
 
         String refreshToken = jwtTokenProvider.generateRefreshToken(user.getId());
-        redisTokenService.saveRefreshToken(user.getId(), refreshToken, 1000L * 60 * 60 * 24 * 7);
+        String refreshJti = jwtTokenProvider.getClaimsFromToken(refreshToken).getId();
+        redisTokenService.saveRefreshToken(user.getId(), refreshToken, refreshJti, jwtTokenProvider.getRefreshTokenExpirationMs());
 
         log.info("로그인 성공 - userId: {}", user.getId());
 
@@ -196,15 +197,23 @@ public class UserService {
             throw new IllegalArgumentException("유효하지 않거나 만료된 Refresh Token입니다.");
         }
 
-        // 2. Get user ID from token
-        String userIdStr = jwtTokenProvider.getClaimsFromToken(incomingRefreshToken).getSubject();
-        Long userId = Long.valueOf(userIdStr);
-
-        // 3. Verify token matches the one in Redis
-        String savedToken = redisTokenService.getRefreshToken(userId);
-        if (savedToken == null || !savedToken.equals(incomingRefreshToken)) {
+        // 2. Parse claims and assert refresh token semantics
+        var incomingClaims = jwtTokenProvider.getClaimsFromToken(incomingRefreshToken);
+        String tokenType = incomingClaims.get("token_type", String.class);
+        if (!"refresh".equals(tokenType)) {
+            throw new IllegalArgumentException("유효하지 않거나 만료된 Refresh Token입니다.");
+        }
+        String incomingJti = incomingClaims.getId();
+        if (incomingJti == null || incomingJti.isBlank()) {
+            throw new IllegalArgumentException("유효하지 않거나 만료된 Refresh Token입니다.");
+        }
+        if (redisTokenService.isRefreshTokenJtiRevoked(incomingJti)) {
             throw new IllegalArgumentException("Refresh Token이 일치하지 않거나 로그아웃 되었습니다.");
         }
+
+        // 3. Get user ID from token
+        String userIdStr = incomingClaims.getSubject();
+        Long userId = Long.valueOf(userIdStr);
 
         // 4. Generate new tokens
         User user = userRepository.findById(userId)
@@ -226,8 +235,13 @@ public class UserService {
         String newAccessToken = jwtTokenProvider.generateToken(
                 user.getId(), user.getEmail(), user.getRole().name(), user.getName(), grade);
 
+        long refreshTokenTtlMs = jwtTokenProvider.getRefreshTokenExpirationMs();
         String newRefreshToken = jwtTokenProvider.generateRefreshToken(user.getId());
-        redisTokenService.saveRefreshToken(user.getId(), newRefreshToken, 1000L * 60 * 60 * 24 * 7);
+        String newRefreshJti = jwtTokenProvider.getClaimsFromToken(newRefreshToken).getId();
+        boolean rotated = redisTokenService.compareAndSetRefreshToken(userId, incomingRefreshToken, incomingJti, newRefreshToken, newRefreshJti, refreshTokenTtlMs);
+        if (!rotated) {
+            throw new IllegalArgumentException("Refresh Token이 일치하지 않거나 로그아웃 되었습니다.");
+        }
 
         return LoginResponseDto.builder()
                 .accessToken(newAccessToken)

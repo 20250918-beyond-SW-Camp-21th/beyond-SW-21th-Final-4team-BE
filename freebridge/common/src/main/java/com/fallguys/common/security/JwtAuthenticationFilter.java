@@ -37,7 +37,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             if (StringUtils.hasText(jwt) && jwtTokenProvider.validateToken(jwt)) {
                 if (tokenBlacklistService != null && tokenBlacklistService.isBlacklisted(jwt)) {
-                    log.warn("Blocked request with blacklisted JWT: {}", jwt);
+                    log.warn("Blocked request with blacklisted JWT");
                     response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "로그아웃된 토큰입니다.");
                     return;
                 }
