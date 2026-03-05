@@ -16,6 +16,8 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Employer {
 
+    private static final int MAX_BILLING_KEY_LENGTH = 200;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "employer_id")
@@ -121,6 +123,9 @@ public class Employer {
     }
 
     public void updateBillingKey(String billingKey) {
+        if (billingKey != null && billingKey.length() > MAX_BILLING_KEY_LENGTH) {
+            throw new IllegalArgumentException("billingKey length must be <= " + MAX_BILLING_KEY_LENGTH);
+        }
         this.billingKey = normalizeNullable(billingKey);
     }
 
