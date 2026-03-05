@@ -55,6 +55,9 @@ public class ExternalSubscriptionPortImpl implements ExternalSubscriptionPort {
     @Override
     @Transactional
     public void saveBillingKey(Long userId, String billingKey) {
+        if (billingKey == null || billingKey.isBlank()) {
+            throw new BusinessException(ErrorCode.SUBSCRIPTION_BILLING_KEY_REQUIRED);
+        }
         Employer employer = getEmployerOrThrow(userId);
         employer.updateBillingKey(billingKey);
     }
