@@ -1,7 +1,6 @@
 package com.fallguys.subscription.api.shared;
 
 import com.fallguys.subscription.entity.PlanGrade;
-import com.fallguys.subscription.entity.SubscriptionStatus;
 
 import java.time.LocalDateTime;
 

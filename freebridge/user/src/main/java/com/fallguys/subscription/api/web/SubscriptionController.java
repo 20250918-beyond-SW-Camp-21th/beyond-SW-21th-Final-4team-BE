@@ -3,9 +3,11 @@ package com.fallguys.subscription.api.web;
 import com.fallguys.common.response.ApiResponse;
 import com.fallguys.common.security.CustomUserDetails;
 import com.fallguys.subscription.api.request.SubscriptionChangeRequest;
+import com.fallguys.subscription.api.response.SubscriptionChangeResultResponse;
 import com.fallguys.subscription.api.response.SubscriptionResponse;
 import com.fallguys.subscription.service.SubscriptionService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +29,7 @@ public class SubscriptionController {
     private final SubscriptionService subscriptionService;
 
     @Operation(summary = "구독 정보 조회", description = "현재 구독 플랜, 수수료율, 월 구독료 등을 반환합니다.\n(다운그레이드 예약 시 예약 정보도 추후 제공될 수 있습니다.)")
-    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+    @ApiResponses(value = {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "구독 정보 반환 성공")
     })
     @GetMapping
@@ -38,17 +40,17 @@ public class SubscriptionController {
     }
 
     @Operation(summary = "구독 플랜 변경", description = "구독 요금제(플랜)를 다른 등급으로 변경합니다.\n* 업그레이드(BASIC->PRO/PRIME): billingKey 필수, 즉시 결제 후 전환\n* 다운그레이드(PRIME->PRO): 결제 없이 다음 달 자동 전환 예약")
-    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+    @ApiResponses(value = {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "플랜 변경(또는 예약) 완료"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "유효하지 않은 플랜 값이거나 billingKey 누락"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "402", description = "결제 실패")
     })
     @PutMapping
-    public ApiResponse<Void> changePlan(
+    public ApiResponse<SubscriptionChangeResultResponse> changePlan(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @Valid @RequestBody SubscriptionChangeRequest request) {
-        subscriptionService.changePlan(userDetails.getId(), request);
-        return ApiResponse.ok(null);
+        SubscriptionChangeResultResponse response = subscriptionService.changePlan(userDetails.getId(), request);
+        return ApiResponse.ok(response);
     }
 
     @Operation(summary = "구독 취소", description = "구독을 해지하고 BASIC 플랜으로 전환합니다.")
@@ -57,9 +59,9 @@ public class SubscriptionController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "이미 BASIC 플랜 사용 중인 경우")
     })
     @DeleteMapping("/cancel")
-    public ApiResponse<Void> cancelSubscription(
+    public ApiResponse<SubscriptionChangeResultResponse> cancelSubscription(
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        subscriptionService.cancelSubscription(userDetails.getId());
-        return ApiResponse.ok(null);
+        SubscriptionChangeResultResponse response = subscriptionService.cancelSubscription(userDetails.getId());
+        return ApiResponse.ok(response);
     }
 }

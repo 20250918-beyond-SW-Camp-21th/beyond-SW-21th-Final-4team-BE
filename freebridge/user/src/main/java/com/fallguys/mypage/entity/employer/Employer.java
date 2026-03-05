@@ -116,14 +116,23 @@ public class Employer {
 
     public void scheduleSubscriptionChange(Subscription targetSubscription, LocalDateTime effectiveDate) {
         this.pendingSubscription = requireNonNull(targetSubscription, "targetSubscription");
-        this.planChangeEffectiveDate = requireNonNull(effectiveDate, "effectiveDate");
+        LocalDateTime nonNullEffectiveDate = requireNonNull(effectiveDate, "effectiveDate");
+        
+        if (!nonNullEffectiveDate.isAfter(LocalDateTime.now())) {
+            throw new IllegalArgumentException("변경 적용일(effectiveDate)은 현재 시점보다 미래여야 합니다.");
+        }
+        
+        this.planChangeEffectiveDate = nonNullEffectiveDate;
     }
 
     public void applyPendingSubscription() {
         if (this.pendingSubscription != null) {
-            this.subscription = this.pendingSubscription;
-            this.pendingSubscription = null;
-            this.planChangeEffectiveDate = null;
+            LocalDateTime now = LocalDateTime.now();
+            if (this.planChangeEffectiveDate == null || !this.planChangeEffectiveDate.isAfter(now)) {
+                this.subscription = this.pendingSubscription;
+                this.pendingSubscription = null;
+                this.planChangeEffectiveDate = null;
+            }
         }
     }
 

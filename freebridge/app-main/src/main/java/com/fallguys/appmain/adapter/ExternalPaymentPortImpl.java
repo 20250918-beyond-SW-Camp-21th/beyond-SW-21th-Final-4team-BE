@@ -7,6 +7,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
+
 /**
  * user 모듈(subscription 도메인)의 ExternalPaymentPort 인터페이스를 구현하여,
  * payment 모듈의 SubscriptionPaymentQuery를 호출하는 어댑터 클래스입니다.
@@ -51,7 +53,7 @@ public class ExternalPaymentPortImpl implements ExternalPaymentPort {
     }
 
     @Override
-    public java.time.LocalDateTime getNextBillingDate(Long employerId) {
+    public LocalDateTime getNextBillingDate(Long employerId) {
         log.warn("[ExternalPaymentPortImpl] 실제 결제 모듈 주입 대기 중입니다. Stub(가짜) 결제 예정일을 반환합니다.");
         
         /* TODO: payment 모듈 구현 완료 시 교체
@@ -59,6 +61,6 @@ public class ExternalPaymentPortImpl implements ExternalPaymentPort {
         */
         
         // 결제 모듈 구현 전까지 임시로 다음달 1일 09시 리턴
-        return java.time.LocalDateTime.now().plusMonths(1).withDayOfMonth(1).withHour(9).withMinute(0).withSecond(0).withNano(0);
+        return LocalDateTime.now().plusMonths(1).withDayOfMonth(1).withHour(9).withMinute(0).withSecond(0).withNano(0);
     }
 }

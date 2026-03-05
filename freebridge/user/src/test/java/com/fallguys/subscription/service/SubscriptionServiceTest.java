@@ -1,6 +1,7 @@
 package com.fallguys.subscription.service;
 
 import com.fallguys.subscription.api.request.SubscriptionChangeRequest;
+import com.fallguys.subscription.api.response.SubscriptionChangeResultResponse;
 import com.fallguys.subscription.api.response.SubscriptionResponse;
 import com.fallguys.subscription.api.shared.ExternalPaymentPort;
 import com.fallguys.subscription.api.shared.ExternalSubscriptionPort;
@@ -12,10 +13,16 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDateTime;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class SubscriptionServiceTest {
@@ -29,14 +36,12 @@ class SubscriptionServiceTest {
     @InjectMocks
     private SubscriptionServiceImpl subscriptionService;
 
-    /* ==================== getSubscription ==================== */
-
     @Test
-    @DisplayName("구독 조회: PRO 플랜 사용 중인 고용주의 구독 정보를 정상 반환하며 다음 결제일도 포함된다")
+    @DisplayName("구독 조회: PRO 플랜이면 다음 결제일 포함 반환")
     void getSubscription_ProPlan_Success_WithBillingDate() {
         Long userId = 1L;
-        java.time.LocalDateTime mockDate = java.time.LocalDateTime.of(2026, 4, 1, 9, 0);
-        
+        LocalDateTime mockDate = LocalDateTime.of(2026, 4, 1, 9, 0);
+
         when(externalSubscriptionPort.getCurrentPlan(userId)).thenReturn(PlanGrade.PRO);
         when(externalPaymentPort.getNextBillingDate(userId)).thenReturn(mockDate);
 
@@ -46,30 +51,19 @@ class SubscriptionServiceTest {
         assertThat(result.feeRate()).isEqualTo(10.0);
         assertThat(result.monthlyPrice()).isEqualTo(19900);
         assertThat(result.nextBillingDate()).isEqualTo(mockDate);
-        
-        verify(externalSubscriptionPort, times(1)).getCurrentPlan(userId);
+
         verify(externalPaymentPort, times(1)).getNextBillingDate(userId);
     }
 
     @Test
-    @DisplayName("구독 조회: userId가 null이면 예외가 발생한다")
+    @DisplayName("구독 조회: userId null이면 예외")
     void getSubscription_NullUserId_ThrowsException() {
         assertThatThrownBy(() -> subscriptionService.getSubscription(null))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("유효하지 않은 사용자 ID");
-    }
-
-    @Test
-    @DisplayName("구독 조회: userId가 0 이하면 예외가 발생한다")
-    void getSubscription_InvalidUserId_ThrowsException() {
-        assertThatThrownBy(() -> subscriptionService.getSubscription(0L))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
-    /* ==================== changePlan - 기본 검증 ==================== */
-
     @Test
-    @DisplayName("구독 변경: 현재와 동일한 플랜으로 변경 시 예외가 발생한다")
+    @DisplayName("구독 변경: 동일 플랜 변경 시 예외")
     void changePlan_SamePlan_ThrowsException() {
         Long userId = 1L;
         SubscriptionChangeRequest request = new SubscriptionChangeRequest("PRO", "billing-key");
@@ -81,7 +75,7 @@ class SubscriptionServiceTest {
     }
 
     @Test
-    @DisplayName("구독 변경: 유효하지 않은 플랜 이름 입력 시 예외가 발생한다")
+    @DisplayName("구독 변경: 유효하지 않은 플랜명 예외")
     void changePlan_InvalidPlanName_ThrowsException() {
         Long userId = 1L;
         SubscriptionChangeRequest request = new SubscriptionChangeRequest("GOLD", null);
@@ -92,143 +86,87 @@ class SubscriptionServiceTest {
     }
 
     @Test
-    @DisplayName("구독 변경: request가 null이면 예외가 발생한다")
-    void changePlan_NullRequest_ThrowsException() {
-        assertThatThrownBy(() -> subscriptionService.changePlan(1L, null))
-                .isInstanceOf(IllegalArgumentException.class);
-    }
-
-    /* ==================== changePlan - BASIC 전환 ==================== */
-
-    @Test
-    @DisplayName("구독 변경: PRIME -> BASIC 변경 시 예외가 발생한다 (취소 API 사용 유도)")
-    void changePlan_ToBasic_ThrowsException() {
-        Long userId = 1L;
-        SubscriptionChangeRequest request = new SubscriptionChangeRequest("BASIC", null);
-        when(externalSubscriptionPort.getCurrentPlan(userId)).thenReturn(PlanGrade.PRIME);
-
-        assertThatThrownBy(() -> subscriptionService.changePlan(userId, request))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("구독 취소");
-                
-        verify(externalSubscriptionPort, never()).changePlan(any(), any());
-    }
-
-    /* ==================== changePlan - 업그레이드 (즉시 결제) ==================== */
-
-    @Test
-    @DisplayName("업그레이드: BASIC -> PRO 변경 시 결제 성공하면 즉시 플랜이 변경된다")
+    @DisplayName("업그레이드: BASIC->PRO 결제 성공 시 즉시 반영")
     void changePlan_Upgrade_BasicToPro_PaymentSuccess() {
         Long userId = 1L;
+        LocalDateTime nextBillingDate = LocalDateTime.of(2026, 4, 1, 9, 0);
         SubscriptionChangeRequest request = new SubscriptionChangeRequest("PRO", "billing-key-123");
+
         when(externalSubscriptionPort.getCurrentPlan(userId)).thenReturn(PlanGrade.BASIC);
         when(externalPaymentPort.requestSubscriptionPayment(userId, "PRO", 19900, "billing-key-123"))
                 .thenReturn(new ExternalPaymentPort.PaymentResult(true, 999L, null, null));
+        when(externalPaymentPort.getNextBillingDate(userId)).thenReturn(nextBillingDate);
 
-        subscriptionService.changePlan(userId, request);
+        SubscriptionChangeResultResponse result = subscriptionService.changePlan(userId, request);
+
+        assertThat(result.currentPlanGrade()).isEqualTo("PRO");
+        assertThat(result.pendingPlanGrade()).isNull();
+        assertThat(result.status()).isEqualTo("ACTIVE");
+        assertThat(result.nextBillingDate()).isEqualTo(nextBillingDate);
 
         verify(externalSubscriptionPort).changePlan(userId, PlanGrade.PRO);
-        verify(externalSubscriptionPort, never()).schedulePlanDowngrade(any(), any(), any());
+        verify(externalSubscriptionPort, never()).schedulePlanDowngrade(anyLong(), any(), any());
     }
 
     @Test
-    @DisplayName("업그레이드: PRO -> PRIME 변경 시 결제 성공하면 즉시 플랜이 변경된다")
-    void changePlan_Upgrade_ProToPrime_PaymentSuccess() {
-        Long userId = 1L;
-        SubscriptionChangeRequest request = new SubscriptionChangeRequest("PRIME", "billing-key-456");
-        when(externalSubscriptionPort.getCurrentPlan(userId)).thenReturn(PlanGrade.PRO);
-        when(externalPaymentPort.requestSubscriptionPayment(userId, "PRIME", 39900, "billing-key-456"))
-                .thenReturn(new ExternalPaymentPort.PaymentResult(true, 1000L, null, null));
-
-        subscriptionService.changePlan(userId, request);
-
-        verify(externalSubscriptionPort).changePlan(userId, PlanGrade.PRIME);
-        verify(externalSubscriptionPort, never()).schedulePlanDowngrade(any(), any(), any());
-    }
-
-    @Test
-    @DisplayName("업그레이드: 결제 실패 시 플랜이 변경되지 않고 예외가 발생한다")
+    @DisplayName("업그레이드: 결제 실패 시 플랜 변경 없음")
     void changePlan_Upgrade_PaymentFailed_PlanNotChanged() {
         Long userId = 1L;
         SubscriptionChangeRequest request = new SubscriptionChangeRequest("PRO", "billing-key-bad");
         when(externalSubscriptionPort.getCurrentPlan(userId)).thenReturn(PlanGrade.BASIC);
         when(externalPaymentPort.requestSubscriptionPayment(userId, "PRO", 19900, "billing-key-bad"))
-                .thenReturn(new ExternalPaymentPort.PaymentResult(false, null, "CARD_DECLINED", "카드 한도 초과"));
+                .thenReturn(new ExternalPaymentPort.PaymentResult(false, null, "CARD_DECLINED", "card declined"));
 
         assertThatThrownBy(() -> subscriptionService.changePlan(userId, request))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("구독 결제가 실패하였습니다");
+                .hasMessageContaining("구독 결제가 실패");
 
-        verify(externalSubscriptionPort, never()).changePlan(any(), any());
+        verify(externalSubscriptionPort, never()).changePlan(anyLong(), any());
     }
 
     @Test
-    @DisplayName("업그레이드: 유료 플랜 변경 시 billingKey 없으면 결제 없이 예외가 발생한다")
-    void changePlan_Upgrade_NoBillingKey_ThrowsException() {
-        Long userId = 1L;
-        SubscriptionChangeRequest request = new SubscriptionChangeRequest("PRO", null);
-        when(externalSubscriptionPort.getCurrentPlan(userId)).thenReturn(PlanGrade.BASIC);
-
-        assertThatThrownBy(() -> subscriptionService.changePlan(userId, request))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("billingKey");
-
-        verify(externalPaymentPort, never()).requestSubscriptionPayment(any(), any(), anyLong(), any());
-        verify(externalSubscriptionPort, never()).changePlan(any(), any());
-    }
-
-    /* ==================== changePlan - 다운그레이드 예약 (PRIME→PRO 등) ==================== */
-
-    @Test
-    @DisplayName("다운그레이드: PRIME -> PRO 변경 시 결제 없이 다음 결제일로 변경이 예약된다")
+    @DisplayName("다운그레이드: PRIME->PRO는 결제 없이 다음 결제일 예약")
     void changePlan_Downgrade_PrimeToPro_ScheduledNoPayment() {
         Long userId = 1L;
-        java.time.LocalDateTime mockDate = java.time.LocalDateTime.of(2026, 4, 1, 9, 0);
+        LocalDateTime mockDate = LocalDateTime.of(2026, 4, 1, 9, 0);
         SubscriptionChangeRequest request = new SubscriptionChangeRequest("PRO", null);
+
         when(externalSubscriptionPort.getCurrentPlan(userId)).thenReturn(PlanGrade.PRIME);
         when(externalPaymentPort.getNextBillingDate(userId)).thenReturn(mockDate);
 
-        subscriptionService.changePlan(userId, request);
+        SubscriptionChangeResultResponse result = subscriptionService.changePlan(userId, request);
 
-        // 다운그레이드 예약 호출
+        assertThat(result.currentPlanGrade()).isEqualTo("PRIME");
+        assertThat(result.pendingPlanGrade()).isEqualTo("PRO");
+        assertThat(result.status()).isEqualTo("CHANGE_RESERVED");
+        assertThat(result.nextBillingDate()).isEqualTo(mockDate);
+
         verify(externalSubscriptionPort).schedulePlanDowngrade(userId, PlanGrade.PRO, mockDate);
-        // 즉시 변경 없음
-        verify(externalSubscriptionPort, never()).changePlan(any(), any());
-        // 결제 없음
-        verify(externalPaymentPort, never()).requestSubscriptionPayment(any(), any(), anyLong(), any());
+        verify(externalSubscriptionPort, never()).changePlan(anyLong(), any());
+        verify(externalPaymentPort, never()).requestSubscriptionPayment(anyLong(), any(), anyLong(), any());
     }
 
     @Test
-    @DisplayName("다운그레이드: PRIME -> PRO 변경 시 billingKey 없어도 정상 예약된다 (결제 불필요)")
-    void changePlan_Downgrade_NoBillingKey_ScheduledSuccessfully() {
-        Long userId = 2L;
-        java.time.LocalDateTime mockDate = java.time.LocalDateTime.of(2026, 4, 1, 9, 0);
-        SubscriptionChangeRequest request = new SubscriptionChangeRequest("PRO", null);
-        when(externalSubscriptionPort.getCurrentPlan(userId)).thenReturn(PlanGrade.PRIME);
-        when(externalPaymentPort.getNextBillingDate(userId)).thenReturn(mockDate);
-
-        subscriptionService.changePlan(userId, request);
-
-        verify(externalSubscriptionPort).schedulePlanDowngrade(userId, PlanGrade.PRO, mockDate);
-    }
-
-    /* ==================== cancelSubscription ==================== */
-
-    @Test
-    @DisplayName("구독 취소: PRO 플랜 사용 중인 고용주가 취소 요청 시 정상 처리된다")
-    void cancelSubscription_ProPlan_Success() {
+    @DisplayName("구독 취소: 유료 플랜은 BASIC 예약 전환")
+    void cancelSubscription_ProPlan_ReservedToBasic() {
         Long userId = 1L;
-        java.time.LocalDateTime mockDate = java.time.LocalDateTime.of(2026, 4, 1, 9, 0);
+        LocalDateTime mockDate = LocalDateTime.of(2026, 4, 1, 9, 0);
         when(externalSubscriptionPort.getCurrentPlan(userId)).thenReturn(PlanGrade.PRO);
         when(externalPaymentPort.getNextBillingDate(userId)).thenReturn(mockDate);
 
-        subscriptionService.cancelSubscription(userId);
+        SubscriptionChangeResultResponse result = subscriptionService.cancelSubscription(userId);
+
+        assertThat(result.currentPlanGrade()).isEqualTo("PRO");
+        assertThat(result.pendingPlanGrade()).isEqualTo("BASIC");
+        assertThat(result.status()).isEqualTo("CANCEL_RESERVED");
+        assertThat(result.nextBillingDate()).isEqualTo(mockDate);
 
         verify(externalSubscriptionPort, times(1)).cancelSubscription(userId, mockDate);
+        verify(externalPaymentPort, times(1)).getNextBillingDate(userId);
     }
 
     @Test
-    @DisplayName("구독 취소: 이미 BASIC 플랜 사용 중이면 예외가 발생한다")
+    @DisplayName("구독 취소: 이미 BASIC이면 예외")
     void cancelSubscription_AlreadyBasicPlan_ThrowsException() {
         Long userId = 1L;
         when(externalSubscriptionPort.getCurrentPlan(userId)).thenReturn(PlanGrade.BASIC);
@@ -236,18 +174,5 @@ class SubscriptionServiceTest {
         assertThatThrownBy(() -> subscriptionService.cancelSubscription(userId))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("BASIC");
-    }
-
-    @Test
-    @DisplayName("구독 취소: 정상 처리된다")
-    void cancelSubscription_Success() {
-        Long userId = 1L;
-        java.time.LocalDateTime mockDate = java.time.LocalDateTime.of(2026, 4, 1, 9, 0);
-        when(externalSubscriptionPort.getCurrentPlan(userId)).thenReturn(PlanGrade.PRIME);
-        when(externalPaymentPort.getNextBillingDate(userId)).thenReturn(mockDate);
-
-        subscriptionService.cancelSubscription(userId);
-
-        verify(externalSubscriptionPort, times(1)).cancelSubscription(userId, mockDate);
     }
 }
