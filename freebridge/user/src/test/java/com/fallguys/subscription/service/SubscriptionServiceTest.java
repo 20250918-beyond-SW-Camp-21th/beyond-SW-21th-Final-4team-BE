@@ -91,8 +91,8 @@ class SubscriptionServiceTest {
                         .isEqualTo(ErrorCode.SUBSCRIPTION_INVALID_PLAN));
     }
 
-    `@Test`
-    `@DisplayName`("업그레이드: BASIC->PRO, 결제 요청 및 nextBillingDate 설정")
+    @Test
+    @DisplayName("업그레이드: BASIC->PRO, 결제 요청 및 nextBillingDate 설정")
     void changePlan_Upgrade_BasicToPro_PaymentAndSchedule() {
         Long userId = 1L;
         SubscriptionChangeRequest request = new SubscriptionChangeRequest("PRO", "billing-key-123");
