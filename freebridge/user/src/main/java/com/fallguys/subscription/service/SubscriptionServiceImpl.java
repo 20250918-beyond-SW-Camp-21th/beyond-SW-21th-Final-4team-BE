@@ -1,5 +1,7 @@
 package com.fallguys.subscription.service;
 
+import com.fallguys.common.exception.BusinessException;
+import com.fallguys.common.exception.ErrorCode;
 import com.fallguys.subscription.api.request.SubscriptionChangeRequest;
 import com.fallguys.subscription.api.response.SubscriptionChangeResultResponse;
 import com.fallguys.subscription.api.response.SubscriptionResponse;
@@ -46,31 +48,31 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     public SubscriptionChangeResultResponse changePlan(Long userId, SubscriptionChangeRequest request) {
         validateUserId(userId);
         if (request == null || request.targetPlanGrade() == null || request.targetPlanGrade().isBlank()) {
-            throw new IllegalArgumentException("변경할 플랜 값이 필요합니다.");
+            throw new BusinessException(ErrorCode.SUBSCRIPTION_INVALID_REQUEST);
         }
 
         PlanGrade targetGrade;
         try {
             targetGrade = PlanGrade.valueOf(request.targetPlanGrade().toUpperCase());
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("유효하지 않은 플랜 값입니다: " + request.targetPlanGrade());
+            throw new BusinessException(ErrorCode.SUBSCRIPTION_INVALID_PLAN);
         }
 
         PlanGrade currentGrade = externalSubscriptionPort.getCurrentPlan(userId);
         if (currentGrade == targetGrade) {
-            throw new IllegalArgumentException("현재와 동일한 플랜으로는 변경할 수 없습니다.");
+            throw new BusinessException(ErrorCode.SUBSCRIPTION_SAME_PLAN);
         }
 
         // BASIC 전환은 취소 API에서 nextBillingDate 예약 정책으로만 처리
         if (targetGrade == PlanGrade.BASIC) {
-            throw new IllegalArgumentException("무료 플랜(BASIC) 전환은 '구독 취소' 기능을 이용해주세요.");
+            throw new BusinessException(ErrorCode.SUBSCRIPTION_CANCEL_REQUIRED);
         }
 
         boolean isUpgrade = targetGrade.ordinal() > currentGrade.ordinal();
 
         if (isUpgrade) {
             if (request.billingKey() == null || request.billingKey().isBlank()) {
-                throw new IllegalArgumentException("유료 플랜 변경에는 billingKey가 필요합니다.");
+                throw new BusinessException(ErrorCode.SUBSCRIPTION_BILLING_KEY_REQUIRED);
             }
 
             log.info("[SubscriptionService] 업그레이드 결제 요청 (userId: {}, {} -> {})", userId, currentGrade, targetGrade);
@@ -82,7 +84,7 @@ public class SubscriptionServiceImpl implements SubscriptionService {
             );
 
             if (!paymentResult.success()) {
-                throw new IllegalStateException("구독 결제가 실패하였습니다. 사유: " + paymentResult.errorMessage());
+                throw new BusinessException(ErrorCode.PAYMENT_FAILED);
             }
 
             externalSubscriptionPort.changePlan(userId, targetGrade);
@@ -116,7 +118,7 @@ public class SubscriptionServiceImpl implements SubscriptionService {
 
         PlanGrade currentPlan = externalSubscriptionPort.getCurrentPlan(userId);
         if (currentPlan == PlanGrade.BASIC) {
-            throw new IllegalStateException("이미 BASIC 플랜을 사용 중이므로 구독을 취소할 수 없습니다.");
+            throw new BusinessException(ErrorCode.SUBSCRIPTION_ALREADY_BASIC);
         }
 
         LocalDateTime nextBillingDate = externalPaymentPort.getNextBillingDate(userId);
@@ -133,7 +135,7 @@ public class SubscriptionServiceImpl implements SubscriptionService {
 
     private void validateUserId(Long userId) {
         if (userId == null || userId <= 0) {
-            throw new IllegalArgumentException("유효하지 않은 사용자 ID입니다.");
+            throw new BusinessException(ErrorCode.SUBSCRIPTION_INVALID_REQUEST);
         }
     }
 }

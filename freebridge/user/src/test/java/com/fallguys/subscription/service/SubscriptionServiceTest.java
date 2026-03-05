@@ -1,5 +1,7 @@
 package com.fallguys.subscription.service;
 
+import com.fallguys.common.exception.BusinessException;
+import com.fallguys.common.exception.ErrorCode;
 import com.fallguys.subscription.api.request.SubscriptionChangeRequest;
 import com.fallguys.subscription.api.response.SubscriptionChangeResultResponse;
 import com.fallguys.subscription.api.response.SubscriptionResponse;
@@ -59,7 +61,9 @@ class SubscriptionServiceTest {
     @DisplayName("구독 조회: userId null이면 예외")
     void getSubscription_NullUserId_ThrowsException() {
         assertThatThrownBy(() -> subscriptionService.getSubscription(null))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.SUBSCRIPTION_INVALID_REQUEST));
     }
 
     @Test
@@ -70,8 +74,9 @@ class SubscriptionServiceTest {
         when(externalSubscriptionPort.getCurrentPlan(userId)).thenReturn(PlanGrade.PRO);
 
         assertThatThrownBy(() -> subscriptionService.changePlan(userId, request))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("동일한 플랜");
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.SUBSCRIPTION_SAME_PLAN));
     }
 
     @Test
@@ -81,8 +86,9 @@ class SubscriptionServiceTest {
         SubscriptionChangeRequest request = new SubscriptionChangeRequest("GOLD", null);
 
         assertThatThrownBy(() -> subscriptionService.changePlan(userId, request))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("유효하지 않은 플랜 값");
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.SUBSCRIPTION_INVALID_PLAN));
     }
 
     @Test
@@ -118,8 +124,9 @@ class SubscriptionServiceTest {
                 .thenReturn(new ExternalPaymentPort.PaymentResult(false, null, "CARD_DECLINED", "card declined"));
 
         assertThatThrownBy(() -> subscriptionService.changePlan(userId, request))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("구독 결제가 실패");
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.PAYMENT_FAILED));
 
         verify(externalSubscriptionPort, never()).changePlan(anyLong(), any());
     }
@@ -172,7 +179,8 @@ class SubscriptionServiceTest {
         when(externalSubscriptionPort.getCurrentPlan(userId)).thenReturn(PlanGrade.BASIC);
 
         assertThatThrownBy(() -> subscriptionService.cancelSubscription(userId))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("BASIC");
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.SUBSCRIPTION_ALREADY_BASIC));
     }
 }
