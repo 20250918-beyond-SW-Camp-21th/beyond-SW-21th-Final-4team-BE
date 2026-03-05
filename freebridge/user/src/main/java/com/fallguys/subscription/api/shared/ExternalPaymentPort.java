@@ -20,6 +20,15 @@ public interface ExternalPaymentPort {
     PaymentResult requestSubscriptionPayment(Long employerId, String planType, long amount, String billingKey);
 
     /**
+     * 특정 고용주의 다음 정기결제 예정일을 조회합니다.
+     * payment 모듈 내의 BillingKey 정보를 바탕으로 조회합니다.
+     *
+     * @param employerId 조회할 고용주의 userId
+     * @return 다음 결제 예정 시간 (결제 정보가 없거나 무료 플랜이면 null 반환 가능)
+     */
+    java.time.LocalDateTime getNextBillingDate(Long employerId);
+
+    /**
      * 결제 결과를 담는 중간 DTO. payment 모듈 SubscriptionPaymentResult를 직접 노출하지 않기 위해 사용합니다.
      *
      * @param success      결제 성공 여부

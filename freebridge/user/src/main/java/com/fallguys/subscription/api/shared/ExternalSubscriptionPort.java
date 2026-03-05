@@ -20,6 +20,14 @@ public interface ExternalSubscriptionPort {
     PlanGrade getCurrentPlan(Long userId);
 
     /**
+     * userId로 Employer의 현재 구독 플랜에 따른 매칭 수수료율(Fee Rate)을 조회
+     *
+     * @param userId 조회할 사용자의 고유 ID
+     * @return 현재 수수료율 (퍼센트, 예: 10.0)
+     */
+    double getFeeRate(Long userId);
+
+    /**
      * userId로 Employer의 구독 플랜을 변경
      *
      * @param userId       변경 대상 사용자의 고유 ID
@@ -36,12 +44,12 @@ public interface ExternalSubscriptionPort {
      * @param userId       예약 대상 사용자의 고유 ID
      * @param targetGrade  다음 결제일에 적용할 목표 플랜 등급
      */
-    void schedulePlanDowngrade(Long userId, PlanGrade targetGrade);
+    void schedulePlanDowngrade(Long userId, PlanGrade targetGrade, LocalDateTime effectiveDate);
 
     /**
      * 구독을 취소하고 BASIC 플랜으로 전환 요청을 처리합니다.
      *
      * @param userId 고용주 회원 식별자
      */
-    void cancelSubscription(Long userId);
+    void cancelSubscription(Long userId, LocalDateTime effectiveDate);
 }

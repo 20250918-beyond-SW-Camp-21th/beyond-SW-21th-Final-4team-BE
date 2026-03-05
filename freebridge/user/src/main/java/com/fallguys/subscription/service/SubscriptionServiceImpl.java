@@ -35,16 +35,21 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         if (userId == null || userId <= 0) {
             throw new IllegalArgumentException("유효하지 않은 사용자 ID입니다.");
         }
-        log.info("[SubscriptionService] 구독 정보 조회 요청 (userId: {})", userId);
 
-        PlanGrade planGrade = externalSubscriptionPort.getCurrentPlan(userId);
+        PlanGrade currentGrade = externalSubscriptionPort.getCurrentPlan(userId);
+        
+        // 결제 모듈을 통해 다음 결제일 조회 (기본 플랜이 아닐 경우)
+        java.time.LocalDateTime nextBillingDate = null;
+        if (currentGrade != PlanGrade.BASIC) {
+            nextBillingDate = externalPaymentPort.getNextBillingDate(userId);
+        }
 
         return new SubscriptionResponse(
-                planGrade.name(),
-                planGrade.getFeeRate(),
-                planGrade.getMonthlyPrice(),
-                "ACTIVE",   // TODO: 실제 status 조회 필요 시 ExternalSubscriptionPort에 메서드 추가
-                null        // TODO: nextBillingDate 별도 저장 테이블 구현 시 채울 것
+                currentGrade.name(),
+                currentGrade.getFeeRate(),
+                currentGrade.getMonthlyPrice(),
+                "ACTIVE", // 임시: 상태 관리는 추후 고도화
+                nextBillingDate
         );
     }
 
@@ -76,11 +81,9 @@ public class SubscriptionServiceImpl implements SubscriptionService {
             throw new IllegalArgumentException("현재와 동일한 플랜으로는 변경할 수 없습니다.");
         }
 
-        // BASIC으로 변경 = 구독 취소 처리
+        // BASIC으로 변경 = 구독 취소 처리 (명시적인 취소 API 사용 유도)
         if (targetGrade == PlanGrade.BASIC) {
-            log.info("[SubscriptionService] BASIC 전환 요청 → 구독 취소 처리 (userId: {})", userId);
-            externalSubscriptionPort.changePlan(userId, PlanGrade.BASIC);
-            return;
+            throw new IllegalArgumentException("무료 플랜(BASIC)으로의 변경은 '구독 취소' 기능을 이용해주세요.");
         }
 
         boolean isUpgrade = targetGrade.ordinal() > currentGrade.ordinal();
@@ -112,9 +115,10 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         } else {
             // ── 다운그레이드 (유료→유료, PRIME→PRO): 결제 없이 다음 결제일로 예약 ──
             // 당월 말까지 현재 플랜 유지, 다음 결제일부터 하위 플랜 적용
-            log.info("[SubscriptionService] 다운그레이드 예약 (userId: {}, {} -> {}) — 다음 결제일 적용",
-                    userId, currentGrade, targetGrade);
-            externalSubscriptionPort.schedulePlanDowngrade(userId, targetGrade);
+            java.time.LocalDateTime nextBillingDate = externalPaymentPort.getNextBillingDate(userId);
+            log.info("[SubscriptionService] 다운그레이드 예약 (userId: {}, {} -> {}) — 다음 결제일({}) 적용",
+                    userId, currentGrade, targetGrade, nextBillingDate);
+            externalSubscriptionPort.schedulePlanDowngrade(userId, targetGrade, nextBillingDate);
         }
     }
 
@@ -129,7 +133,8 @@ public class SubscriptionServiceImpl implements SubscriptionService {
             throw new IllegalStateException("이미 BASIC 플랜을 사용 중이므로 구독을 취소할 수 없습니다.");
         }
 
-        log.info("[SubscriptionService] 구독 취소 요청 (userId: {})", userId);
-        externalSubscriptionPort.cancelSubscription(userId);
+        java.time.LocalDateTime nextBillingDate = externalPaymentPort.getNextBillingDate(userId);
+        log.info("[SubscriptionService] 구독 취소 요청 (userId: {}) — 다음 결제일({})부터 BASIC 적용", userId, nextBillingDate);
+        externalSubscriptionPort.cancelSubscription(userId, nextBillingDate);
     }
 }
