@@ -9,6 +9,7 @@ import com.fallguys.payment.entity.*;
 import com.fallguys.payment.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -44,8 +45,12 @@ public class AdminSettlementService {
             return;
         }
 
-        employerSettlementService.createSettlementRecords(contract, "MANUAL-" + contractId,
-                contract.employerId());
+        try {
+            employerSettlementService.createSettlementRecords(contract, "MANUAL-" + contractId,
+                    contract.employerId());
+        } catch (DataIntegrityViolationException e) {
+            log.info("동시 정산 생성 감지 - 기존 정산 레코드 사용: {}", contractId);
+        }
         log.info("계약 #{} 정산 레코드 수동 생성 완료", contractId);
     }
 

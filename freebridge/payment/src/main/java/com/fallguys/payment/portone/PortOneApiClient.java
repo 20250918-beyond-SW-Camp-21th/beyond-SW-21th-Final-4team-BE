@@ -63,8 +63,8 @@ public class PortOneApiClient {
      * 테스트 모드에서는 테스트 빌링키를 사용하며 실제 결제가 발생하지 않습니다.
      * channelKey를 명시하여 테스트 채널로 정확히 라우팅합니다.
      */
-    public PortOnePaymentInfo chargeBillingKey(String billingKey, long amount, String orderName, String customerId) {
-        String paymentId = "sub-" + UUID.randomUUID();
+    public PortOnePaymentInfo chargeBillingKey(String paymentId, String billingKey, long amount, String orderName,
+            String customerId) {
 
         Map<String, Object> body = new HashMap<>();
         body.put("billingKey", billingKey);

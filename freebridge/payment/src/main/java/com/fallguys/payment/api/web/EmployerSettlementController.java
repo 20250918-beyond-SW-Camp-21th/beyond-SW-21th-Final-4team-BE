@@ -26,13 +26,12 @@ public class EmployerSettlementController {
                         @AuthenticationPrincipal CustomUserDetails user,
                         @RequestParam(defaultValue = "ALL") String status,
                         @RequestParam(defaultValue = "ALL") String dateRange,
-                        @RequestParam(required = false) String search,
                         @RequestParam(defaultValue = "DUE_DATE_ASC") String sort,
                         @RequestParam(defaultValue = "1") int page,
                         @RequestParam(defaultValue = "10") int size) {
 
                 PageResponse<EmployerSettlementItem> response = employerSettlementService.listSettlements(user.getId(),
-                                status, dateRange, search, sort, page, size);
+                                status, dateRange, sort, page, size);
                 ApiResponse<PageResponse<EmployerSettlementItem>> apiResponse = ApiResponse.ok(response);
                 return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
         }

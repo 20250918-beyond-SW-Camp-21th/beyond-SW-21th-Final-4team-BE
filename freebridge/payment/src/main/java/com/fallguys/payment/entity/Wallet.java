@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @EntityListeners(AuditingEntityListener.class)
 @Table(name = "wallets", uniqueConstraints = {
-        @UniqueConstraint(columnNames = { "ownerId", "walletType" })
+        @UniqueConstraint(columnNames = { "owner_id", "wallet_type" })
 })
 public class Wallet {
 
@@ -49,5 +49,13 @@ public class Wallet {
 
     public void debit(long amount) {
         this.balance -= amount;
+    }
+
+    @PrePersist
+    @PreUpdate
+    public void ensureSentinelOwnerId() {
+        if (walletType == WalletType.PLATFORM_ESCROW || walletType == WalletType.PLATFORM_REVENUE) {
+            this.ownerId = 0L;
+        }
     }
 }

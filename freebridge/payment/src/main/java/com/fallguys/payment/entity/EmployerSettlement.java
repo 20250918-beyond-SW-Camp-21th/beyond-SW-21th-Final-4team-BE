@@ -15,7 +15,9 @@ import java.time.LocalDateTime;
 @Setter
 @NoArgsConstructor
 @EntityListeners(AuditingEntityListener.class)
-@Table(name = "employer_settlements")
+@Table(name = "employer_settlements", uniqueConstraints = {
+        @UniqueConstraint(columnNames = { "contract_id", "installment_number" })
+})
 public class EmployerSettlement {
 
     @Id
@@ -32,7 +34,7 @@ public class EmployerSettlement {
     private Long freelancerId;
 
     // PortOne imp_uid — shared across all installments of the same contract
-    @Column(length = 100, unique = true)
+    @Column(length = 100)
     private String transactionId;
 
     // Installment amount ≈ budget / totalMonths (last installment absorbs

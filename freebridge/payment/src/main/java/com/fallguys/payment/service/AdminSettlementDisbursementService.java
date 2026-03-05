@@ -6,6 +6,7 @@ import com.fallguys.payment.entity.*;
 import com.fallguys.payment.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,6 +42,9 @@ public class AdminSettlementDisbursementService {
                 // 지갑을 비관적 락을 걸어서 다시 조회하여 동시성 이슈를 방지합니다.
                 Wallet escrowWalletLocked = walletRepository.findByWalletTypeWithLock(WalletType.PLATFORM_ESCROW)
                                 .orElseThrow(() -> new BusinessException(ErrorCode.WALLET_NOT_FOUND));
+                if (escrowWalletLocked.getBalance() < es.getTotalPayment()) {
+                        throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+                }
                 escrowWalletLocked.debit(es.getTotalPayment());
                 walletRepository.save(escrowWalletLocked);
 
@@ -50,7 +54,14 @@ public class AdminSettlementDisbursementService {
                                         Wallet w = new Wallet();
                                         w.setWalletType(WalletType.PLATFORM_REVENUE);
                                         w.setBalance(0L);
-                                        return walletRepository.save(w);
+                                        try {
+                                                return walletRepository.save(w);
+                                        } catch (DataIntegrityViolationException e) {
+                                                return walletRepository
+                                                                .findByWalletTypeWithLock(WalletType.PLATFORM_REVENUE)
+                                                                .orElseThrow(() -> new BusinessException(
+                                                                                ErrorCode.WALLET_NOT_FOUND));
+                                        }
                                 });
                 long revenueAmount = es.getPlatformFee() + fs.getTax();
                 revenueWalletLocked.credit(revenueAmount);
@@ -64,7 +75,14 @@ public class AdminSettlementDisbursementService {
                                         w.setOwnerId(fs.getFreelancerId());
                                         w.setWalletType(WalletType.FREELANCER);
                                         w.setBalance(0L);
-                                        return walletRepository.save(w);
+                                        try {
+                                                return walletRepository.save(w);
+                                        } catch (DataIntegrityViolationException e) {
+                                                return walletRepository.findByOwnerIdAndWalletTypeWithLock(
+                                                                fs.getFreelancerId(), WalletType.FREELANCER)
+                                                                .orElseThrow(() -> new BusinessException(
+                                                                                ErrorCode.WALLET_NOT_FOUND));
+                                        }
                                 });
                 freelancerWallet.credit(fs.getNetAmount());
                 walletRepository.save(freelancerWallet);

@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDate;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -27,6 +28,7 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
     private final BillingKeyRepository billingKeyRepository;
     private final WalletRepository walletRepository;
     private final WalletTransactionRepository walletTransactionRepository;
+    private final PaymentAttemptRepository paymentAttemptRepository;
     private final PortOneApiClient portOneApiClient;
     private final TransactionTemplate transactionTemplate;
 
@@ -42,20 +44,40 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
         } catch (IllegalArgumentException e) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
+        String billingKey = request.getBillingKey();
+        if (employerId == null || billingKey == null || billingKey.trim().isEmpty()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
         long amount = request.getAmount();
         if (amount <= 0) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
-        String billingKey = request.getBillingKey();
 
         // 1. 트랜잭션 외부에서 빌링키로 포트원 결제 호출 (외부 API 호출이 트랜잭션에 묶이지 않도록)
+        String paymentId = "sub-" + UUID.randomUUID();
+        transactionTemplate.executeWithoutResult(status -> {
+            PaymentAttempt attempt = new PaymentAttempt();
+            attempt.setId(paymentId);
+            attempt.setEmployerId(employerId);
+            attempt.setPlanType(planType.name());
+            attempt.setStatus("PENDING");
+            paymentAttemptRepository.save(attempt);
+        });
+
         PortOnePaymentInfo paymentInfo;
         try {
             paymentInfo = portOneApiClient.chargeBillingKey(
-                    billingKey, amount,
+                    paymentId, billingKey, amount,
                     planType.name() + " 구독 결제",
                     "employer-" + employerId);
         } catch (BusinessException e) {
+            transactionTemplate.executeWithoutResult(status -> {
+                paymentAttemptRepository.findById(paymentId).ifPresent(attempt -> {
+                    attempt.setStatus("FAILED");
+                    paymentAttemptRepository.save(attempt);
+                });
+            });
+
             // 결제 실패 시 FAILED 레코드 저장 (여기도 트랜잭션으로 처리)
             return transactionTemplate.execute(status -> {
                 SubscriptionBilling failedBilling = new SubscriptionBilling();
@@ -75,6 +97,11 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
 
         // 2. 외부 API 호출 후 트랜잭션 내부에서 DB 업데이트 처리
         return transactionTemplate.execute(status -> {
+
+            paymentAttemptRepository.findById(paymentId).ifPresent(attempt -> {
+                attempt.setStatus(paymentInfo.isPaid() ? "SUCCESS" : "FAILED");
+                paymentAttemptRepository.save(attempt);
+            });
 
             if (!paymentInfo.isPaid()) {
                 SubscriptionBilling failedBilling = new SubscriptionBilling();
@@ -139,18 +166,36 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
         Long employerId = billingKey.getEmployerId();
+        String bKey = billingKey.getBillingKey();
+        if (employerId == null || bKey == null || bKey.trim().isEmpty()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
         PlanType planType = billingKey.getPlanType();
+
+        String paymentId = "sub-" + UUID.randomUUID();
+        transactionTemplate.executeWithoutResult(status -> {
+            PaymentAttempt attempt = new PaymentAttempt();
+            attempt.setId(paymentId);
+            attempt.setEmployerId(employerId);
+            attempt.setPlanType(planType.name());
+            attempt.setStatus("PENDING");
+            paymentAttemptRepository.save(attempt);
+        });
 
         // 트랜잭션 외부에서 API 호출
         PortOnePaymentInfo paymentInfo = null;
         try {
             paymentInfo = portOneApiClient.chargeBillingKey(
-                    billingKey.getBillingKey(),
+                    paymentId, bKey,
                     amount,
                     planType.name() + " 구독 자동결제",
                     "employer-" + employerId);
         } catch (BusinessException e) {
             transactionTemplate.executeWithoutResult(status -> {
+                paymentAttemptRepository.findById(paymentId).ifPresent(attempt -> {
+                    attempt.setStatus("FAILED");
+                    paymentAttemptRepository.save(attempt);
+                });
                 SubscriptionBilling billing = new SubscriptionBilling();
                 billing.setEmployerId(employerId);
                 billing.setPlanType(planType);
@@ -166,6 +211,11 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
         final PortOnePaymentInfo finalPaymentInfo = paymentInfo;
 
         transactionTemplate.executeWithoutResult(status -> {
+            paymentAttemptRepository.findById(paymentId).ifPresent(attempt -> {
+                attempt.setStatus(finalPaymentInfo.isPaid() ? "SUCCESS" : "FAILED");
+                paymentAttemptRepository.save(attempt);
+            });
+
             SubscriptionBilling billing = new SubscriptionBilling();
             billing.setEmployerId(employerId);
             billing.setPlanType(planType);

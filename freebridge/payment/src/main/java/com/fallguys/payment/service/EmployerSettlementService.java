@@ -39,7 +39,7 @@ public class EmployerSettlementService {
     @Transactional(readOnly = true)
     public PageResponse<EmployerSettlementItem> listSettlements(
             Long employerId, String status, String dateRange,
-            String search, String sort, int page, int size) {
+            String sort, int page, int size) {
 
         Pageable pageable = buildPageable(sort, page, size);
         Page<EmployerSettlement> pageResult;
@@ -234,7 +234,7 @@ public class EmployerSettlementService {
             es.setContractId(contract.id());
             es.setEmployerId(employerId);
             es.setFreelancerId(contract.freelancerId());
-            es.setTransactionId(paymentId);
+            es.setTransactionId((i == 1) ? paymentId : null);
             es.setBillingAmount(billingAmount);
             es.setPlatformFee(platformFee);
             es.setTotalPayment(totalPayment);
