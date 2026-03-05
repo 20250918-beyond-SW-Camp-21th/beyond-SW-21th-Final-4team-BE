@@ -39,7 +39,7 @@ class SubscriptionServiceTest {
     private SubscriptionServiceImpl subscriptionService;
 
     @Test
-    @DisplayName("구독 조회: PRO�?변경시, nextBillingDate?� ?�금 ?�보가 ?�상 반환?�다.")
+    @DisplayName("êµ¬ë… ì¡°íšŒ: PROë¡?ë³€ê²½ì‹œ, nextBillingDate?€ ?”ê¸ˆ ?•ë³´ê°€ ?•ìƒ ë°˜í™˜?œë‹¤.")
     void getSubscription_ProPlan_Success_WithBillingDate() {
         Long userId = 1L;
         LocalDateTime mockDate = LocalDateTime.of(2026, 4, 1, 9, 0);
@@ -58,7 +58,7 @@ class SubscriptionServiceTest {
     }
 
     @Test
-    @DisplayName("구독 조회: 비어?�는 userID??경우 Null Exception??발생?�킨??")
+    @DisplayName("êµ¬ë… ì¡°íšŒ: ë¹„ì–´?ˆëŠ” userID??ê²½ìš° Null Exception??ë°œìƒ?œí‚¨??")
     void getSubscription_NullUserId_ThrowsException() {
         assertThatThrownBy(() -> subscriptionService.getSubscription(null))
                 .isInstanceOf(BusinessException.class)
@@ -67,7 +67,7 @@ class SubscriptionServiceTest {
     }
 
     @Test
-    @DisplayName("구독 변�? ?�일???�랜?�로 변�???BusinessException???�으?�다.")
+    @DisplayName("êµ¬ë… ë³€ê²? ?™ì¼???Œëžœ?¼ë¡œ ë³€ê²???BusinessException???¼ìœ¼?¨ë‹¤.")
     void changePlan_SamePlan_ThrowsException() {
         Long userId = 1L;
         SubscriptionChangeRequest request = new SubscriptionChangeRequest("PRO", "billing-key");
@@ -80,7 +80,7 @@ class SubscriptionServiceTest {
     }
 
     @Test
-    @DisplayName("구독 변�? ?�효?��? ?��? ?�랜?� BusinessException???�으?�다.")
+    @DisplayName("êµ¬ë… ë³€ê²? ? íš¨?˜ì? ?Šì? ?Œëžœ?€ BusinessException???¼ìœ¼?¨ë‹¤.")
     void changePlan_InvalidPlanName_ThrowsException() {
         Long userId = 1L;
         SubscriptionChangeRequest request = new SubscriptionChangeRequest("GOLD", null);
@@ -91,8 +91,8 @@ class SubscriptionServiceTest {
                         .isEqualTo(ErrorCode.SUBSCRIPTION_INVALID_PLAN));
     }
 
-    @Test
-    @DisplayName("���׷��̵�: BASIC->PRO, ���� ��û �� nextBillingDate ����")
+    `@Test`
+    `@DisplayName`("업그레이드: BASIC->PRO, 결제 요청 및 nextBillingDate 설정")
     void changePlan_Upgrade_BasicToPro_PaymentAndSchedule() {
         Long userId = 1L;
         SubscriptionChangeRequest request = new SubscriptionChangeRequest("PRO", "billing-key-123");
@@ -117,7 +117,7 @@ class SubscriptionServiceTest {
     }
 
     @Test
-    @DisplayName("구독 변�?: ?�운그레?�드 reserves change for nextBillingDate")
+    @DisplayName("êµ¬ë… ë³€ê²?: ?¤ìš´ê·¸ë ˆ?´ë“œ reserves change for nextBillingDate")
     void changePlan_Downgrade_PrimeToPro_ScheduledNoPayment() {
         Long userId = 1L;
         LocalDateTime mockDate = LocalDateTime.of(2026, 4, 1, 9, 0);
@@ -137,7 +137,7 @@ class SubscriptionServiceTest {
     }
 
     @Test
-    @DisplayName("구독 취소: reserves BASIC on nextBillingDate")
+    @DisplayName("êµ¬ë… ì·¨ì†Œ: reserves BASIC on nextBillingDate")
     void cancelSubscription_ProPlan_ReservedToBasic() {
         Long userId = 1L;
         LocalDateTime mockDate = LocalDateTime.of(2026, 4, 1, 9, 0);
@@ -155,7 +155,7 @@ class SubscriptionServiceTest {
     }
 
     @Test
-    @DisplayName("구독 취소: already BASIC throws BusinessException")
+    @DisplayName("êµ¬ë… ì·¨ì†Œ: already BASIC throws BusinessException")
     void cancelSubscription_AlreadyBasicPlan_ThrowsException() {
         Long userId = 1L;
         when(externalSubscriptionPort.getCurrentPlan(userId)).thenReturn(PlanGrade.BASIC);
