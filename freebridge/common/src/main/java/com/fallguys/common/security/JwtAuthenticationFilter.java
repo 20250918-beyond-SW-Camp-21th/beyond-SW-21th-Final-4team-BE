@@ -13,6 +13,7 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -24,6 +25,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
 
+    @Autowired(required = false)
+    private TokenBlacklistService tokenBlacklistService;
+
     @Override
     protected void doFilterInternal(HttpServletRequest request,
             HttpServletResponse response,
@@ -32,6 +36,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String jwt = getJwtFromRequest(request);
 
             if (StringUtils.hasText(jwt) && jwtTokenProvider.validateToken(jwt)) {
+                if (tokenBlacklistService != null && tokenBlacklistService.isBlacklisted(jwt)) {
+                    log.warn("Blocked request with blacklisted JWT: {}", jwt);
+                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "로그아웃된 토큰입니다.");
+                    return;
+                }
+
                 var claims = jwtTokenProvider.getClaimsFromToken(jwt);
                 Long userId = resolveUserId(claims);
                 String email = claims.get("email", String.class);

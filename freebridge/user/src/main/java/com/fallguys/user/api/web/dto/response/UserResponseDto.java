@@ -1,4 +1,4 @@
-package com.fallguys.user.dto;
+package com.fallguys.user.api.web.dto.response;
 
 import com.fallguys.user.entity.Role;
 import com.fallguys.user.entity.User;

@@ -1,4 +1,4 @@
-package com.fallguys.chatting.controller;
+package com.fallguys.chatting.api.web;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.util.Map;
 
 @Slf4j
-@RestControllerAdvice(basePackages = "com.fallguys.chatting.controller")
+@RestControllerAdvice(basePackages = "com.fallguys.chatting.api.web")
 public class GlobalChatExceptionHandler {
 
     @ExceptionHandler(IllegalArgumentException.class)

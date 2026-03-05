@@ -1,7 +1,7 @@
-package com.fallguys.email.controller;
+package com.fallguys.email.api.web;
 
-import com.fallguys.email.dto.EmailVerificationRequestDto;
-import com.fallguys.email.dto.EmailVerifyCodeRequestDto;
+import com.fallguys.email.api.web.dto.request.EmailVerificationRequestDto;
+import com.fallguys.email.api.web.dto.request.EmailVerifyCodeRequestDto;
 import com.fallguys.email.service.EmailVerificationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

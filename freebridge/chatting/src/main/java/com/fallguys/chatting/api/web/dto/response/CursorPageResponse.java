@@ -1,4 +1,4 @@
-package com.fallguys.chatting.dto;
+package com.fallguys.chatting.api.web.dto.response;
 
 import lombok.Builder;
 import lombok.Getter;

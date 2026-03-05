@@ -1,4 +1,4 @@
-package com.fallguys.user.dto;
+package com.fallguys.user.api.web.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.AccessLevel;

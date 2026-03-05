@@ -14,8 +14,10 @@ public class JwtTokenProvider {
 
     // 임시 하드코딩된 Secret Key입니다 (운영 시 환경 변수 분리하고 수정할 계획입니다)
     private static final String JWT_SECRET = "this-is-a-very-secure-secret-key-for-jwt-token-which-is-long-enough-for-hs256";
-    // 토큰 만료 24시간
-    private static final long JWT_EXPIRATION_MS = 1000L * 60 * 60 * 24;
+    // 토큰 만료 1시간 (기존 24시간에서 단축)
+    private static final long JWT_EXPIRATION_MS = 1000L * 60 * 60;
+    // 리프레시 토큰 만료 7일
+    private static final long REFRESH_TOKEN_EXPIRATION_MS = 1000L * 60 * 60 * 24 * 7;
 
     private final Key key;
 
@@ -33,6 +35,18 @@ public class JwtTokenProvider {
                 .claim("role", role)
                 .claim("name", name)
                 .claim("grade", grade != null ? grade : "") // 회원 등급
+                .issuedAt(now)
+                .expiration(expiryDate)
+                .signWith((javax.crypto.SecretKey) key, Jwts.SIG.HS256)
+                .compact();
+    }
+
+    public String generateRefreshToken(Long id) {
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + REFRESH_TOKEN_EXPIRATION_MS);
+
+        return Jwts.builder()
+                .subject(String.valueOf(id))
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith((javax.crypto.SecretKey) key, Jwts.SIG.HS256)
