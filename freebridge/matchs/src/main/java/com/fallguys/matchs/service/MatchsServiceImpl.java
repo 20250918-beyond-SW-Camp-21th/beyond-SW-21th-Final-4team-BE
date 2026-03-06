@@ -24,6 +24,7 @@ import com.fallguys.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
@@ -55,6 +56,7 @@ public class MatchsServiceImpl implements MatchsService {
     private static final String FREELANCER_PROJECT_STATS_KEY_PREFIX = "freelancer:project:stats:";
     private static final String FREELANCER_PROJECT_APPLIED_KEY_PREFIX = "freelancer:project:applied:";
     private static final DateTimeFormatter ISO_SECONDS_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+    private static final int FREELANCER_APPLIED_CACHE_LIMIT = 100;
 
     private final ApplicationRepo applicationRepo;
     private final ProposalRepo proposalRepo;
@@ -530,8 +532,13 @@ public class MatchsServiceImpl implements MatchsService {
     }
 
     private void refreshFreelancerAppliedProjects(Long freelancerId) {
-        List<Application> applications = orEmpty(applicationRepo.findAllByFreelancerIdOrderByCreatedAtDesc(freelancerId));
-        List<Proposal> proposals = orEmpty(proposalRepo.findAllByFreelancerIdOrderByCreatedAtDesc(freelancerId));
+        Pageable limitPageable = PageRequest.of(0, FREELANCER_APPLIED_CACHE_LIMIT);
+        List<Application> applications = orEmpty(
+                applicationRepo.findAllByFreelancerIdOrderByCreatedAtDesc(freelancerId, limitPageable).getContent()
+        );
+        List<Proposal> proposals = orEmpty(
+                proposalRepo.findAllByFreelancerIdOrderByCreatedAtDesc(freelancerId, limitPageable).getContent()
+        );
 
         Set<Long> postingIds = new LinkedHashSet<>();
         applications.stream().map(Application::getJobPostingId).forEach(postingIds::add);
@@ -564,6 +571,9 @@ public class MatchsServiceImpl implements MatchsService {
 
         payload.sort(Comparator.comparingLong(item -> (Long) item.get("appliedAt")));
         java.util.Collections.reverse(payload);
+        if (payload.size() > FREELANCER_APPLIED_CACHE_LIMIT) {
+            payload = new ArrayList<>(payload.subList(0, FREELANCER_APPLIED_CACHE_LIMIT));
+        }
 
         writeRedisValue(FREELANCER_PROJECT_APPLIED_KEY_PREFIX + freelancerId, payload);
     }

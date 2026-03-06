@@ -17,8 +17,6 @@ public interface ApplicationRepo extends JpaRepository<Application,Long> {
 
     Page<Application> findAllByFreelancerIdOrderByCreatedAtDesc(Long freelancerId, Pageable pageable);
 
-    List<Application> findAllByFreelancerIdOrderByCreatedAtDesc(Long freelancerId);
-
     List<Application> findAllByJobPostingIdOrderByCreatedAtDesc(Long jobPostingId);
 
     long countByJobPostingId(Long jobPostingId);
