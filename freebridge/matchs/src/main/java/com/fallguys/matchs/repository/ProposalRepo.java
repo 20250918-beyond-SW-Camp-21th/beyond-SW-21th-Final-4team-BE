@@ -13,4 +13,6 @@ public interface ProposalRepo extends JpaRepository<Proposal,Long> {
     Page<Proposal> findAllByFreelancerIdOrderByCreatedAtDesc(Long freelancerId, Pageable pageable);
 
     List<Proposal> findAllByFreelancerIdOrderByCreatedAtDesc(Long freelancerId);
+
+    long countByFreelancerId(Long freelancerId);
 }

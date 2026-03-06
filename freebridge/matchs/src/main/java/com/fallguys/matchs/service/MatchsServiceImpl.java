@@ -510,16 +510,16 @@ public class MatchsServiceImpl implements MatchsService {
     }
 
     private void refreshFreelancerProjectStats(Long freelancerId) {
-        int appliedProjects = orEmpty(applicationRepo.findAllByFreelancerIdOrderByCreatedAtDesc(freelancerId)).size()
-                + orEmpty(proposalRepo.findAllByFreelancerIdOrderByCreatedAtDesc(freelancerId)).size();
-
-        List<Project> projects = orEmpty(projectPostingRepo.findAllByFreelancerIdOrderByCreatedAtDesc(freelancerId));
-        int inProgressProjects = (int) projects.stream()
-                .filter(project -> project.getStatus() == ProjectStatus.IN_PROGRESS)
-                .count();
-        int completedProjects = (int) projects.stream()
-                .filter(project -> project.getStatus() == ProjectStatus.COMPLETED)
-                .count();
+        int appliedProjects = Math.toIntExact(
+                applicationRepo.countByFreelancerId(freelancerId)
+                        + proposalRepo.countByFreelancerId(freelancerId)
+        );
+        int inProgressProjects = Math.toIntExact(
+                projectPostingRepo.countByFreelancerIdAndStatus(freelancerId, ProjectStatus.IN_PROGRESS)
+        );
+        int completedProjects = Math.toIntExact(
+                projectPostingRepo.countByFreelancerIdAndStatus(freelancerId, ProjectStatus.COMPLETED)
+        );
 
         Map<String, Object> payload = new HashMap<>();
         payload.put("appliedProjects", appliedProjects);

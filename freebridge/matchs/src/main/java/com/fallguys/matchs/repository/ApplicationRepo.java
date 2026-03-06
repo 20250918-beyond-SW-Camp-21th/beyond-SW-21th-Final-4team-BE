@@ -23,6 +23,8 @@ public interface ApplicationRepo extends JpaRepository<Application,Long> {
 
     long countByJobPostingId(Long jobPostingId);
 
+    long countByFreelancerId(Long freelancerId);
+
     @Query("""
             select a.jobPostingId as jobPostingId, count(a.id) as applicantCount
             from Application a
