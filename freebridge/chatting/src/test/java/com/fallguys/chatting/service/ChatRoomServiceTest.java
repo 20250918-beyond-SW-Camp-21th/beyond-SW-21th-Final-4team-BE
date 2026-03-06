@@ -1,8 +1,8 @@
 package com.fallguys.chatting.service;
 
 import com.fallguys.chatting.domain.ChatRoom;
-import com.fallguys.chatting.dto.ChatRoomCreateRequest;
-import com.fallguys.chatting.dto.ChatRoomResponse;
+import com.fallguys.chatting.api.web.dto.request.ChatRoomCreateRequest;
+import com.fallguys.chatting.api.web.dto.response.ChatRoomResponse;
 import com.fallguys.chatting.repository.ChatRoomRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

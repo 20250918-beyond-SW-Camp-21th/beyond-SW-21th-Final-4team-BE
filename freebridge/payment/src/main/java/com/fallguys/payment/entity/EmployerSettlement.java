@@ -15,9 +15,7 @@ import java.time.LocalDateTime;
 @Setter
 @NoArgsConstructor
 @EntityListeners(AuditingEntityListener.class)
-@Table(name = "employer_settlements", uniqueConstraints = {
-        @UniqueConstraint(columnNames = { "contract_id", "installment_number" })
-})
+@Table(name = "employer_settlements")
 public class EmployerSettlement {
 
     @Id
@@ -37,8 +35,7 @@ public class EmployerSettlement {
     @Column(length = 100)
     private String transactionId;
 
-    // Installment amount ≈ budget / totalMonths (last installment absorbs
-    // remainder)
+    // Installment amount ≈ budget / totalMonths (last installment absorbs remainder)
     @Column(nullable = false)
     private Long billingAmount;
 
@@ -60,8 +57,7 @@ public class EmployerSettlement {
     @Column(columnDefinition = "TEXT")
     private String invoicePdfUrl;
 
-    // Scheduled disbursement date — derived from contract paymentDay for this
-    // installment month
+    // Scheduled disbursement date — derived from contract paymentDay for this installment month
     @Column(nullable = false)
     private LocalDate dueDate;
 

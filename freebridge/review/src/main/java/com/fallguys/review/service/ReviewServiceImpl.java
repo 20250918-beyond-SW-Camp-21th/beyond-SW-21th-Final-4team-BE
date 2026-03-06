@@ -2,6 +2,7 @@ package com.fallguys.review.service;
 
 import com.fallguys.common.exception.BusinessException;
 import com.fallguys.common.exception.ErrorCode;
+import com.fallguys.common.port.ProjectExternalApi;
 import com.fallguys.review.api.dto.request.EmployerReviewCreateRequest;
 import com.fallguys.review.api.dto.request.EmployerReviewUpdateRequest;
 import com.fallguys.review.api.dto.request.FreelancerReviewCreateRequest;
@@ -12,22 +13,36 @@ import com.fallguys.review.entity.ReviewStatus;
 import com.fallguys.review.repository.EmployerReviewRepository;
 import com.fallguys.review.repository.FreelancerReviewRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class ReviewServiceImpl implements ReviewService {
 
+    private static final String EMPLOYER_REVIEW_RATES_KEY_PREFIX = "employer:review:rates:";
+    private static final String FREELANCER_REVIEW_RATES_KEY_PREFIX = "freelancer:review:rates:";
+
     private final EmployerReviewRepository employerReviewRepository;
     private final FreelancerReviewRepository freelancerReviewRepository;
+    private final ProjectExternalApi projectExternalApi;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     @Override
     public Page<FreelancerReview> getEmployerReceivedReviews(Long employerId, Pageable pageable) {
@@ -50,6 +65,7 @@ public class ReviewServiceImpl implements ReviewService {
     @Override
     @Transactional
     public Long createEmployerReview(Long employerId, EmployerReviewCreateRequest request) {
+        // 1. 중복 리뷰 체크 로직
         employerReviewRepository
                 .findByProjectIdAndEmployerIdAndFreelancerIdAndStatus(
                         request.projectId(),
@@ -61,6 +77,7 @@ public class ReviewServiceImpl implements ReviewService {
                     throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
                 });
 
+        // 2. 리뷰 엔티티 생성
         EmployerReview review = EmployerReview.builder()
                 .projectId(request.projectId())
                 .employerId(employerId)
@@ -75,7 +92,26 @@ public class ReviewServiceImpl implements ReviewService {
                 .build();
 
         try {
-            return employerReviewRepository.save(review).getId();
+            EmployerReview savedReview = employerReviewRepository.save(review);
+            Long reviewId = savedReview.getId();
+
+            runAfterCommitSafely(() -> refreshFreelancerReviewRates(request.freelancerId()));
+
+            projectExternalApi.completeProjectWithReview(
+                    new ProjectExternalApi.ProjectCompletionData(
+                            savedReview.getProjectId(),
+                            savedReview.getFreelancerId(),
+                            savedReview.getDescription(),
+                            savedReview.getCommunication() != null ? savedReview.getCommunication() : 0,
+                            savedReview.getDebugging() != null ? savedReview.getDebugging() : 0,
+                            savedReview.getFramework() != null ? savedReview.getFramework() : 0,
+                            savedReview.getLanguage() != null ? savedReview.getLanguage() : 0,
+                            savedReview.getSchedule() != null ? savedReview.getSchedule() : 0
+                    )
+            );
+
+            return reviewId;
+
         } catch (DataIntegrityViolationException e) {
             if (!isDuplicateKeyViolation(e)) {
                 throw e;
@@ -103,6 +139,7 @@ public class ReviewServiceImpl implements ReviewService {
                 request.dispute(),
                 request.description()
         );
+        runAfterCommitSafely(() -> refreshFreelancerReviewRates(review.getFreelancerId()));
     }
 
     @Override
@@ -115,6 +152,7 @@ public class ReviewServiceImpl implements ReviewService {
                 )
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INPUT_VALUE));
         review.softDelete();
+        runAfterCommitSafely(() -> refreshFreelancerReviewRates(review.getFreelancerId()));
     }
 
     @Override
@@ -160,7 +198,9 @@ public class ReviewServiceImpl implements ReviewService {
                 .build();
 
         try {
-            return freelancerReviewRepository.save(review).getId();
+            Long reviewId = freelancerReviewRepository.save(review).getId();
+            runAfterCommitSafely(() -> refreshEmployerReviewRates(request.employerId()));
+            return reviewId;
         } catch (DataIntegrityViolationException e) {
             if (!isDuplicateKeyViolation(e)) {
                 throw e;
@@ -185,6 +225,7 @@ public class ReviewServiceImpl implements ReviewService {
                 request.schedule(),
                 request.description()
         );
+        runAfterCommitSafely(() -> refreshEmployerReviewRates(review.getEmployerId()));
     }
 
     @Override
@@ -197,6 +238,91 @@ public class ReviewServiceImpl implements ReviewService {
                 )
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INPUT_VALUE));
         review.softDelete();
+        runAfterCommitSafely(() -> refreshEmployerReviewRates(review.getEmployerId()));
+    }
+
+    private void runAfterCommit(Runnable task) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    task.run();
+                }
+            });
+            return;
+        }
+        task.run();
+    }
+
+    private void runAfterCommitSafely(Runnable task) {
+        runAfterCommit(() -> {
+            try {
+                task.run();
+            } catch (RuntimeException e) {
+                log.warn("Failed to refresh mypage review redis payload after commit", e);
+            }
+        });
+    }
+
+    private void refreshEmployerReviewRates(Long employerId) {
+        List<FreelancerReview> reviews = orEmpty(freelancerReviewRepository.findAllByEmployerIdAndStatus(employerId, ReviewStatus.ACTIVE));
+        List<Map<String, Object>> payload = new ArrayList<>(reviews.size());
+        for (FreelancerReview review : reviews) {
+            Map<String, Object> item = new HashMap<>();
+            item.put("atmosphereRate", toNumberOrZero(review.getAtmosphere()));
+            item.put("requirementsDetailRate", toNumberOrZero(review.getRequirementDetail()));
+            item.put("scheduleAdherenceRate", toNumberOrZero(review.getSchedule()));
+            payload.add(item);
+        }
+        writeRedisValue(EMPLOYER_REVIEW_RATES_KEY_PREFIX + employerId, payload);
+    }
+
+    private void refreshFreelancerReviewRates(Long freelancerId) {
+        List<EmployerReview> reviews = orEmpty(employerReviewRepository.findAllByFreelancerIdAndStatus(freelancerId, ReviewStatus.ACTIVE));
+        List<Map<String, Object>> payload = new ArrayList<>(reviews.size());
+        for (EmployerReview review : reviews) {
+            Map<String, Object> item = new HashMap<>();
+            item.put("expertiseRate", average(review.getLanguage(), review.getFramework(), review.getDebugging()));
+            item.put("communicationRate", toNumberOrZero(review.getCommunication()));
+            item.put("scheduleRate", toNumberOrZero(review.getSchedule()));
+            payload.add(item);
+        }
+        writeRedisValue(FREELANCER_REVIEW_RATES_KEY_PREFIX + freelancerId, payload);
+    }
+
+    private Number toNumberOrZero(Integer value) {
+        return value == null ? 0 : value;
+    }
+
+    private double average(Integer... values) {
+        int sum = 0;
+        int count = 0;
+        for (Integer value : values) {
+            if (value == null) {
+                continue;
+            }
+            sum += value;
+            count++;
+        }
+        if (count == 0) {
+            return 0.0;
+        }
+        return (double) sum / count;
+    }
+
+    private void writeRedisValue(String key, Object value) {
+        if (redisTemplate == null) {
+            return;
+        }
+        try {
+            redisTemplate.opsForValue().set(key, value);
+        } catch (RuntimeException e) {
+            log.warn("Failed to write mypage review payload. key={}", key, e);
+        }
+    }
+
+    private <T> List<T> orEmpty(List<T> list) {
+        return list == null ? List.of() : list;
     }
 
     private boolean isDuplicateKeyViolation(Throwable throwable) {

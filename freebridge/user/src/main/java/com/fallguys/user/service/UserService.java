@@ -1,12 +1,12 @@
 package com.fallguys.user.service;
 
 import com.fallguys.common.event.EmailVerifiedEvent;
-import com.fallguys.user.dto.LoginRequestDto;
-import com.fallguys.user.dto.PasswordUpdateRequest;
-import com.fallguys.user.dto.EmailNotificationSettingDto;
-import com.fallguys.user.dto.SignupRequestDto;
-import com.fallguys.user.dto.LoginResponseDto;
-import com.fallguys.user.dto.UserResponseDto;
+import com.fallguys.user.api.web.dto.request.LoginRequestDto;
+import com.fallguys.user.api.web.dto.request.PasswordUpdateRequest;
+import com.fallguys.user.api.web.dto.request.EmailNotificationSettingDto;
+import com.fallguys.user.api.web.dto.request.SignupRequestDto;
+import com.fallguys.user.api.web.dto.response.LoginResponseDto;
+import com.fallguys.user.api.web.dto.response.UserResponseDto;
 import com.fallguys.user.entity.Role;
 import com.fallguys.user.entity.User;
 import com.fallguys.user.repository.UserRepository;
@@ -43,6 +43,7 @@ public class UserService {
     private final EmployerRepository employerRepository;
     private final ResumeRepository resumeRepository;
     private final StringRedisTemplate redisTemplate;
+    private final RedisTokenService redisTokenService;
 
     @Async
     @EventListener
@@ -147,10 +148,104 @@ public class UserService {
         String accessToken = jwtTokenProvider.generateToken(
                 user.getId(), user.getEmail(), user.getRole().name(), user.getName(), grade);
 
+        String refreshToken = jwtTokenProvider.generateRefreshToken(user.getId());
+        String refreshJti = jwtTokenProvider.getClaimsFromToken(refreshToken).getId();
+        redisTokenService.saveRefreshToken(user.getId(), refreshToken, refreshJti, jwtTokenProvider.getRefreshTokenExpirationMs());
+
         log.info("로그인 성공 - userId: {}", user.getId());
 
         return LoginResponseDto.builder()
                 .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .user(UserResponseDto.from(user))
+                .grade(grade)
+                .build();
+    }
+
+    /**
+     * 로그아웃
+     */
+    @Transactional
+    public void logout(Long userId, String accessToken) {
+        // 1. Refresh Token 삭제
+        redisTokenService.deleteRefreshToken(userId);
+
+        // 2. Access Token을 블랙리스트에 추가
+        if (accessToken != null && accessToken.startsWith("Bearer ")) {
+            accessToken = accessToken.substring(7);
+        }
+
+        try {
+            java.util.Date expiration = jwtTokenProvider.getClaimsFromToken(accessToken).getExpiration();
+            long remainingTime = expiration.getTime() - System.currentTimeMillis();
+            if (remainingTime > 0) {
+                redisTokenService.addToBlacklist(accessToken, remainingTime);
+            }
+        } catch (Exception e) {
+            log.warn("이미 만료되었거나 유효하지 않은 Access Token입니다.", e);
+        }
+        log.info("로그아웃 완료 - userId: {}", userId);
+    }
+
+    /**
+     * 토큰 재발급
+     */
+    @Transactional
+    public LoginResponseDto refreshTokens(String incomingRefreshToken) {
+        // 1. Validate refresh token
+        if (!jwtTokenProvider.validateToken(incomingRefreshToken)) {
+            throw new IllegalArgumentException("유효하지 않거나 만료된 Refresh Token입니다.");
+        }
+
+        // 2. Parse claims and assert refresh token semantics
+        var incomingClaims = jwtTokenProvider.getClaimsFromToken(incomingRefreshToken);
+        String tokenType = incomingClaims.get("token_type", String.class);
+        if (!"refresh".equals(tokenType)) {
+            throw new IllegalArgumentException("유효하지 않거나 만료된 Refresh Token입니다.");
+        }
+        String incomingJti = incomingClaims.getId();
+        if (incomingJti == null || incomingJti.isBlank()) {
+            throw new IllegalArgumentException("유효하지 않거나 만료된 Refresh Token입니다.");
+        }
+        if (redisTokenService.isRefreshTokenJtiRevoked(incomingJti)) {
+            throw new IllegalArgumentException("Refresh Token이 일치하지 않거나 로그아웃 되었습니다.");
+        }
+
+        // 3. Get user ID from token
+        String userIdStr = incomingClaims.getSubject();
+        Long userId = Long.valueOf(userIdStr);
+
+        // 4. Generate new tokens
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다."));
+
+        String grade = "";
+        if (Role.FREELANCER.equals(user.getRole())) {
+            grade = freelancerRepository.findByUserId(user.getId())
+                    .map(Freelancer::getGrade)
+                    .map(Enum::name)
+                    .orElse("UNKNOWN");
+        } else if (Role.EMPLOYER.equals(user.getRole())) {
+            grade = employerRepository.findByUserId(user.getId())
+                    .map(com.fallguys.mypage.entity.employer.Employer::getScale)
+                    .map(Enum::name)
+                    .orElse("UNKNOWN");
+        }
+
+        String newAccessToken = jwtTokenProvider.generateToken(
+                user.getId(), user.getEmail(), user.getRole().name(), user.getName(), grade);
+
+        long refreshTokenTtlMs = jwtTokenProvider.getRefreshTokenExpirationMs();
+        String newRefreshToken = jwtTokenProvider.generateRefreshToken(user.getId());
+        String newRefreshJti = jwtTokenProvider.getClaimsFromToken(newRefreshToken).getId();
+        boolean rotated = redisTokenService.compareAndSetRefreshToken(userId, incomingRefreshToken, incomingJti, newRefreshToken, newRefreshJti, refreshTokenTtlMs);
+        if (!rotated) {
+            throw new IllegalArgumentException("Refresh Token이 일치하지 않거나 로그아웃 되었습니다.");
+        }
+
+        return LoginResponseDto.builder()
+                .accessToken(newAccessToken)
+                .refreshToken(newRefreshToken)
                 .user(UserResponseDto.from(user))
                 .grade(grade)
                 .build();

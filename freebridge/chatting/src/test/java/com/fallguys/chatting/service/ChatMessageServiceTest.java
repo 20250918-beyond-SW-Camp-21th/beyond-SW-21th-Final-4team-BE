@@ -3,8 +3,8 @@ package com.fallguys.chatting.service;
 import com.fallguys.chatting.domain.ChatMessage;
 import com.fallguys.chatting.domain.ChatRoom;
 import com.fallguys.chatting.domain.MessageType;
-import com.fallguys.chatting.dto.ChatMessageRequest;
-import com.fallguys.chatting.dto.ChatMessageResponse;
+import com.fallguys.chatting.api.web.dto.response.ChatMessageResponse;
+import com.fallguys.chatting.api.web.dto.response.CursorPageResponse;
 import com.fallguys.chatting.redis.RedisPublisher;
 import com.fallguys.chatting.repository.ChatMessageRepository;
 import com.fallguys.chatting.repository.ChatRoomRepository;
@@ -87,14 +87,12 @@ class ChatMessageServiceTest {
                                 .thenReturn(List.of(msg2, msg1));
 
                 // when
-                com.fallguys.chatting.dto.CursorPageResponse<ChatMessageResponse> response = chatMessageService
+                CursorPageResponse<ChatMessageResponse> response = chatMessageService
                                 .getPreviousMessages("room1", null, null, 20, "e1");
 
                 // then
                 assertThat(response.getItems()).hasSize(2);
                 assertThat(response.getItems().get(0).getContent()).isEqualTo("M2");
-                assertThat(response.getNextCursor()).isEqualTo("msg1"); // msg1의 ID나 시간이어야 함. 도메인의 createdAt이 null이므로
-                                                                        // 임시로 ID 비교는
-                                                                        // 로직에 따라 다름.
+                assertThat(response.getNextCursor()).isNull();
         }
 }

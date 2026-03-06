@@ -15,17 +15,14 @@ import java.time.LocalDateTime;
 @Setter
 @NoArgsConstructor
 @EntityListeners(AuditingEntityListener.class)
-@Table(name = "wallets", uniqueConstraints = {
-        @UniqueConstraint(columnNames = { "owner_id", "wallet_type" })
-})
+@Table(name = "wallets")
 public class Wallet {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // User ID for EMPLOYER/FREELANCER wallets; null for PLATFORM_ESCROW /
-    // PLATFORM_REVENUE
+    // User ID for EMPLOYER/FREELANCER wallets; null for PLATFORM_ESCROW / PLATFORM_REVENUE
     private Long ownerId;
 
     @Enumerated(EnumType.STRING)
@@ -49,13 +46,5 @@ public class Wallet {
 
     public void debit(long amount) {
         this.balance -= amount;
-    }
-
-    @PrePersist
-    @PreUpdate
-    public void ensureSentinelOwnerId() {
-        if (walletType == WalletType.PLATFORM_ESCROW || walletType == WalletType.PLATFORM_REVENUE) {
-            this.ownerId = 0L;
-        }
     }
 }

@@ -3,7 +3,7 @@ package com.fallguys.mypage.api.web.freelancer;
 import com.fallguys.common.response.ApiResponse;
 import com.fallguys.common.security.CustomUserDetails;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerAiPositivityIndexDto;
-import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerAiReputationReportDto;
+import com.fallguys.common.ai.dto.FreelancerAiReputationReportDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerEvaluationSummaryDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerStrengthWeaknessDto;
 import com.fallguys.mypage.service.freelancer.FreelancerReviewService;

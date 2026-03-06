@@ -1,7 +1,7 @@
 package com.fallguys.chatting.service;
 
 import com.fallguys.chatting.domain.ChatRoom;
-import com.fallguys.chatting.dto.ChatRoomResponse;
+import com.fallguys.chatting.api.web.dto.response.ChatRoomResponse;
 import com.fallguys.chatting.repository.ChatRoomRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

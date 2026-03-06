@@ -18,7 +18,7 @@ import java.util.List;
 
 @Tag(name = "Contract", description = "계약 관련 API")
 @RestController
-@RequestMapping("/api/contracts")
+@RequestMapping("/api/v1/contracts")
 @RequiredArgsConstructor
 public class ContractController {
 

@@ -6,6 +6,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface EmployerReviewRepository extends JpaRepository<EmployerReview, Long> {
@@ -30,4 +31,6 @@ public interface EmployerReviewRepository extends JpaRepository<EmployerReview, 
             Long freelancerId,
             ReviewStatus status
     );
+
+    List<EmployerReview> findAllByFreelancerIdAndStatus(Long freelancerId, ReviewStatus status);
 }
