@@ -406,13 +406,33 @@ public class MatchsServiceImpl implements MatchsService {
                 .sorted(Comparator.comparing(JobPosting::getCreatedAt).reversed())
                 .toList();
 
+        List<Long> postingIds = postings.stream()
+                .map(JobPosting::getId)
+                .filter(Objects::nonNull)
+                .toList();
+        Map<Long, Integer> applicantCountsByPostingId = new HashMap<>();
+        if (!postingIds.isEmpty()) {
+            orEmpty(applicationRepo.countApplicantsByJobPostingIds(postingIds))
+                    .forEach(result -> {
+                        Long jobPostingId = result.getJobPostingId();
+                        if (jobPostingId == null) {
+                            return;
+                        }
+                        Long applicantCount = result.getApplicantCount();
+                        applicantCountsByPostingId.put(
+                                jobPostingId,
+                                applicantCount == null ? 0 : Math.toIntExact(applicantCount)
+                        );
+                    });
+        }
+
         List<Map<String, Object>> payload = new ArrayList<>(postings.size());
         for (JobPosting posting : postings) {
             Map<String, Object> item = new HashMap<>();
             item.put("projectId", posting.getId());
             item.put("title", posting.getTitle());
             item.put("status", toEmployerProjectStatus(posting.getPostingStatus()));
-            item.put("applicantCount", Math.toIntExact(applicationRepo.countByJobPostingId(posting.getId())));
+            item.put("applicantCount", applicantCountsByPostingId.getOrDefault(posting.getId(), 0));
             item.put("createdAt", formatIsoSeconds(posting.getCreatedAt()));
 
             LocalDateTime deadline = posting.getCreatedAt();
