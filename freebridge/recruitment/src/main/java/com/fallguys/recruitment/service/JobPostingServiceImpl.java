@@ -38,6 +38,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -450,19 +451,51 @@ public class JobPostingServiceImpl implements JobPostingService {
     }
 
     private void refreshEmployerProjectListForMypage(Long employerId) {
+        String redisKey = EMPLOYER_PROJECT_LIST_KEY_PREFIX + employerId;
+        Map<Long, Integer> cachedApplicantCounts = readCachedEmployerApplicantCounts(redisKey);
+
         List<Map<String, Object>> payload = orEmpty(jobPostingRepo.findAllByEmployerIdAndStatusNot(employerId, Status.DELETED))
                 .stream()
-                .map(this::toEmployerProjectListItem)
+                .map(posting -> toEmployerProjectListItem(posting, cachedApplicantCounts.get(posting.getId())))
+                .sorted(Comparator.comparing(
+                        this::extractCreatedAt,
+                        Comparator.nullsLast(Comparator.naturalOrder())
+                ).reversed())
                 .toList();
-        writeMypageRedisValue(EMPLOYER_PROJECT_LIST_KEY_PREFIX + employerId, payload);
+        writeMypageRedisValue(redisKey, payload);
     }
 
-    private Map<String, Object> toEmployerProjectListItem(JobPosting posting) {
+    private Map<Long, Integer> readCachedEmployerApplicantCounts(String redisKey) {
+        Map<Long, Integer> applicantCounts = new HashMap<>();
+        try {
+            Object cached = redisTemplate.opsForValue().get(redisKey);
+            if (!(cached instanceof List<?> cachedList)) {
+                return applicantCounts;
+            }
+
+            for (Object entry : cachedList) {
+                if (!(entry instanceof Map<?, ?> cachedItem)) {
+                    continue;
+                }
+                Long projectId = parseLongSafely(cachedItem.get("projectId"));
+                Integer applicantCount = parseIntegerSafely(cachedItem.get("applicantCount"));
+                if (projectId == null || applicantCount == null) {
+                    continue;
+                }
+                applicantCounts.put(projectId, applicantCount);
+            }
+        } catch (RuntimeException e) {
+            log.warn("Failed to read employer project list cache for applicantCount reuse. key={}", redisKey, e);
+        }
+        return applicantCounts;
+    }
+
+    private Map<String, Object> toEmployerProjectListItem(JobPosting posting, Integer cachedApplicantCount) {
         Map<String, Object> item = new HashMap<>();
         item.put("projectId", posting.getId());
         item.put("title", posting.getTitle());
         item.put("status", toEmployerProjectStatus(posting.getPostingStatus()));
-        item.put("applicantCount", posting.getMatchedHeadcount());
+        item.put("applicantCount", cachedApplicantCount != null ? cachedApplicantCount : posting.getMatchedHeadcount());
 
         LocalDateTime createdAt = posting.getCreatedAt();
         item.put("createdAt", createdAt != null ? createdAt.format(ISO_SECONDS_FORMATTER) : null);
@@ -473,6 +506,49 @@ public class JobPostingServiceImpl implements JobPostingService {
         }
         item.put("deadline", deadline != null ? deadline.format(ISO_SECONDS_FORMATTER) : null);
         return item;
+    }
+
+    private LocalDateTime extractCreatedAt(Map<String, Object> item) {
+        if (item == null) {
+            return null;
+        }
+        Object createdAt = item.get("createdAt");
+        if (createdAt == null) {
+            return null;
+        }
+        try {
+            return LocalDateTime.parse(createdAt.toString(), ISO_SECONDS_FORMATTER);
+        } catch (RuntimeException ignored) {
+            return null;
+        }
+    }
+
+    private Long parseLongSafely(Object value) {
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        if (value == null) {
+            return null;
+        }
+        try {
+            return Long.parseLong(value.toString());
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private Integer parseIntegerSafely(Object value) {
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        if (value == null) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(value.toString());
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
     }
 
     private String toEmployerProjectStatus(JobPostingStatus status) {
