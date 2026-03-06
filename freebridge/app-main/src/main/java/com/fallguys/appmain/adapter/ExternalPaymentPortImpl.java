@@ -1,8 +1,5 @@
 package com.fallguys.appmain.adapter;
 
-import com.fallguys.common.api.payment.SubscriptionPaymentQuery;
-import com.fallguys.common.api.payment.SubscriptionPaymentResult;
-import com.fallguys.subscription.api.shared.ExternalPaymentPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.env.Environment;
@@ -18,12 +15,12 @@ import java.util.Arrays;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class ExternalPaymentPortImpl implements ExternalPaymentPort {
+public class ExternalPaymentPortImpl {
 
     // private final SubscriptionPaymentQuery subscriptionPaymentQuery; // TODO: payment 모듈 구현 완료 시 주입
     private final Environment environment;
 
-    @Override
+
     public PaymentResult requestSubscriptionPayment(Long employerId, String planType, long amount, String billingKey) {
         if (!isStubEnabled()) {
             log.error("[ExternalPaymentPortImpl] Stub payment disabled in this environment.");
@@ -59,7 +56,7 @@ public class ExternalPaymentPortImpl implements ExternalPaymentPort {
         );
     }
 
-    @Override
+
     public LocalDateTime getNextBillingDate(Long employerId) {
         log.warn("[ExternalPaymentPortImpl] 실제 결제 모듈 미주입 상태입니다. Stub 결제일을 반환합니다.");
 
@@ -70,6 +67,8 @@ public class ExternalPaymentPortImpl implements ExternalPaymentPort {
         // 결제 모듈 구현 전 임시로 다음달 1일 09시 반환
         return LocalDateTime.now().plusMonths(1).withDayOfMonth(1).withHour(9).withMinute(0).withSecond(0).withNano(0);
     }
+
+    public record PaymentResult(boolean success, Long billingId, String errorCode, String errorMessage) {}
 
     private boolean isStubEnabled() {
         boolean profileEnabled = Arrays.stream(environment.getActiveProfiles())
