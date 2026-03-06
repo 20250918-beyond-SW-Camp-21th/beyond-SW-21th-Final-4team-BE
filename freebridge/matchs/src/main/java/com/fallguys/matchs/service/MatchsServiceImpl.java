@@ -80,7 +80,7 @@ public class MatchsServiceImpl implements MatchsService {
         runAfterCommitSafely(() -> {
             refreshEmployerProjectStats(jobPosting.getEmployerId());
             refreshEmployerProjectList(jobPosting.getEmployerId());
-            refreshEmployerProjectApplicants(jobPosting.getId());
+            refreshEmployerProjectApplicants(applicationId);
             refreshFreelancerProjectStats(freelancerId);
             refreshFreelancerAppliedProjects(freelancerId);
         });
@@ -129,7 +129,7 @@ public class MatchsServiceImpl implements MatchsService {
         runAfterCommitSafely(() -> {
             refreshEmployerProjectStats(application.getEmployerId());
             refreshEmployerProjectList(application.getEmployerId());
-            refreshEmployerProjectApplicants(application.getJobPostingId());
+            refreshEmployerProjectApplicants(application.getId());
             refreshFreelancerProjectStats(application.getFreelancerId());
             refreshFreelancerAppliedProjects(application.getFreelancerId());
         });
@@ -150,7 +150,6 @@ public class MatchsServiceImpl implements MatchsService {
         runAfterCommitSafely(() -> {
             refreshEmployerProjectStats(proposal.getEmployerId());
             refreshEmployerProjectList(proposal.getEmployerId());
-            refreshEmployerProjectApplicants(proposal.getJobPostingId());
             refreshFreelancerProjectStats(freelancerId);
             refreshFreelancerAppliedProjects(freelancerId);
         });
@@ -170,7 +169,7 @@ public class MatchsServiceImpl implements MatchsService {
         runAfterCommitSafely(() -> {
             refreshEmployerProjectStats(application.getEmployerId());
             refreshEmployerProjectList(application.getEmployerId());
-            refreshEmployerProjectApplicants(application.getJobPostingId());
+            refreshEmployerProjectApplicants(application.getId());
             refreshFreelancerProjectStats(application.getFreelancerId());
             refreshFreelancerAppliedProjects(application.getFreelancerId());
         });
@@ -446,18 +445,68 @@ public class MatchsServiceImpl implements MatchsService {
         writeRedisValue(EMPLOYER_PROJECT_LIST_KEY_PREFIX + employerId, payload);
     }
 
-    private void refreshEmployerProjectApplicants(Long projectId) {
-        List<Map<String, Object>> payload = orEmpty(applicationRepo.findAllByJobPostingIdOrderByCreatedAtDesc(projectId))
-                .stream()
-                .map(application -> {
-                    Map<String, Object> item = new HashMap<>();
-                    item.put("freelancerId", application.getFreelancerId());
-                    item.put("applyStatus", toEmployerApplicantStatus(application.getStatus()));
-                    return item;
-                })
-                .toList();
+    private void refreshEmployerProjectApplicants(Long applicationId) {
+        applicationRepo.findApplicantStatusProjectionById(applicationId)
+                .ifPresent(this::upsertEmployerProjectApplicant);
+    }
 
-        writeRedisValue(EMPLOYER_PROJECT_APPLICANTS_KEY_PREFIX + projectId, payload);
+    private void upsertEmployerProjectApplicant(ApplicationRepo.ApplicantStatusProjection applicant) {
+        Long projectId = applicant.getJobPostingId();
+        Long freelancerId = applicant.getFreelancerId();
+        if (projectId == null || freelancerId == null) {
+            return;
+        }
+
+        String redisKey = EMPLOYER_PROJECT_APPLICANTS_KEY_PREFIX + projectId;
+        List<Map<String, Object>> payload = readEmployerProjectApplicantsPayload(redisKey);
+
+        Map<String, Object> updatedItem = new HashMap<>();
+        updatedItem.put("freelancerId", freelancerId);
+        updatedItem.put("applyStatus", toEmployerApplicantStatus(applicant.getStatus()));
+
+        boolean updated = false;
+        for (int i = 0; i < payload.size(); i++) {
+            Map<String, Object> current = payload.get(i);
+            if (current == null) {
+                continue;
+            }
+            Object currentFreelancerId = current.get("freelancerId");
+            if (currentFreelancerId == null) {
+                continue;
+            }
+            if (freelancerId.equals(parseLongSafely(currentFreelancerId))) {
+                payload.set(i, updatedItem);
+                updated = true;
+                break;
+            }
+        }
+
+        if (!updated) {
+            payload.add(0, updatedItem);
+        }
+
+        writeRedisValue(redisKey, payload);
+    }
+
+    private List<Map<String, Object>> readEmployerProjectApplicantsPayload(String redisKey) {
+        try {
+            Object raw = redisTemplate.opsForValue().get(redisKey);
+            if (!(raw instanceof List<?> list)) {
+                return new ArrayList<>();
+            }
+            List<Map<String, Object>> payload = new ArrayList<>(list.size());
+            for (Object entry : list) {
+                if (entry instanceof Map<?, ?> rawMap) {
+                    Map<String, Object> item = new HashMap<>();
+                    rawMap.forEach((key, value) -> item.put(String.valueOf(key), value));
+                    payload.add(item);
+                }
+            }
+            return payload;
+        } catch (RuntimeException e) {
+            log.warn("Failed to read employer project applicants payload. key={}", redisKey, e);
+            return new ArrayList<>();
+        }
     }
 
     private void refreshFreelancerProjectStats(Long freelancerId) {
@@ -575,6 +624,20 @@ public class MatchsServiceImpl implements MatchsService {
             return 0L;
         }
         return dateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+    }
+
+    private Long parseLongSafely(Object value) {
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        if (value != null) {
+            try {
+                return Long.parseLong(value.toString());
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
     }
 
     private void writeRedisValue(String key, Object value) {
