@@ -18,6 +18,7 @@ import com.fallguys.recruitment.entity.ProjectStatus;
 import com.fallguys.recruitment.entity.Status;
 import com.fallguys.recruitment.repository.JobPostingRepo;
 import com.fallguys.recruitment.repository.ProjectPostingRepo;
+import com.fallguys.recruitment.service.JobPostingService;
 import com.fallguys.user.entity.Role;
 import com.fallguys.user.entity.User;
 import com.fallguys.user.repository.UserRepository;
@@ -50,7 +51,6 @@ import java.util.Set;
 @Transactional(readOnly = true)
 public class MatchsServiceImpl implements MatchsService {
 
-    private static final String EMPLOYER_PROJECT_STATS_KEY_PREFIX = "employer:project:stats:";
     private static final String EMPLOYER_PROJECT_LIST_KEY_PREFIX = "employer:project:list:";
     private static final String EMPLOYER_PROJECT_APPLICANTS_KEY_PREFIX = "employer:project:applicants:";
     private static final String FREELANCER_PROJECT_STATS_KEY_PREFIX = "freelancer:project:stats:";
@@ -63,6 +63,7 @@ public class MatchsServiceImpl implements MatchsService {
     private final ProposalRepo proposalRepo;
     private final JobPostingRepo jobPostingRepo;
     private final ProjectPostingRepo projectPostingRepo;
+    private final JobPostingService jobPostingService;
     private final UserRepository userRepository;
     private final RedisTemplate<String, Object> redisTemplate;
 
@@ -382,24 +383,7 @@ public class MatchsServiceImpl implements MatchsService {
     }
 
     private void refreshEmployerProjectStats(Long employerId) {
-        List<JobPosting> postings = orEmpty(jobPostingRepo.findAllByEmployerIdAndStatusNot(employerId, Status.DELETED));
-        List<Project> projects = orEmpty(projectPostingRepo.findAllByEmployerIdOrderByCreatedAtDesc(employerId));
-
-        int activeApplicants = (int) projects.stream()
-                .filter(project -> project.getStatus() == ProjectStatus.IN_PROGRESS)
-                .count();
-        int contractedFreelancers = (int) projects.stream()
-                .map(Project::getFreelancerId)
-                .filter(Objects::nonNull)
-                .distinct()
-                .count();
-
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("totalProjects", postings.size());
-        payload.put("activeApplicants", activeApplicants);
-        payload.put("contractedFreelancers", contractedFreelancers);
-
-        writeRedisValue(EMPLOYER_PROJECT_STATS_KEY_PREFIX + employerId, payload);
+        jobPostingService.refreshEmployerProjectStatsCache(employerId);
     }
 
     private void refreshEmployerProjectList(Long employerId) {

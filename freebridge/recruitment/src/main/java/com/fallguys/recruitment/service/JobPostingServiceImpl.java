@@ -420,6 +420,15 @@ public class JobPostingServiceImpl implements JobPostingService {
     }
 
     private void refreshEmployerProjectStatsForMypage(Long employerId) {
+        refreshEmployerProjectStatsCache(employerId);
+    }
+
+    @Override
+    public void refreshEmployerProjectStatsCache(Long employerId) {
+        if (employerId == null) {
+            return;
+        }
+
         List<JobPosting> postings = orEmpty(jobPostingRepo.findAllByEmployerIdAndStatusNot(employerId, Status.DELETED));
         List<Project> projects = orEmpty(projectPostingRepo.findAllByEmployerIdOrderByCreatedAtDesc(employerId));
 
