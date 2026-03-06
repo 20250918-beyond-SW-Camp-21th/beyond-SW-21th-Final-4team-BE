@@ -4,11 +4,12 @@ import com.fallguys.common.ai.port.ChatEngine;
 import com.fallguys.common.ai.port.ContractEngine;
 import com.fallguys.common.ai.port.RecommendationEngine;
 import com.fallguys.common.ai.port.ReviewEngine;
+import com.fallguys.common.ai.dto.FreelancerAiReputationReportDto;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
@@ -21,7 +22,6 @@ import java.util.concurrent.Executor;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngine, ReviewEngine {
 
     private final RestClient restClient;
@@ -30,6 +30,14 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
 
     @Value("${fallguys.ai.python-url}")
     private String pythonUrl;
+
+    public AiAdapter(RestClient restClient,
+                     ObjectMapper objectMapper,
+                     @Qualifier("taskExecutor") Executor taskExecutor) {
+        this.restClient = restClient;
+        this.objectMapper = objectMapper;
+        this.taskExecutor = taskExecutor;
+    }
 
     @Override
     public String askChatBot(String question, Map<String, Object> context) {
@@ -176,5 +184,41 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                 log.error("AI 서버 실시간 동기화 실패: id={}, type={}", id, type, e);
             }
         }, taskExecutor);
+    }
+
+    public void syncProjectExperience(AiSyncRequest request) {
+        CompletableFuture.runAsync(() -> {
+            try {
+                restClient.post()
+                        .uri(pythonUrl + "/api/v1/sync/data")
+                        .body(request)
+                        .retrieve()
+                        .onStatus(HttpStatusCode::isError, (req, res) -> {
+                            throw new RuntimeException("AI 동기화 실패");
+                        })
+                        .toBodilessEntity();
+                log.info("AI 리뷰 데이터 동기화 성공: id={}", request.id());
+            } catch (Exception e) {
+                log.error("AI 리뷰 데이터 동기화 실패", e);
+            }
+        }, taskExecutor);
+    }
+
+    @Override
+    public FreelancerAiReputationReportDto getFreelancerAnalysis(Long freelancerId) {
+        try {
+            String rawJson = restClient.get()
+                    .uri(pythonUrl + "/api/v1/analysis/freelancer/{id}", freelancerId)
+                    .retrieve()
+                    .onStatus(HttpStatusCode::isError, (req, res) -> {
+                        throw new RuntimeException("AI 분석 서비스 응답 오류");
+                    })
+                    .body(String.class);
+
+            return objectMapper.readValue(rawJson, FreelancerAiReputationReportDto.class);
+        } catch (JsonProcessingException e) {
+            log.error("AI 분석 데이터 파싱 실패: freelancerId={}", freelancerId, e);
+            throw new RuntimeException("AI 분석 결과 해석 중 오류 발생");
+        }
     }
 }
