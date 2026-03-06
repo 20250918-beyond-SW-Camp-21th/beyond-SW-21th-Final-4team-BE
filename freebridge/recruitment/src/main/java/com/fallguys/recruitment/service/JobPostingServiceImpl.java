@@ -1,5 +1,7 @@
 package com.fallguys.recruitment.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fallguys.common.ai.port.RecommendationEngine;
 import com.fallguys.common.exception.BusinessException;
 import com.fallguys.common.exception.ErrorCode;
@@ -13,6 +15,7 @@ import com.fallguys.recruitment.entity.JobPostingFavorite;
 import com.fallguys.recruitment.entity.JobPosting;
 import com.fallguys.recruitment.entity.JobPostingStatus;
 import com.fallguys.recruitment.entity.Project;
+import com.fallguys.recruitment.entity.ProjectStatus;
 import com.fallguys.recruitment.entity.Status;
 import com.fallguys.recruitment.repository.JobPostingFavoriteRepo;
 import com.fallguys.recruitment.repository.JobPostingRepo;
@@ -22,15 +25,26 @@ import com.fallguys.recruitment.service.port.RecruitmentUserReader;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.redis.core.Cursor;
+import org.springframework.data.redis.core.RedisCallback;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionSynchronization;
+
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 @Slf4j
@@ -39,20 +53,39 @@ import java.util.Set;
 @Transactional(readOnly = true)
 public class JobPostingServiceImpl implements JobPostingService {
 
+    private static final Duration CACHE_TTL = Duration.ofMinutes(10);
+    private static final String CACHE_PREFIX = "recruitment";
+    private static final int SCAN_BATCH_SIZE = 1000;
+    private static final String EMPLOYER_PROJECT_STATS_KEY_PREFIX = "employer:project:stats:";
+    private static final String EMPLOYER_PROJECT_LIST_KEY_PREFIX = "employer:project:list:";
+    private static final String FREELANCER_PROJECT_STATS_KEY_PREFIX = "freelancer:project:stats:";
+    private static final DateTimeFormatter ISO_SECONDS_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+
     private final JobPostingRepo jobPostingRepo;
     private final JobPostingFavoriteRepo jobPostingFavoriteRepo;
     private final ProjectPostingRepo projectPostingRepo;
     private final RecruitmentUserReader recruitmentUserReader;
     private final RecommendationEngine recommendationEngine; // AiAdapter 주입
+    private final RedisTemplate<String, Object> redisTemplate;
+    private final ObjectMapper objectMapper;
 
     @Override
     @Transactional(readOnly = true)
     public List<JobPostingSearchDTO> getJobPostings(Long userId) {
         RecruitmentUser user = recruitmentUserReader.getEmployerByIdOrThrow(userId);
-        return jobPostingRepo.findAllByEmployerIdAndStatusNot(user.id(), Status.DELETED)
+        String cacheKey = employerJobsCacheKey(user.id());
+
+        List<JobPostingSearchDTO> cached = readCache(cacheKey, new TypeReference<>() {});
+        if (cached != null) {
+            return cached;
+        }
+
+        List<JobPostingSearchDTO> loaded = jobPostingRepo.findAllByEmployerIdAndStatusNot(user.id(), Status.DELETED)
                 .stream()
                 .map(this::toJobPostingSearchDto)
                 .toList();
+        writeCache(cacheKey, loaded);
+        return loaded;
     }
 
     @Override
@@ -61,6 +94,11 @@ public class JobPostingServiceImpl implements JobPostingService {
         RecruitmentUser user = recruitmentUserReader.getEmployerByIdOrThrow(userId);
         JobPosting jobPosting = JobPosting.from(jobPostingCreateDTO, user.id(), user.name());
         jobPostingRepo.save(jobPosting);
+        runAfterCommitSafely(() -> {
+            evictEmployerSideCaches(user.id());
+            refreshEmployerProjectStatsForMypage(user.id());
+            refreshEmployerProjectListForMypage(user.id());
+        });
     }
 
     @Override
@@ -75,6 +113,11 @@ public class JobPostingServiceImpl implements JobPostingService {
         } catch (IllegalArgumentException e) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
+        runAfterCommitSafely(() -> {
+            evictEmployerSideCaches(user.id());
+            refreshEmployerProjectStatsForMypage(user.id());
+            refreshEmployerProjectListForMypage(user.id());
+        });
     }
 
     @Override
@@ -85,29 +128,57 @@ public class JobPostingServiceImpl implements JobPostingService {
         validateOwnership(jobPosting, user.id());
         validateNotDeleted(jobPosting);
         jobPosting.delete();
+        runAfterCommitSafely(() -> {
+            evictEmployerSideCaches(user.id());
+            refreshEmployerProjectStatsForMypage(user.id());
+            refreshEmployerProjectListForMypage(user.id());
+        });
     }
 
     @Override
     public List<JobPostingSearchDTO> getAllJobPostings() {
-        return jobPostingRepo.findAllByStatusNot(Status.DELETED)
+        String cacheKey = allJobsCacheKey();
+        List<JobPostingSearchDTO> cached = readCache(cacheKey, new TypeReference<>() {});
+        if (cached != null) {
+            return cached;
+        }
+
+        List<JobPostingSearchDTO> loaded = jobPostingRepo.findAllByStatusNot(Status.DELETED)
                 .stream()
                 .map(this::toJobPostingSearchDto)
                 .toList();
+        writeCache(cacheKey, loaded);
+        return loaded;
     }
 
     @Override
     public List<EmployerProjectSearchDTO> getEmployerProjects(Long userId) {
         RecruitmentUser user = recruitmentUserReader.getEmployerByIdOrThrow(userId);
-        return projectPostingRepo.findAllByEmployerIdOrderByCreatedAtDesc(user.id())
+        String cacheKey = employerProjectsCacheKey(user.id());
+        List<EmployerProjectSearchDTO> cached = readCache(cacheKey, new TypeReference<>() {});
+        if (cached != null) {
+            return cached;
+        }
+
+        List<EmployerProjectSearchDTO> loaded = projectPostingRepo.findAllByEmployerIdOrderByCreatedAtDesc(user.id())
                 .stream()
                 .map(this::toEmployerProjectSearchDto)
                 .toList();
+        writeCache(cacheKey, loaded);
+        return loaded;
     }
 
     @Override
     public List<FreelancerJobPostingSearchDTO> searchJobPostingsForFreelancer(Long userId, String keyword, boolean favoritesOnly) {
         RecruitmentUser user = recruitmentUserReader.getFreelancerByIdOrThrow(userId);
         Long freelancerId = user.id();
+        String normalizedKeyword = keyword == null ? "" : keyword.trim().toLowerCase(Locale.ROOT);
+        String cacheKey = freelancerSearchCacheKey(freelancerId, normalizedKeyword, favoritesOnly);
+
+        List<FreelancerJobPostingSearchDTO> cached = readCache(cacheKey, new TypeReference<>() {});
+        if (cached != null) {
+            return cached;
+        }
 
         Set<Long> favoriteJobPostingIds = new HashSet<>(
                 jobPostingFavoriteRepo.findAllByFreelancerId(freelancerId)
@@ -116,9 +187,7 @@ public class JobPostingServiceImpl implements JobPostingService {
                         .toList()
         );
 
-        String normalizedKeyword = keyword == null ? "" : keyword.trim().toLowerCase(Locale.ROOT);
-
-        return jobPostingRepo.findAllByStatusAndPostingStatusIn(
+        List<FreelancerJobPostingSearchDTO> loaded = jobPostingRepo.findAllByStatusAndPostingStatusIn(
                         Status.ACTIVE,
                         EnumSet.of(JobPostingStatus.OPEN, JobPostingStatus.IN_PROGRESS)
                 )
@@ -127,6 +196,8 @@ public class JobPostingServiceImpl implements JobPostingService {
                 .filter(jobPosting -> !favoritesOnly || favoriteJobPostingIds.contains(jobPosting.getId()))
                 .map(jobPosting -> toFreelancerSearchDto(jobPosting, favoriteJobPostingIds.contains(jobPosting.getId())))
                 .toList();
+        writeCache(cacheKey, loaded);
+        return loaded;
     }
 
     @Override
@@ -143,6 +214,7 @@ public class JobPostingServiceImpl implements JobPostingService {
         } catch (DataIntegrityViolationException ignored) {
             // Duplicate favorite is treated as idempotent no-op.
         }
+        runAfterCommitSafely(() -> evictFreelancerSearchCaches(freelancerId));
     }
 
     @Override
@@ -152,6 +224,7 @@ public class JobPostingServiceImpl implements JobPostingService {
         Long freelancerId = user.id();
 
         jobPostingFavoriteRepo.deleteByFreelancerIdAndJobPostingId(freelancerId, jobPostingId);
+        runAfterCommitSafely(() -> evictFreelancerSearchCaches(freelancerId));
     }
 
     private JobPosting getJobPostingOrThrow(Long jobPostingId) {
@@ -309,6 +382,319 @@ public class JobPostingServiceImpl implements JobPostingService {
         } else {
             log.warn("활성화된 트랜잭션이 없어 즉시 AI 동기화를 실행합니다. 프로젝트 ID: {}", projectId);
             syncTask.run();
+        }
+
+        runAfterCommitSafely(() -> {
+            redisTemplate.delete(employerProjectsCacheKey(userId));
+            refreshEmployerProjectStatsForMypage(userId);
+            refreshFreelancerProjectStatsForMypage(freelancerId);
+        });
+    }
+
+    private void runAfterCommit(Runnable task) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    task.run();
+                }
+            });
+            return;
+        }
+        task.run();
+    }
+
+    private void runAfterCommitSafely(Runnable task) {
+        runAfterCommit(() -> {
+            try {
+                task.run();
+            } catch (RuntimeException e) {
+                log.warn("Failed to execute post-commit task", e);
+            }
+        });
+    }
+
+    private String employerJobsCacheKey(Long employerId) {
+        return CACHE_PREFIX + ":employer:jobs:" + employerId;
+    }
+
+    private String employerProjectsCacheKey(Long employerId) {
+        return CACHE_PREFIX + ":employer:projects:" + employerId;
+    }
+
+    private String allJobsCacheKey() {
+        return CACHE_PREFIX + ":jobs:all";
+    }
+
+    private String freelancerSearchCacheKey(Long freelancerId, String normalizedKeyword, boolean favoritesOnly) {
+        return CACHE_PREFIX + ":freelancer:search:" + freelancerId + ":" + normalizedKeyword + ":" + favoritesOnly;
+    }
+
+    private void refreshEmployerProjectStatsForMypage(Long employerId) {
+        refreshEmployerProjectStatsCache(employerId);
+    }
+
+    @Override
+    public void refreshEmployerProjectStatsCache(Long employerId) {
+        if (employerId == null) {
+            return;
+        }
+
+        List<JobPosting> postings = orEmpty(jobPostingRepo.findAllByEmployerIdAndStatusNot(employerId, Status.DELETED));
+        List<Project> projects = orEmpty(projectPostingRepo.findAllByEmployerIdOrderByCreatedAtDesc(employerId));
+
+        int activeApplicants = (int) projects.stream()
+                .filter(project -> project.getStatus() == ProjectStatus.IN_PROGRESS)
+                .count();
+        int contractedFreelancers = (int) projects.stream()
+                .map(Project::getFreelancerId)
+                .filter(id -> id != null)
+                .distinct()
+                .count();
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("totalProjects", postings.size());
+        payload.put("activeApplicants", activeApplicants);
+        payload.put("contractedFreelancers", contractedFreelancers);
+
+        writeMypageRedisValue(EMPLOYER_PROJECT_STATS_KEY_PREFIX + employerId, payload);
+    }
+
+    private void refreshEmployerProjectListForMypage(Long employerId) {
+        String redisKey = EMPLOYER_PROJECT_LIST_KEY_PREFIX + employerId;
+        Map<Long, Integer> cachedApplicantCounts = readCachedEmployerApplicantCounts(redisKey);
+
+        List<Map<String, Object>> payload = orEmpty(jobPostingRepo.findAllByEmployerIdAndStatusNot(employerId, Status.DELETED))
+                .stream()
+                .map(posting -> toEmployerProjectListItem(posting, cachedApplicantCounts.get(posting.getId())))
+                .sorted(Comparator.comparing(
+                        this::extractCreatedAt,
+                        Comparator.nullsLast(Comparator.naturalOrder())
+                ).reversed())
+                .toList();
+        writeMypageRedisValue(redisKey, payload);
+    }
+
+    private Map<Long, Integer> readCachedEmployerApplicantCounts(String redisKey) {
+        Map<Long, Integer> applicantCounts = new HashMap<>();
+        try {
+            Object cached = redisTemplate.opsForValue().get(redisKey);
+            if (!(cached instanceof List<?> cachedList)) {
+                return applicantCounts;
+            }
+
+            for (Object entry : cachedList) {
+                if (!(entry instanceof Map<?, ?> cachedItem)) {
+                    continue;
+                }
+                Long projectId = parseLongSafely(cachedItem.get("projectId"));
+                Integer applicantCount = parseIntegerSafely(cachedItem.get("applicantCount"));
+                if (projectId == null || applicantCount == null) {
+                    continue;
+                }
+                applicantCounts.put(projectId, applicantCount);
+            }
+        } catch (RuntimeException e) {
+            log.warn("Failed to read employer project list cache for applicantCount reuse. key={}", redisKey, e);
+        }
+        return applicantCounts;
+    }
+
+    private Map<String, Object> toEmployerProjectListItem(JobPosting posting, Integer cachedApplicantCount) {
+        Map<String, Object> item = new HashMap<>();
+        item.put("projectId", posting.getId());
+        item.put("title", posting.getTitle());
+        item.put("status", toEmployerProjectStatus(posting.getPostingStatus()));
+        item.put("applicantCount", cachedApplicantCount != null ? cachedApplicantCount : posting.getMatchedHeadcount());
+
+        LocalDateTime createdAt = posting.getCreatedAt();
+        item.put("createdAt", createdAt != null ? createdAt.format(ISO_SECONDS_FORMATTER) : null);
+
+        LocalDateTime deadline = createdAt;
+        if (createdAt != null && posting.getDuration() != null && posting.getDuration() > 0) {
+            deadline = createdAt.plusDays(posting.getDuration());
+        }
+        item.put("deadline", deadline != null ? deadline.format(ISO_SECONDS_FORMATTER) : null);
+        return item;
+    }
+
+    private LocalDateTime extractCreatedAt(Map<String, Object> item) {
+        if (item == null) {
+            return null;
+        }
+        Object createdAt = item.get("createdAt");
+        if (createdAt == null) {
+            return null;
+        }
+        try {
+            return LocalDateTime.parse(createdAt.toString(), ISO_SECONDS_FORMATTER);
+        } catch (RuntimeException ignored) {
+            return null;
+        }
+    }
+
+    private Long parseLongSafely(Object value) {
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        if (value == null) {
+            return null;
+        }
+        try {
+            return Long.parseLong(value.toString());
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private Integer parseIntegerSafely(Object value) {
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        if (value == null) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(value.toString());
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private String toEmployerProjectStatus(JobPostingStatus status) {
+        if (status == null) {
+            return "모집중";
+        }
+        return switch (status) {
+            case OPEN -> "모집중";
+            case IN_PROGRESS -> "진행중";
+            case COMPLETED -> "완료";
+            case CLOSED -> "마감";
+        };
+    }
+
+    private void refreshFreelancerProjectStatsForMypage(Long freelancerId) {
+        List<Project> projects = orEmpty(projectPostingRepo.findAllByFreelancerIdOrderByCreatedAtDesc(freelancerId));
+        int inProgressProjects = (int) projects.stream()
+                .filter(project -> project.getStatus() == ProjectStatus.IN_PROGRESS)
+                .count();
+        int completedProjects = (int) projects.stream()
+                .filter(project -> project.getStatus() == ProjectStatus.COMPLETED)
+                .count();
+
+        String redisKey = FREELANCER_PROJECT_STATS_KEY_PREFIX + freelancerId;
+        Map<String, Object> payload = readFreelancerProjectStatsPayload(redisKey);
+        Integer appliedProjects = readAppliedProjectsCount(payload);
+        if (appliedProjects != null) {
+            payload.put("appliedProjects", appliedProjects);
+        }
+
+        payload.put("inProgressProjects", inProgressProjects);
+        payload.put("completedProjects", completedProjects);
+        writeMypageRedisValue(redisKey, payload);
+    }
+
+    private Map<String, Object> readFreelancerProjectStatsPayload(String redisKey) {
+        Map<String, Object> payload = new HashMap<>();
+        try {
+            Object cached = redisTemplate.opsForValue().get(redisKey);
+            if (cached instanceof Map<?, ?> map) {
+                map.forEach((key, value) -> payload.put(String.valueOf(key), value));
+            }
+        } catch (RuntimeException e) {
+            log.warn("Failed to read freelancer project stats from mypage redis key. key={}", redisKey, e);
+        }
+        return payload;
+    }
+
+    private Integer readAppliedProjectsCount(Map<String, Object> payload) {
+        if (payload == null || !payload.containsKey("appliedProjects")) {
+            return null;
+        }
+        return parseIntegerSafely(payload.get("appliedProjects"));
+    }
+
+    private void evictEmployerSideCaches(Long employerId) {
+        redisTemplate.delete(employerJobsCacheKey(employerId));
+        redisTemplate.delete(allJobsCacheKey());
+        evictAllFreelancerSearchCaches();
+    }
+
+    private void evictFreelancerSearchCaches(Long freelancerId) {
+        deleteByPattern(CACHE_PREFIX + ":freelancer:search:" + freelancerId + ":*");
+    }
+
+    private void evictAllFreelancerSearchCaches() {
+        deleteByPattern(CACHE_PREFIX + ":freelancer:search:*");
+    }
+
+    private void deleteByPattern(String pattern) {
+        redisTemplate.execute((RedisCallback<Void>) connection -> {
+            ScanOptions options = ScanOptions.scanOptions()
+                    .match(pattern)
+                    .count(SCAN_BATCH_SIZE)
+                    .build();
+
+            List<byte[]> batch = new ArrayList<>(SCAN_BATCH_SIZE);
+            try (Cursor<byte[]> cursor = connection.scan(options)) {
+                while (cursor.hasNext()) {
+                    batch.add(cursor.next());
+                    if (batch.size() >= SCAN_BATCH_SIZE) {
+                        connection.del(batch.toArray(new byte[0][]));
+                        batch.clear();
+                    }
+                }
+                if (!batch.isEmpty()) {
+                    connection.del(batch.toArray(new byte[0][]));
+                }
+            } catch (Exception e) {
+                log.warn("Failed to evict cache keys by pattern. pattern={}", pattern, e);
+            }
+            return null;
+        });
+    }
+
+    private void writeCache(String key, Object value) {
+        try {
+            redisTemplate.opsForValue().set(key, value, CACHE_TTL);
+        } catch (RuntimeException e) {
+            log.warn("Failed to write cache. key={}", key, e);
+        }
+    }
+
+    private void writeMypageRedisValue(String key, Object value) {
+        try {
+            redisTemplate.opsForValue().set(key, value);
+        } catch (RuntimeException e) {
+            log.warn("Failed to write mypage redis payload. key={}", key, e);
+        }
+    }
+
+    private <T> List<T> orEmpty(List<T> list) {
+        return list == null ? List.of() : list;
+    }
+
+    private <T> T readCache(String key, TypeReference<T> typeReference) {
+        Object cached;
+        try {
+            cached = redisTemplate.opsForValue().get(key);
+        } catch (RuntimeException e) {
+            log.warn("Failed to read cache. key={}", key, e);
+            return null;
+        }
+        if (cached == null) {
+            return null;
+        }
+        try {
+            return objectMapper.convertValue(cached, typeReference);
+        } catch (Exception e) {
+            log.warn("Failed to convert cache value. key={}", key, e);
+            try {
+                redisTemplate.delete(key);
+            } catch (RuntimeException deleteException) {
+                log.warn("Failed to delete invalid cache entry. key={}", key, deleteException);
+            }
+            return null;
         }
     }
 }

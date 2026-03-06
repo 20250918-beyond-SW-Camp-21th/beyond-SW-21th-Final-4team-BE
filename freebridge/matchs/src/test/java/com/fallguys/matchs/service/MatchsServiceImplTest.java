@@ -15,6 +15,7 @@ import com.fallguys.recruitment.entity.Project;
 import com.fallguys.recruitment.entity.Status;
 import com.fallguys.recruitment.repository.JobPostingRepo;
 import com.fallguys.recruitment.repository.ProjectPostingRepo;
+import com.fallguys.recruitment.service.JobPostingService;
 import com.fallguys.user.entity.Role;
 import com.fallguys.user.entity.User;
 import com.fallguys.user.repository.UserRepository;
@@ -50,6 +51,8 @@ class MatchsServiceImplTest {
     private ProjectPostingRepo projectPostingRepo;
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private JobPostingService jobPostingService;
 
     @InjectMocks
     private MatchsServiceImpl matchsService;
