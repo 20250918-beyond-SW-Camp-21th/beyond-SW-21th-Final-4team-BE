@@ -102,11 +102,11 @@ public class ReviewServiceImpl implements ReviewService {
                             savedReview.getProjectId(),
                             savedReview.getFreelancerId(),
                             savedReview.getDescription(),
-                            savedReview.getCommunication(),
-                            savedReview.getDebugging(),
-                            savedReview.getFramework(),
-                            savedReview.getLanguage(),
-                            savedReview.getSchedule()
+                            savedReview.getCommunication() != null ? savedReview.getCommunication() : 0,
+                            savedReview.getDebugging() != null ? savedReview.getDebugging() : 0,
+                            savedReview.getFramework() != null ? savedReview.getFramework() : 0,
+                            savedReview.getLanguage() != null ? savedReview.getLanguage() : 0,
+                            savedReview.getSchedule() != null ? savedReview.getSchedule() : 0
                     )
             );
 
