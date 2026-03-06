@@ -435,11 +435,21 @@ public class JobPostingServiceImpl implements JobPostingService {
     }
 
     private void writeCache(String key, Object value) {
-        redisTemplate.opsForValue().set(key, value, CACHE_TTL);
+        try {
+            redisTemplate.opsForValue().set(key, value, CACHE_TTL);
+        } catch (RuntimeException e) {
+            log.warn("Failed to write cache. key={}", key, e);
+        }
     }
 
     private <T> T readCache(String key, TypeReference<T> typeReference) {
-        Object cached = redisTemplate.opsForValue().get(key);
+        Object cached;
+        try {
+            cached = redisTemplate.opsForValue().get(key);
+        } catch (RuntimeException e) {
+            log.warn("Failed to read cache. key={}", key, e);
+            return null;
+        }
         if (cached == null) {
             return null;
         }
@@ -447,7 +457,11 @@ public class JobPostingServiceImpl implements JobPostingService {
             return objectMapper.convertValue(cached, typeReference);
         } catch (Exception e) {
             log.warn("Failed to convert cache value. key={}", key, e);
-            redisTemplate.delete(key);
+            try {
+                redisTemplate.delete(key);
+            } catch (RuntimeException deleteException) {
+                log.warn("Failed to delete invalid cache entry. key={}", key, deleteException);
+            }
             return null;
         }
     }
