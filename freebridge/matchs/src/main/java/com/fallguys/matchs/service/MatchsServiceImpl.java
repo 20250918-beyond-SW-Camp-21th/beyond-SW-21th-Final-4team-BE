@@ -57,6 +57,7 @@ public class MatchsServiceImpl implements MatchsService {
     private static final String FREELANCER_PROJECT_APPLIED_KEY_PREFIX = "freelancer:project:applied:";
     private static final DateTimeFormatter ISO_SECONDS_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
     private static final int FREELANCER_APPLIED_CACHE_LIMIT = 100;
+    private static final int APPLICANT_COUNT_QUERY_CHUNK_SIZE = 500;
 
     private final ApplicationRepo applicationRepo;
     private final ProposalRepo proposalRepo;
@@ -411,21 +412,7 @@ public class MatchsServiceImpl implements MatchsService {
                 .map(JobPosting::getId)
                 .filter(Objects::nonNull)
                 .toList();
-        Map<Long, Integer> applicantCountsByPostingId = new HashMap<>();
-        if (!postingIds.isEmpty()) {
-            orEmpty(applicationRepo.countApplicantsByJobPostingIds(postingIds))
-                    .forEach(result -> {
-                        Long jobPostingId = result.getJobPostingId();
-                        if (jobPostingId == null) {
-                            return;
-                        }
-                        Long applicantCount = result.getApplicantCount();
-                        applicantCountsByPostingId.put(
-                                jobPostingId,
-                                applicantCount == null ? 0 : Math.toIntExact(applicantCount)
-                        );
-                    });
-        }
+        Map<Long, Integer> applicantCountsByPostingId = loadApplicantCountsByPostingIds(postingIds);
 
         List<Map<String, Object>> payload = new ArrayList<>(postings.size());
         for (JobPosting posting : postings) {
@@ -445,6 +432,29 @@ public class MatchsServiceImpl implements MatchsService {
         }
 
         writeRedisValue(EMPLOYER_PROJECT_LIST_KEY_PREFIX + employerId, payload);
+    }
+
+    private Map<Long, Integer> loadApplicantCountsByPostingIds(List<Long> postingIds) {
+        Map<Long, Integer> countsByPostingId = new HashMap<>();
+        if (postingIds.isEmpty()) {
+            return countsByPostingId;
+        }
+
+        for (int start = 0; start < postingIds.size(); start += APPLICANT_COUNT_QUERY_CHUNK_SIZE) {
+            int end = Math.min(start + APPLICANT_COUNT_QUERY_CHUNK_SIZE, postingIds.size());
+            List<Long> chunk = postingIds.subList(start, end);
+            orEmpty(applicationRepo.countApplicantsByJobPostingIds(chunk))
+                    .forEach(result -> {
+                        Long jobPostingId = result.getJobPostingId();
+                        if (jobPostingId == null) {
+                            return;
+                        }
+                        Long applicantCount = result.getApplicantCount();
+                        int normalizedCount = applicantCount == null ? 0 : Math.toIntExact(applicantCount);
+                        countsByPostingId.merge(jobPostingId, normalizedCount, Integer::sum);
+                    });
+        }
+        return countsByPostingId;
     }
 
     private void refreshEmployerProjectApplicants(Long applicationId) {
