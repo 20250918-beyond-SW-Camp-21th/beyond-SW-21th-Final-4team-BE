@@ -80,7 +80,7 @@ public class JobPostingServiceImpl implements JobPostingService {
         RecruitmentUser user = recruitmentUserReader.getEmployerByIdOrThrow(userId);
         JobPosting jobPosting = JobPosting.from(jobPostingCreateDTO, user.id(), user.name());
         jobPostingRepo.save(jobPosting);
-        evictEmployerSideCaches(user.id());
+        runAfterCommit(() -> evictEmployerSideCaches(user.id()));
     }
 
     @Override
@@ -95,7 +95,7 @@ public class JobPostingServiceImpl implements JobPostingService {
         } catch (IllegalArgumentException e) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
-        evictEmployerSideCaches(user.id());
+        runAfterCommit(() -> evictEmployerSideCaches(user.id()));
     }
 
     @Override
@@ -106,7 +106,7 @@ public class JobPostingServiceImpl implements JobPostingService {
         validateOwnership(jobPosting, user.id());
         validateNotDeleted(jobPosting);
         jobPosting.delete();
-        evictEmployerSideCaches(user.id());
+        runAfterCommit(() -> evictEmployerSideCaches(user.id()));
     }
 
     @Override
@@ -188,7 +188,7 @@ public class JobPostingServiceImpl implements JobPostingService {
         } catch (DataIntegrityViolationException ignored) {
             // Duplicate favorite is treated as idempotent no-op.
         }
-        evictFreelancerSearchCaches(freelancerId);
+        runAfterCommit(() -> evictFreelancerSearchCaches(freelancerId));
     }
 
     @Override
@@ -198,7 +198,7 @@ public class JobPostingServiceImpl implements JobPostingService {
         Long freelancerId = user.id();
 
         jobPostingFavoriteRepo.deleteByFreelancerIdAndJobPostingId(freelancerId, jobPostingId);
-        evictFreelancerSearchCaches(freelancerId);
+        runAfterCommit(() -> evictFreelancerSearchCaches(freelancerId));
     }
 
     private JobPosting getJobPostingOrThrow(Long jobPostingId) {
@@ -358,7 +358,20 @@ public class JobPostingServiceImpl implements JobPostingService {
             syncTask.run();
         }
 
-        redisTemplate.delete(employerProjectsCacheKey(userId));
+        runAfterCommit(() -> redisTemplate.delete(employerProjectsCacheKey(userId)));
+    }
+
+    private void runAfterCommit(Runnable task) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    task.run();
+                }
+            });
+            return;
+        }
+        task.run();
     }
 
     private String employerJobsCacheKey(Long employerId) {
