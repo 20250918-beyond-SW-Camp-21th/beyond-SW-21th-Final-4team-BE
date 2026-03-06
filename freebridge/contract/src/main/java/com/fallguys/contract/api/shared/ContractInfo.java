@@ -1,4 +1,4 @@
-package com.fallguys.common.api.contract;
+package com.fallguys.contract.api.shared;
 
 import java.time.LocalDate;
 
@@ -12,5 +12,5 @@ public record ContractInfo(
         Integer paymentDay,
         LocalDate startDate,
         LocalDate endDate,
-        Long budget) {
-}
+        Long budget
+) {}

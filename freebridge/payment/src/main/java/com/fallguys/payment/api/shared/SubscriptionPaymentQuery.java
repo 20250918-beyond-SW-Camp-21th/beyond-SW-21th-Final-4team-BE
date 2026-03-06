@@ -1,4 +1,4 @@
-package com.fallguys.common.api.payment;
+package com.fallguys.payment.api.shared;
 
 /**
  * 구독 결제 처리 인터페이스 — 타 모듈(subscription 등)에서 멤버십 변경 시 결제를 요청할 때 사용

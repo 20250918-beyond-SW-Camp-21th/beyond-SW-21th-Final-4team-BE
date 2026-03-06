@@ -45,8 +45,4 @@ public interface FreelancerSettlementRepository extends JpaRepository<Freelancer
         @Query("SELECT COUNT(f) FROM FreelancerSettlement f WHERE f.freelancerId = :freelancerId AND f.status = :status")
         Integer countByFreelancerIdAndStatus(@Param("freelancerId") Long freelancerId,
                         @Param("status") FreelancerSettlementStatus status);
-
-        @Lock(LockModeType.PESSIMISTIC_WRITE)
-        @Query("SELECT f FROM FreelancerSettlement f WHERE f.id = :id")
-        Optional<FreelancerSettlement> findByIdWithLock(@Param("id") Long id);
 }
