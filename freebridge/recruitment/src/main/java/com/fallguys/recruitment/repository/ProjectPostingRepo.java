@@ -14,4 +14,6 @@ public interface ProjectPostingRepo extends JpaRepository<Project, Long> {
     Optional<Project> findByJobPostingIdAndFreelancerId(Long jobPostingId, Long freelancerId);
 
     List<Project> findAllByEmployerIdOrderByCreatedAtDesc(Long employerId);
+
+    List<Project> findAllByFreelancerIdOrderByCreatedAtDesc(Long freelancerId);
 }

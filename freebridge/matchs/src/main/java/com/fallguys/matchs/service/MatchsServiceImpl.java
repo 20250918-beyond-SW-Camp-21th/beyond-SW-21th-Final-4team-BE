@@ -12,7 +12,9 @@ import com.fallguys.matchs.entity.Proposal;
 import com.fallguys.matchs.repository.ApplicationRepo;
 import com.fallguys.matchs.repository.ProposalRepo;
 import com.fallguys.recruitment.entity.JobPosting;
+import com.fallguys.recruitment.entity.JobPostingStatus;
 import com.fallguys.recruitment.entity.Project;
+import com.fallguys.recruitment.entity.ProjectStatus;
 import com.fallguys.recruitment.entity.Status;
 import com.fallguys.recruitment.repository.JobPostingRepo;
 import com.fallguys.recruitment.repository.ProjectPostingRepo;
@@ -20,21 +22,46 @@ import com.fallguys.user.entity.Role;
 import com.fallguys.user.entity.User;
 import com.fallguys.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class MatchsServiceImpl implements MatchsService {
+
+    private static final String EMPLOYER_PROJECT_STATS_KEY_PREFIX = "employer:project:stats:";
+    private static final String EMPLOYER_PROJECT_LIST_KEY_PREFIX = "employer:project:list:";
+    private static final String EMPLOYER_PROJECT_APPLICANTS_KEY_PREFIX = "employer:project:applicants:";
+    private static final String FREELANCER_PROJECT_STATS_KEY_PREFIX = "freelancer:project:stats:";
+    private static final String FREELANCER_PROJECT_APPLIED_KEY_PREFIX = "freelancer:project:applied:";
+    private static final DateTimeFormatter ISO_SECONDS_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
 
     private final ApplicationRepo applicationRepo;
     private final ProposalRepo proposalRepo;
     private final JobPostingRepo jobPostingRepo;
     private final ProjectPostingRepo projectPostingRepo;
     private final UserRepository userRepository;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     @Override
     @Transactional
@@ -49,7 +76,15 @@ public class MatchsServiceImpl implements MatchsService {
                 request.message()
         );
 
-        return applicationRepo.save(application).getId();
+        Long applicationId = applicationRepo.save(application).getId();
+        runAfterCommitSafely(() -> {
+            refreshEmployerProjectStats(jobPosting.getEmployerId());
+            refreshEmployerProjectList(jobPosting.getEmployerId());
+            refreshEmployerProjectApplicants(jobPosting.getId());
+            refreshFreelancerProjectStats(freelancerId);
+            refreshFreelancerAppliedProjects(freelancerId);
+        });
+        return applicationId;
     }
 
     @Override
@@ -70,7 +105,14 @@ public class MatchsServiceImpl implements MatchsService {
                 request.message()
         );
 
-        return proposalRepo.save(proposal).getId();
+        Long proposalId = proposalRepo.save(proposal).getId();
+        runAfterCommitSafely(() -> {
+            refreshEmployerProjectStats(employerId);
+            refreshEmployerProjectList(employerId);
+            refreshFreelancerProjectStats(request.freelancerId());
+            refreshFreelancerAppliedProjects(request.freelancerId());
+        });
+        return proposalId;
     }
 
     @Override
@@ -83,7 +125,15 @@ public class MatchsServiceImpl implements MatchsService {
         validatePending(application.getStatus());
 
         application.accept();
-        return createProjectIfAbsent(application.getJobPostingId(), application.getFreelancerId());
+        Long projectId = createProjectIfAbsent(application.getJobPostingId(), application.getFreelancerId());
+        runAfterCommitSafely(() -> {
+            refreshEmployerProjectStats(application.getEmployerId());
+            refreshEmployerProjectList(application.getEmployerId());
+            refreshEmployerProjectApplicants(application.getJobPostingId());
+            refreshFreelancerProjectStats(application.getFreelancerId());
+            refreshFreelancerAppliedProjects(application.getFreelancerId());
+        });
+        return projectId;
     }
 
     @Override
@@ -96,7 +146,15 @@ public class MatchsServiceImpl implements MatchsService {
         validatePending(proposal.getStatus());
 
         proposal.accept();
-        return createProjectIfAbsent(proposal.getJobPostingId(), freelancerId);
+        Long projectId = createProjectIfAbsent(proposal.getJobPostingId(), freelancerId);
+        runAfterCommitSafely(() -> {
+            refreshEmployerProjectStats(proposal.getEmployerId());
+            refreshEmployerProjectList(proposal.getEmployerId());
+            refreshEmployerProjectApplicants(proposal.getJobPostingId());
+            refreshFreelancerProjectStats(freelancerId);
+            refreshFreelancerAppliedProjects(freelancerId);
+        });
+        return projectId;
     }
 
     @Override
@@ -109,6 +167,13 @@ public class MatchsServiceImpl implements MatchsService {
         validatePending(application.getStatus());
 
         application.reject();
+        runAfterCommitSafely(() -> {
+            refreshEmployerProjectStats(application.getEmployerId());
+            refreshEmployerProjectList(application.getEmployerId());
+            refreshEmployerProjectApplicants(application.getJobPostingId());
+            refreshFreelancerProjectStats(application.getFreelancerId());
+            refreshFreelancerAppliedProjects(application.getFreelancerId());
+        });
         return application.getId();
     }
 
@@ -122,6 +187,12 @@ public class MatchsServiceImpl implements MatchsService {
         validatePending(proposal.getStatus());
 
         proposal.reject();
+        runAfterCommitSafely(() -> {
+            refreshEmployerProjectStats(proposal.getEmployerId());
+            refreshEmployerProjectList(proposal.getEmployerId());
+            refreshFreelancerProjectStats(freelancerId);
+            refreshFreelancerAppliedProjects(freelancerId);
+        });
         return proposal.getId();
     }
 
@@ -283,5 +354,221 @@ public class MatchsServiceImpl implements MatchsService {
                 proposal.getStatus(),
                 proposal.getCreatedAt()
         );
+    }
+
+    private void runAfterCommit(Runnable task) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    task.run();
+                }
+            });
+            return;
+        }
+        task.run();
+    }
+
+    private void runAfterCommitSafely(Runnable task) {
+        runAfterCommit(() -> {
+            try {
+                task.run();
+            } catch (RuntimeException e) {
+                log.warn("Failed to refresh mypage redis payload after commit", e);
+            }
+        });
+    }
+
+    private void refreshEmployerProjectStats(Long employerId) {
+        List<JobPosting> postings = orEmpty(jobPostingRepo.findAllByEmployerIdAndStatusNot(employerId, Status.DELETED));
+        List<Project> projects = orEmpty(projectPostingRepo.findAllByEmployerIdOrderByCreatedAtDesc(employerId));
+
+        int activeApplicants = (int) projects.stream()
+                .filter(project -> project.getStatus() == ProjectStatus.IN_PROGRESS)
+                .count();
+        int contractedFreelancers = (int) projects.stream()
+                .map(Project::getFreelancerId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .count();
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("totalProjects", postings.size());
+        payload.put("activeApplicants", activeApplicants);
+        payload.put("contractedFreelancers", contractedFreelancers);
+
+        writeRedisValue(EMPLOYER_PROJECT_STATS_KEY_PREFIX + employerId, payload);
+    }
+
+    private void refreshEmployerProjectList(Long employerId) {
+        List<JobPosting> postings = orEmpty(jobPostingRepo.findAllByEmployerIdAndStatusNot(employerId, Status.DELETED))
+                .stream()
+                .sorted(Comparator.comparing(JobPosting::getCreatedAt).reversed())
+                .toList();
+
+        List<Map<String, Object>> payload = new ArrayList<>(postings.size());
+        for (JobPosting posting : postings) {
+            Map<String, Object> item = new HashMap<>();
+            item.put("projectId", posting.getId());
+            item.put("title", posting.getTitle());
+            item.put("status", toEmployerProjectStatus(posting.getPostingStatus()));
+            item.put("applicantCount", Math.toIntExact(applicationRepo.countByJobPostingId(posting.getId())));
+            item.put("createdAt", formatIsoSeconds(posting.getCreatedAt()));
+
+            LocalDateTime deadline = posting.getCreatedAt();
+            if (posting.getDuration() != null && posting.getDuration() > 0) {
+                deadline = deadline.plusDays(posting.getDuration());
+            }
+            item.put("deadline", formatIsoSeconds(deadline));
+            payload.add(item);
+        }
+
+        writeRedisValue(EMPLOYER_PROJECT_LIST_KEY_PREFIX + employerId, payload);
+    }
+
+    private void refreshEmployerProjectApplicants(Long projectId) {
+        List<Map<String, Object>> payload = orEmpty(applicationRepo.findAllByJobPostingIdOrderByCreatedAtDesc(projectId))
+                .stream()
+                .map(application -> {
+                    Map<String, Object> item = new HashMap<>();
+                    item.put("freelancerId", application.getFreelancerId());
+                    item.put("applyStatus", toEmployerApplicantStatus(application.getStatus()));
+                    return item;
+                })
+                .toList();
+
+        writeRedisValue(EMPLOYER_PROJECT_APPLICANTS_KEY_PREFIX + projectId, payload);
+    }
+
+    private void refreshFreelancerProjectStats(Long freelancerId) {
+        int appliedProjects = orEmpty(applicationRepo.findAllByFreelancerIdOrderByCreatedAtDesc(freelancerId)).size()
+                + orEmpty(proposalRepo.findAllByFreelancerIdOrderByCreatedAtDesc(freelancerId)).size();
+
+        List<Project> projects = orEmpty(projectPostingRepo.findAllByFreelancerIdOrderByCreatedAtDesc(freelancerId));
+        int inProgressProjects = (int) projects.stream()
+                .filter(project -> project.getStatus() == ProjectStatus.IN_PROGRESS)
+                .count();
+        int completedProjects = (int) projects.stream()
+                .filter(project -> project.getStatus() == ProjectStatus.COMPLETED)
+                .count();
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("appliedProjects", appliedProjects);
+        payload.put("inProgressProjects", inProgressProjects);
+        payload.put("completedProjects", completedProjects);
+
+        writeRedisValue(FREELANCER_PROJECT_STATS_KEY_PREFIX + freelancerId, payload);
+    }
+
+    private void refreshFreelancerAppliedProjects(Long freelancerId) {
+        List<Application> applications = orEmpty(applicationRepo.findAllByFreelancerIdOrderByCreatedAtDesc(freelancerId));
+        List<Proposal> proposals = orEmpty(proposalRepo.findAllByFreelancerIdOrderByCreatedAtDesc(freelancerId));
+
+        Set<Long> postingIds = new LinkedHashSet<>();
+        applications.stream().map(Application::getJobPostingId).forEach(postingIds::add);
+        proposals.stream().map(Proposal::getJobPostingId).forEach(postingIds::add);
+
+        Map<Long, JobPosting> postingsById = new HashMap<>();
+        if (!postingIds.isEmpty()) {
+            jobPostingRepo.findAllById(postingIds).forEach(posting -> postingsById.put(posting.getId(), posting));
+        }
+
+        List<Map<String, Object>> payload = new ArrayList<>();
+        for (Application application : applications) {
+            JobPosting posting = postingsById.get(application.getJobPostingId());
+            payload.add(toFreelancerAppliedItem(
+                    application.getJobPostingId(),
+                    posting,
+                    toFreelancerApplyStatus(application.getStatus()),
+                    application.getCreatedAt()
+            ));
+        }
+        for (Proposal proposal : proposals) {
+            JobPosting posting = postingsById.get(proposal.getJobPostingId());
+            payload.add(toFreelancerAppliedItem(
+                    proposal.getJobPostingId(),
+                    posting,
+                    toFreelancerApplyStatus(proposal.getStatus()),
+                    proposal.getCreatedAt()
+            ));
+        }
+
+        payload.sort(Comparator.comparingLong(item -> (Long) item.get("appliedAt")));
+        java.util.Collections.reverse(payload);
+
+        writeRedisValue(FREELANCER_PROJECT_APPLIED_KEY_PREFIX + freelancerId, payload);
+    }
+
+    private Map<String, Object> toFreelancerAppliedItem(Long projectId, JobPosting posting, String applyStatus, LocalDateTime appliedAt) {
+        Map<String, Object> item = new HashMap<>();
+        item.put("projectId", projectId);
+        item.put("title", posting != null ? posting.getTitle() : null);
+        item.put("employerName", posting != null ? posting.getEmployerName() : null);
+        item.put("applyStatus", applyStatus);
+        item.put("appliedAt", toEpochMillis(appliedAt));
+        return item;
+    }
+
+    private String toEmployerProjectStatus(JobPostingStatus status) {
+        if (status == null) {
+            return "모집중";
+        }
+        return switch (status) {
+            case OPEN -> "모집중";
+            case IN_PROGRESS -> "진행중";
+            case COMPLETED -> "완료";
+            case CLOSED -> "마감";
+        };
+    }
+
+    private String toEmployerApplicantStatus(MatchsStatus status) {
+        if (status == null) {
+            return "검토중";
+        }
+        return switch (status) {
+            case PENDING -> "검토중";
+            case ACCEPTED -> "합격";
+            case REJECTED -> "거절";
+        };
+    }
+
+    private String toFreelancerApplyStatus(MatchsStatus status) {
+        if (status == null) {
+            return "심사중";
+        }
+        return switch (status) {
+            case PENDING -> "심사중";
+            case ACCEPTED -> "합격";
+            case REJECTED -> "거절";
+        };
+    }
+
+    private String formatIsoSeconds(LocalDateTime dateTime) {
+        if (dateTime == null) {
+            return null;
+        }
+        return dateTime.format(ISO_SECONDS_FORMATTER);
+    }
+
+    private long toEpochMillis(LocalDateTime dateTime) {
+        if (dateTime == null) {
+            return 0L;
+        }
+        return dateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+    }
+
+    private void writeRedisValue(String key, Object value) {
+        if (redisTemplate == null) {
+            return;
+        }
+        try {
+            redisTemplate.opsForValue().set(key, value);
+        } catch (RuntimeException e) {
+            log.warn("Failed to write mypage redis payload. key={}", key, e);
+        }
+    }
+
+    private <T> List<T> orEmpty(List<T> list) {
+        return list == null ? List.of() : list;
     }
 }
