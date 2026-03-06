@@ -94,7 +94,7 @@ public class JobPostingServiceImpl implements JobPostingService {
         RecruitmentUser user = recruitmentUserReader.getEmployerByIdOrThrow(userId);
         JobPosting jobPosting = JobPosting.from(jobPostingCreateDTO, user.id(), user.name());
         jobPostingRepo.save(jobPosting);
-        runAfterCommit(() -> {
+        runAfterCommitSafely(() -> {
             evictEmployerSideCaches(user.id());
             refreshEmployerProjectStatsForMypage(user.id());
             refreshEmployerProjectListForMypage(user.id());
@@ -113,7 +113,7 @@ public class JobPostingServiceImpl implements JobPostingService {
         } catch (IllegalArgumentException e) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
-        runAfterCommit(() -> {
+        runAfterCommitSafely(() -> {
             evictEmployerSideCaches(user.id());
             refreshEmployerProjectStatsForMypage(user.id());
             refreshEmployerProjectListForMypage(user.id());
@@ -128,7 +128,7 @@ public class JobPostingServiceImpl implements JobPostingService {
         validateOwnership(jobPosting, user.id());
         validateNotDeleted(jobPosting);
         jobPosting.delete();
-        runAfterCommit(() -> {
+        runAfterCommitSafely(() -> {
             evictEmployerSideCaches(user.id());
             refreshEmployerProjectStatsForMypage(user.id());
             refreshEmployerProjectListForMypage(user.id());
@@ -214,7 +214,7 @@ public class JobPostingServiceImpl implements JobPostingService {
         } catch (DataIntegrityViolationException ignored) {
             // Duplicate favorite is treated as idempotent no-op.
         }
-        runAfterCommit(() -> evictFreelancerSearchCaches(freelancerId));
+        runAfterCommitSafely(() -> evictFreelancerSearchCaches(freelancerId));
     }
 
     @Override
@@ -224,7 +224,7 @@ public class JobPostingServiceImpl implements JobPostingService {
         Long freelancerId = user.id();
 
         jobPostingFavoriteRepo.deleteByFreelancerIdAndJobPostingId(freelancerId, jobPostingId);
-        runAfterCommit(() -> evictFreelancerSearchCaches(freelancerId));
+        runAfterCommitSafely(() -> evictFreelancerSearchCaches(freelancerId));
     }
 
     private JobPosting getJobPostingOrThrow(Long jobPostingId) {
@@ -384,7 +384,7 @@ public class JobPostingServiceImpl implements JobPostingService {
             syncTask.run();
         }
 
-        runAfterCommit(() -> {
+        runAfterCommitSafely(() -> {
             redisTemplate.delete(employerProjectsCacheKey(userId));
             refreshEmployerProjectStatsForMypage(userId);
             refreshFreelancerProjectStatsForMypage(freelancerId);
@@ -402,6 +402,16 @@ public class JobPostingServiceImpl implements JobPostingService {
             return;
         }
         task.run();
+    }
+
+    private void runAfterCommitSafely(Runnable task) {
+        runAfterCommit(() -> {
+            try {
+                task.run();
+            } catch (RuntimeException e) {
+                log.warn("Failed to execute post-commit task", e);
+            }
+        });
     }
 
     private String employerJobsCacheKey(Long employerId) {
