@@ -3,7 +3,8 @@ package com.fallguys.chatting.service;
 import com.fallguys.chatting.domain.ChatMessage;
 import com.fallguys.chatting.domain.ChatRoom;
 import com.fallguys.chatting.domain.MessageType;
-import com.fallguys.chatting.dto.ChatMessageResponse;
+import com.fallguys.chatting.api.web.dto.response.ChatMessageResponse;
+import com.fallguys.chatting.api.web.dto.response.CursorPageResponse;
 import com.fallguys.chatting.redis.RedisPublisher;
 import com.fallguys.chatting.repository.ChatMessageRepository;
 import com.fallguys.chatting.repository.ChatRoomRepository;
@@ -89,7 +90,7 @@ public class ChatMessageService {
     /**
      * 커서 기반 페이징으로 이전 메시지 목록 무한 스크롤 조회 (복합 커서 적용)
      */
-    public com.fallguys.chatting.dto.CursorPageResponse<ChatMessageResponse> getPreviousMessages(String roomId,
+    public CursorPageResponse<ChatMessageResponse> getPreviousMessages(String roomId,
             java.time.LocalDateTime cursorDate, String cursorId, int size, String userId) {
 
         ChatRoom room = chatRoomRepository.findById(roomId)
@@ -142,7 +143,7 @@ public class ChatMessageService {
             }
         }
 
-        return com.fallguys.chatting.dto.CursorPageResponse.<ChatMessageResponse>builder()
+        return CursorPageResponse.<ChatMessageResponse>builder()
                 .items(itemResponses)
                 .nextCursor(nextCursor)
                 .hasNext(hasNext)

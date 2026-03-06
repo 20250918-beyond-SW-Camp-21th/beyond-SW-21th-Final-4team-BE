@@ -1,9 +1,9 @@
-package com.fallguys.chatting.controller;
+package com.fallguys.chatting.api.web;
 
-import com.fallguys.chatting.dto.ChatRoomCreateRequest;
-import com.fallguys.chatting.dto.ChatRoomResponse;
-import com.fallguys.chatting.dto.CursorPageResponse;
-import com.fallguys.chatting.dto.ChatMessageResponse;
+import com.fallguys.chatting.api.web.dto.request.ChatRoomCreateRequest;
+import com.fallguys.chatting.api.web.dto.response.ChatRoomResponse;
+import com.fallguys.chatting.api.web.dto.response.CursorPageResponse;
+import com.fallguys.chatting.api.web.dto.response.ChatMessageResponse;
 import com.fallguys.chatting.security.ChatTokenProvider;
 import com.fallguys.chatting.service.ChatMessageService;
 import com.fallguys.chatting.service.ChatRoomService;

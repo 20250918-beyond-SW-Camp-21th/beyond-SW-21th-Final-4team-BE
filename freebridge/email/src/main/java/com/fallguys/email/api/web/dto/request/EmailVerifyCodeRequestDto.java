@@ -1,4 +1,4 @@
-package com.fallguys.email.dto;
+package com.fallguys.email.api.web.dto.request;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
