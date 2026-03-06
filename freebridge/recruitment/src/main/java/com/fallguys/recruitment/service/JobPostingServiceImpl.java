@@ -24,7 +24,10 @@ import com.fallguys.recruitment.service.port.RecruitmentUserReader;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.redis.core.Cursor;
+import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -46,6 +49,7 @@ public class JobPostingServiceImpl implements JobPostingService {
 
     private static final Duration CACHE_TTL = Duration.ofMinutes(10);
     private static final String CACHE_PREFIX = "recruitment";
+    private static final int SCAN_BATCH_SIZE = 1000;
 
     private final JobPostingRepo jobPostingRepo;
     private final JobPostingFavoriteRepo jobPostingFavoriteRepo;
@@ -405,10 +409,29 @@ public class JobPostingServiceImpl implements JobPostingService {
     }
 
     private void deleteByPattern(String pattern) {
-        Set<String> keys = redisTemplate.keys(pattern);
-        if (keys != null && !keys.isEmpty()) {
-            redisTemplate.delete(keys);
-        }
+        redisTemplate.execute((RedisCallback<Void>) connection -> {
+            ScanOptions options = ScanOptions.scanOptions()
+                    .match(pattern)
+                    .count(SCAN_BATCH_SIZE)
+                    .build();
+
+            List<byte[]> batch = new ArrayList<>(SCAN_BATCH_SIZE);
+            try (Cursor<byte[]> cursor = connection.scan(options)) {
+                while (cursor.hasNext()) {
+                    batch.add(cursor.next());
+                    if (batch.size() >= SCAN_BATCH_SIZE) {
+                        connection.del(batch.toArray(new byte[0][]));
+                        batch.clear();
+                    }
+                }
+                if (!batch.isEmpty()) {
+                    connection.del(batch.toArray(new byte[0][]));
+                }
+            } catch (Exception e) {
+                log.warn("Failed to evict cache keys by pattern. pattern={}", pattern, e);
+            }
+            return null;
+        });
     }
 
     private void writeCache(String key, Object value) {
