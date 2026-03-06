@@ -1,4 +1,4 @@
-package com.fallguys.common.api.payment;
+package com.fallguys.payment.api.shared;
 
 /**
  * 구독 결제 처리 결과 — 타 모듈이 SubscriptionPaymentQuery를 통해 받는 응답 객체
