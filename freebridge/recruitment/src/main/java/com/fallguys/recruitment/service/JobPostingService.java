@@ -37,4 +37,6 @@ public interface JobPostingService {
     List<AiRecommendationResponseDTO> getRecommendedJobsForFreelancer(Long userId);
 
     void completeProject(Long projectId, Long userId);
+
+    void refreshEmployerProjectStatsCache(Long employerId);
 }
