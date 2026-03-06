@@ -573,31 +573,35 @@ public class JobPostingServiceImpl implements JobPostingService {
                 .count();
 
         String redisKey = FREELANCER_PROJECT_STATS_KEY_PREFIX + freelancerId;
-        int appliedProjects = readAppliedProjectsCount(redisKey);
+        Map<String, Object> payload = readFreelancerProjectStatsPayload(redisKey);
+        Integer appliedProjects = readAppliedProjectsCount(payload);
+        if (appliedProjects != null) {
+            payload.put("appliedProjects", appliedProjects);
+        }
 
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("appliedProjects", appliedProjects);
         payload.put("inProgressProjects", inProgressProjects);
         payload.put("completedProjects", completedProjects);
         writeMypageRedisValue(redisKey, payload);
     }
 
-    private int readAppliedProjectsCount(String redisKey) {
+    private Map<String, Object> readFreelancerProjectStatsPayload(String redisKey) {
+        Map<String, Object> payload = new HashMap<>();
         try {
             Object cached = redisTemplate.opsForValue().get(redisKey);
             if (cached instanceof Map<?, ?> map) {
-                Object value = map.get("appliedProjects");
-                if (value instanceof Number number) {
-                    return number.intValue();
-                }
-                if (value != null) {
-                    return Integer.parseInt(value.toString());
-                }
+                map.forEach((key, value) -> payload.put(String.valueOf(key), value));
             }
         } catch (RuntimeException e) {
-            log.warn("Failed to read applied project count from mypage redis key. key={}", redisKey, e);
+            log.warn("Failed to read freelancer project stats from mypage redis key. key={}", redisKey, e);
         }
-        return 0;
+        return payload;
+    }
+
+    private Integer readAppliedProjectsCount(Map<String, Object> payload) {
+        if (payload == null || !payload.containsKey("appliedProjects")) {
+            return null;
+        }
+        return parseIntegerSafely(payload.get("appliedProjects"));
     }
 
     private void evictEmployerSideCaches(Long employerId) {
