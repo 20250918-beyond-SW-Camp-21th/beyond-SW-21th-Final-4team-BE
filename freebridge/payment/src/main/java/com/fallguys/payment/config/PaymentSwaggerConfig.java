@@ -13,10 +13,10 @@ public class PaymentSwaggerConfig implements SwaggerConfigInterface {
         return GroupedOpenApi.builder()
                 .group("payment")
                 .pathsToMatch(
-                        "/api/v1/settlements/**",
-                        "/api/v1/wallets/**",
-                        "/api/v1/subscriptions/**",
-                        "/api/v1/internal/payments/**"
+                        "/api/settlements/**",
+                        "/api/wallets/**",
+                        "/api/subscriptions/**",
+                        "/api/internal/payments/**"
                 )
                 .addOpenApiCustomizer(openApi ->
                         openApi.setInfo(new io.swagger.v3.oas.models.info.Info()
