@@ -6,7 +6,7 @@ package com.fallguys.subscription.api.shared;
  * <p>payment 모듈을 직접 import하지 않도록 분리된 Anti-Corruption Layer
  * 구현체는 app-main(또는 payment 모듈 내)에서 제공
  */
-public interface ExternalPaymentPort {
+public interface  ExternalPaymentPort {
 
     /**
      * 구독 플랜 변경에 필요한 결제를 요청합니다.

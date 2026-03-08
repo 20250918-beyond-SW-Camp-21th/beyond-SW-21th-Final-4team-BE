@@ -82,7 +82,7 @@ public class EmployerSettlement {
         this.status = EmployerSettlementStatus.DISBURSED;
     }
 
-    public void cancel() {
-        this.status = EmployerSettlementStatus.CANCELLED;
-    }
+    // public void cancel() {
+    //     this.status = EmployerSettlementStatus.CANCELLED;
+    // }
 }

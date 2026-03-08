@@ -1,6 +1,6 @@
 package com.fallguys.contract.service;
 
-import com.fallguys.contract.api.shared.ContractInfo;
+import com.fallguys.common.api.contract.ContractInfo;
 import com.fallguys.contract.entity.Contract;
 import com.fallguys.contract.entity.ContractStatus;
 import com.fallguys.contract.repository.ContractRepository;
