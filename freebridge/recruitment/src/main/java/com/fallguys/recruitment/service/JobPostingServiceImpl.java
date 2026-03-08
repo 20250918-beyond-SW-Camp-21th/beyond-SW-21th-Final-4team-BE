@@ -11,6 +11,7 @@ import com.fallguys.recruitment.api.dto.response.AiRecommendationResponseDTO;
 import com.fallguys.recruitment.api.dto.response.EmployerProjectSearchDTO;
 import com.fallguys.recruitment.api.dto.response.FreelancerJobPostingSearchDTO;
 import com.fallguys.recruitment.api.dto.response.JobPostingSearchDTO;
+import com.fallguys.recruitment.api.dto.response.MatchedFreelancerResponseDTO;
 import com.fallguys.recruitment.entity.JobPostingFavorite;
 import com.fallguys.recruitment.entity.JobPosting;
 import com.fallguys.recruitment.entity.JobPostingStatus;
@@ -169,6 +170,18 @@ public class JobPostingServiceImpl implements JobPostingService {
     }
 
     @Override
+    public List<MatchedFreelancerResponseDTO> getMatchedFreelancers(Long projectId, Long userId) {
+        RecruitmentUser employer = recruitmentUserReader.getEmployerByIdOrThrow(userId);
+        Project sourceProject = getProjectOrThrow(projectId);
+        validateProjectOwnership(sourceProject, employer.id());
+
+        return projectPostingRepo.findAllByJobPostingIdOrderByCreatedAtDesc(sourceProject.getJobPosting().getId())
+                .stream()
+                .map(this::toMatchedFreelancerResponseDto)
+                .toList();
+    }
+
+    @Override
     public List<FreelancerJobPostingSearchDTO> searchJobPostingsForFreelancer(Long userId, String keyword, boolean favoritesOnly) {
         RecruitmentUser user = recruitmentUserReader.getFreelancerByIdOrThrow(userId);
         Long freelancerId = user.id();
@@ -232,6 +245,11 @@ public class JobPostingServiceImpl implements JobPostingService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.JOB_POSTING_NOT_FOUND));
     }
 
+    private Project getProjectOrThrow(Long projectId) {
+        return projectPostingRepo.findById(projectId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.PROJECT_NOT_FOUND));
+    }
+
     private void validateOwnership(JobPosting jobPosting, Long userId) {
         if (!jobPosting.getEmployerId().equals(userId)) {
             throw new BusinessException(ErrorCode.JOB_POSTING_FORBIDDEN);
@@ -241,6 +259,12 @@ public class JobPostingServiceImpl implements JobPostingService {
     private void validateNotDeleted(JobPosting jobPosting) {
         if (jobPosting.getStatus() == Status.DELETED) {
             throw new BusinessException(ErrorCode.JOB_POSTING_ALREADY_DELETED);
+        }
+    }
+
+    private void validateProjectOwnership(Project project, Long userId) {
+        if (!project.getEmployerId().equals(userId)) {
+            throw new BusinessException(ErrorCode.JOB_POSTING_FORBIDDEN);
         }
     }
 
@@ -284,6 +308,20 @@ public class JobPostingServiceImpl implements JobPostingService {
                 project.getStartDate(),
                 project.getEndDate(),
                 project.getStatus()
+        );
+    }
+
+    private MatchedFreelancerResponseDTO toMatchedFreelancerResponseDto(Project project) {
+        RecruitmentUser freelancer = recruitmentUserReader.getFreelancerByIdOrThrow(project.getFreelancerId());
+        return new MatchedFreelancerResponseDTO(
+                project.getId(),
+                project.getFreelancerId(),
+                freelancer.name(),
+                freelancer.skills(),
+                freelancer.experience(),
+                freelancer.status(),
+                project.getStatus(),
+                project.getCreatedAt()
         );
     }
 

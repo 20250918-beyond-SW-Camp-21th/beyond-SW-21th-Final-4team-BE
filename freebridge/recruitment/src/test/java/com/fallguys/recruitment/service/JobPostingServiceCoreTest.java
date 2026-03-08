@@ -7,6 +7,7 @@ import com.fallguys.common.exception.ErrorCode;
 import com.fallguys.recruitment.api.dto.request.JobPostingCreateDTO;
 import com.fallguys.recruitment.api.dto.request.JobPostingUpdateDTO;
 import com.fallguys.recruitment.api.dto.response.AiRecommendationResponseDTO;
+import com.fallguys.recruitment.api.dto.response.MatchedFreelancerResponseDTO;
 import com.fallguys.recruitment.entity.JobPosting;
 import com.fallguys.recruitment.entity.JobPostingStatus;
 import com.fallguys.recruitment.entity.Project;
@@ -29,6 +30,7 @@ import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -166,6 +168,38 @@ class JobPostingServiceCoreTest {
     }
 
     @Test
+    @DisplayName("[TDD] 프로젝트 매칭 프리랜서 목록 조회 시 같은 공고에 매칭된 프리랜서를 반환한다")
+    void getMatchedFreelancers_returnsMatchedFreelancersForSameJobPosting() {
+        Long employerId = 5L;
+        Long projectId = 40L;
+        Long jobPostingId = 100L;
+        Project sourceProject = Project.create(posting(jobPostingId, employerId, Status.ACTIVE), 77L);
+        Project anotherProject = Project.create(posting(jobPostingId, employerId, Status.ACTIVE), 88L);
+        ReflectionTestUtils.setField(sourceProject, "id", projectId, Long.class);
+        ReflectionTestUtils.setField(sourceProject, "createdAt", LocalDateTime.of(2026, 3, 8, 10, 0));
+        ReflectionTestUtils.setField(anotherProject, "id", 41L, Long.class);
+        ReflectionTestUtils.setField(anotherProject, "createdAt", LocalDateTime.of(2026, 3, 8, 9, 0));
+
+        when(recruitmentUserReader.getEmployerByIdOrThrow(employerId))
+                .thenReturn(new RecruitmentUser(employerId, "employer", null, null, "ACTIVE"));
+        when(projectPostingRepo.findById(projectId)).thenReturn(Optional.of(sourceProject));
+        when(projectPostingRepo.findAllByJobPostingIdOrderByCreatedAtDesc(jobPostingId))
+                .thenReturn(List.of(sourceProject, anotherProject));
+        when(recruitmentUserReader.getFreelancerByIdOrThrow(77L))
+                .thenReturn(new RecruitmentUser(77L, "kim", "[Java]", "백엔드", "ACTIVE"));
+        when(recruitmentUserReader.getFreelancerByIdOrThrow(88L))
+                .thenReturn(new RecruitmentUser(88L, "lee", "[Spring]", "풀스택", "POTENTIAL"));
+
+        List<MatchedFreelancerResponseDTO> result = service.getMatchedFreelancers(projectId, employerId);
+
+        assertEquals(2, result.size());
+        assertEquals(77L, result.get(0).freelancerId());
+        assertEquals("kim", result.get(0).freelancerName());
+        assertEquals(88L, result.get(1).freelancerId());
+        assertEquals("lee", result.get(1).freelancerName());
+    }
+
+    @Test
     @DisplayName("[TDD] 프로젝트 완료 시 이미 완료된 프로젝트면 PROJECT_ALREADY_COMPLETED 예외")
     void completeProject_alreadyCompleted_throws() {
         // given
@@ -183,6 +217,25 @@ class JobPostingServiceCoreTest {
 
         // then
         assertEquals(ErrorCode.PROJECT_ALREADY_COMPLETED, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("[TDD] 프로젝트 매칭 프리랜서 목록 조회 시 소유자가 다르면 JOB_POSTING_FORBIDDEN 예외")
+    void getMatchedFreelancers_forbiddenOwner_throws() {
+        Long employerId = 5L;
+        Long projectId = 40L;
+        Project project = Project.create(posting(100L, 99L, Status.ACTIVE), 77L);
+
+        when(recruitmentUserReader.getEmployerByIdOrThrow(employerId))
+                .thenReturn(new RecruitmentUser(employerId, "employer", null, null, "ACTIVE"));
+        when(projectPostingRepo.findById(projectId)).thenReturn(Optional.of(project));
+
+        BusinessException ex = assertThrows(
+                BusinessException.class,
+                () -> service.getMatchedFreelancers(projectId, employerId)
+        );
+
+        assertEquals(ErrorCode.JOB_POSTING_FORBIDDEN, ex.getErrorCode());
     }
 
     private JobPosting posting(Long id, Long employerId, Status status) {

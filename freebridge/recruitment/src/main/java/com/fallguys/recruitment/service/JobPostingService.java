@@ -6,6 +6,7 @@ import com.fallguys.recruitment.api.dto.response.AiRecommendationResponseDTO;
 import com.fallguys.recruitment.api.dto.response.EmployerProjectSearchDTO;
 import com.fallguys.recruitment.api.dto.response.FreelancerJobPostingSearchDTO;
 import com.fallguys.recruitment.api.dto.response.JobPostingSearchDTO;
+import com.fallguys.recruitment.api.dto.response.MatchedFreelancerResponseDTO;
 
 import java.util.List;
 
@@ -21,6 +22,8 @@ public interface JobPostingService {
     List<JobPostingSearchDTO> getAllJobPostings();
 
     List<EmployerProjectSearchDTO> getEmployerProjects(Long userId);
+
+    List<MatchedFreelancerResponseDTO> getMatchedFreelancers(Long projectId, Long userId);
 
     List<FreelancerJobPostingSearchDTO> searchJobPostingsForFreelancer(
             Long userId,

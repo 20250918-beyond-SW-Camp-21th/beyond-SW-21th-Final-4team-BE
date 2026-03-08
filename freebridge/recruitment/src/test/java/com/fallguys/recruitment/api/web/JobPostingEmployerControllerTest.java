@@ -3,9 +3,11 @@ package com.fallguys.recruitment.api.web;
 import com.fallguys.common.response.ApiResponse;
 import com.fallguys.recruitment.api.dto.request.JobPostingCreateDTO;
 import com.fallguys.recruitment.api.dto.response.JobPostingSearchDTO;
+import com.fallguys.recruitment.api.dto.response.MatchedFreelancerResponseDTO;
 import com.fallguys.recruitment.api.dto.response.PagedResponseDTO;
 import com.fallguys.recruitment.api.support.TokenUserIdResolver;
 import com.fallguys.recruitment.entity.JobPostingStatus;
+import com.fallguys.recruitment.entity.ProjectStatus;
 import com.fallguys.recruitment.service.JobPostingService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -17,6 +19,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import java.util.List;
+import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -78,5 +81,34 @@ class JobPostingEmployerControllerTest {
         assertEquals(2L, paged.totalElements());
         assertEquals(2, paged.totalPages());
         assertEquals(1, paged.content().size());
+    }
+
+    @Test
+    @DisplayName("[TDD] 프로젝트 매칭 프리랜서 목록 조회 API는 토큰 userId를 해석해 서비스에 전달한다")
+    void getMatchedFreelancers_callsServiceAndReturnsOk() {
+        String authorization = "Bearer token";
+        Long projectId = 55L;
+        when(tokenUserIdResolver.resolveUserId(authorization)).thenReturn(10L);
+        when(jobPostingService.getMatchedFreelancers(projectId, 10L)).thenReturn(List.of(
+                new MatchedFreelancerResponseDTO(
+                        55L,
+                        21L,
+                        "freelancer",
+                        "[Java, Spring]",
+                        "백엔드 5년",
+                        "ACTIVE",
+                        ProjectStatus.IN_PROGRESS,
+                        LocalDateTime.of(2026, 3, 8, 18, 0)
+                )
+        ));
+
+        ResponseEntity<ApiResponse<List<MatchedFreelancerResponseDTO>>> response =
+                controller.getMatchedFreelancers(authorization, projectId);
+
+        verify(jobPostingService, times(1)).getMatchedFreelancers(projectId, 10L);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(true, response.getBody().success());
+        assertEquals(1, response.getBody().data().size());
     }
 }
