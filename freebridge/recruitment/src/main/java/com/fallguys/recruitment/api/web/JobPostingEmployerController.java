@@ -15,6 +15,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -68,9 +70,21 @@ public class JobPostingEmployerController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
+        int safePage = Math.max(0, page);
+        int safeSize = Math.max(1, size);
         Long userId = tokenUserIdResolver.resolveUserId(authorization);
-        List<MatchedFreelancerResponseDTO> result = jobPostingService.getMatchedFreelancers(projectId, userId);
-        return ResponseEntity.ok(ApiResponse.ok(PagingUtils.toPagedResponse(result, page, size)));
+        Page<MatchedFreelancerResponseDTO> result = jobPostingService.getMatchedFreelancers(
+                projectId,
+                userId,
+                PageRequest.of(safePage, safeSize)
+        );
+        return ResponseEntity.ok(ApiResponse.ok(new PagedResponseDTO<>(
+                result.getContent(),
+                result.getNumber(),
+                result.getSize(),
+                result.getTotalElements(),
+                result.getTotalPages()
+        )));
     }
 
     @Operation(summary = "채용 공고 등록", description = "새로운 채용 공고를 등록합니다.")

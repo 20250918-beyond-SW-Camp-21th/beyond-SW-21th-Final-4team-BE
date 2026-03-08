@@ -25,6 +25,9 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -173,6 +176,7 @@ class JobPostingServiceCoreTest {
         Long employerId = 5L;
         Long projectId = 40L;
         Long jobPostingId = 100L;
+        PageRequest pageable = PageRequest.of(0, 2);
         Project sourceProject = Project.create(posting(jobPostingId, employerId, Status.ACTIVE), 77L);
         Project anotherProject = Project.create(posting(jobPostingId, employerId, Status.ACTIVE), 88L);
         ReflectionTestUtils.setField(sourceProject, "id", projectId, Long.class);
@@ -183,20 +187,21 @@ class JobPostingServiceCoreTest {
         when(recruitmentUserReader.getEmployerByIdOrThrow(employerId))
                 .thenReturn(new RecruitmentUser(employerId, "employer", null, null, "ACTIVE"));
         when(projectPostingRepo.findById(projectId)).thenReturn(Optional.of(sourceProject));
-        when(projectPostingRepo.findAllByJobPostingIdOrderByCreatedAtDesc(jobPostingId))
-                .thenReturn(List.of(sourceProject, anotherProject));
+        when(projectPostingRepo.findAllByJobPostingIdOrderByCreatedAtDesc(jobPostingId, pageable))
+                .thenReturn(new PageImpl<>(List.of(sourceProject, anotherProject), pageable, 2));
         when(recruitmentUserReader.getFreelancerByIdOrThrow(77L))
                 .thenReturn(new RecruitmentUser(77L, "kim", "[Java]", "백엔드", "ACTIVE"));
         when(recruitmentUserReader.getFreelancerByIdOrThrow(88L))
                 .thenReturn(new RecruitmentUser(88L, "lee", "[Spring]", "풀스택", "POTENTIAL"));
 
-        List<MatchedFreelancerResponseDTO> result = service.getMatchedFreelancers(projectId, employerId);
+        Page<MatchedFreelancerResponseDTO> result = service.getMatchedFreelancers(projectId, employerId, pageable);
 
-        assertEquals(2, result.size());
-        assertEquals(77L, result.get(0).freelancerId());
-        assertEquals("kim", result.get(0).freelancerName());
-        assertEquals(88L, result.get(1).freelancerId());
-        assertEquals("lee", result.get(1).freelancerName());
+        assertEquals(2, result.getContent().size());
+        assertEquals(2L, result.getTotalElements());
+        assertEquals(77L, result.getContent().get(0).freelancerId());
+        assertEquals("kim", result.getContent().get(0).freelancerName());
+        assertEquals(88L, result.getContent().get(1).freelancerId());
+        assertEquals("lee", result.getContent().get(1).freelancerName());
     }
 
     @Test
@@ -225,6 +230,7 @@ class JobPostingServiceCoreTest {
         Long employerId = 5L;
         Long projectId = 40L;
         Project project = Project.create(posting(100L, 99L, Status.ACTIVE), 77L);
+        PageRequest pageable = PageRequest.of(0, 10);
 
         when(recruitmentUserReader.getEmployerByIdOrThrow(employerId))
                 .thenReturn(new RecruitmentUser(employerId, "employer", null, null, "ACTIVE"));
@@ -232,7 +238,7 @@ class JobPostingServiceCoreTest {
 
         BusinessException ex = assertThrows(
                 BusinessException.class,
-                () -> service.getMatchedFreelancers(projectId, employerId)
+                () -> service.getMatchedFreelancers(projectId, employerId, pageable)
         );
 
         assertEquals(ErrorCode.JOB_POSTING_FORBIDDEN, ex.getErrorCode());

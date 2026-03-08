@@ -26,6 +26,8 @@ import com.fallguys.recruitment.service.port.RecruitmentUserReader;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.Cursor;
 import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -170,15 +172,16 @@ public class JobPostingServiceImpl implements JobPostingService {
     }
 
     @Override
-    public List<MatchedFreelancerResponseDTO> getMatchedFreelancers(Long projectId, Long userId) {
+    public Page<MatchedFreelancerResponseDTO> getMatchedFreelancers(Long projectId, Long userId, Pageable pageable) {
         RecruitmentUser employer = recruitmentUserReader.getEmployerByIdOrThrow(userId);
         Project sourceProject = getProjectOrThrow(projectId);
         validateProjectOwnership(sourceProject, employer.id());
 
-        return projectPostingRepo.findAllByJobPostingIdOrderByCreatedAtDesc(sourceProject.getJobPosting().getId())
-                .stream()
-                .map(this::toMatchedFreelancerResponseDto)
-                .toList();
+        return projectPostingRepo.findAllByJobPostingIdOrderByCreatedAtDesc(
+                        sourceProject.getJobPosting().getId(),
+                        pageable
+                )
+                .map(this::toMatchedFreelancerResponseDto);
     }
 
     @Override

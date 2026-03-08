@@ -15,6 +15,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
@@ -84,12 +86,12 @@ class JobPostingEmployerControllerTest {
     }
 
     @Test
-    @DisplayName("[TDD] 프로젝트 매칭 프리랜서 목록 조회 API는 PagingUtils를 통해 page/size를 보정해 응답한다")
+    @DisplayName("[TDD] 프로젝트 매칭 프리랜서 목록 조회 API는 안전한 PageRequest를 사용해 페이징 응답한다")
     void getMatchedFreelancers_appliesPagingSafety() {
         String authorization = "Bearer token";
         Long projectId = 55L;
         when(tokenUserIdResolver.resolveUserId(authorization)).thenReturn(10L);
-        when(jobPostingService.getMatchedFreelancers(projectId, 10L)).thenReturn(List.of(
+        when(jobPostingService.getMatchedFreelancers(projectId, 10L, PageRequest.of(0, 1))).thenReturn(new PageImpl<>(List.of(
                 new MatchedFreelancerResponseDTO(
                         55L,
                         21L,
@@ -99,33 +101,13 @@ class JobPostingEmployerControllerTest {
                         "ACTIVE",
                         ProjectStatus.IN_PROGRESS,
                         LocalDateTime.of(2026, 3, 8, 18, 0)
-                ),
-                new MatchedFreelancerResponseDTO(
-                        56L,
-                        22L,
-                        "freelancer2",
-                        "[React]",
-                        "프론트엔드 3년",
-                        "POTENTIAL",
-                        ProjectStatus.IN_PROGRESS,
-                        LocalDateTime.of(2026, 3, 8, 17, 0)
-                ),
-                new MatchedFreelancerResponseDTO(
-                        57L,
-                        23L,
-                        "freelancer3",
-                        "[Node.js]",
-                        "풀스택 4년",
-                        "ACTIVE",
-                        ProjectStatus.COMPLETED,
-                        LocalDateTime.of(2026, 3, 8, 16, 0)
                 )
-        ));
+        ), PageRequest.of(0, 1), 3));
 
         ResponseEntity<ApiResponse<PagedResponseDTO<MatchedFreelancerResponseDTO>>> response =
                 controller.getMatchedFreelancers(authorization, projectId, -1, 0);
 
-        verify(jobPostingService, times(1)).getMatchedFreelancers(projectId, 10L);
+        verify(jobPostingService, times(1)).getMatchedFreelancers(projectId, 10L, PageRequest.of(0, 1));
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
         assertEquals(true, response.getBody().success());
