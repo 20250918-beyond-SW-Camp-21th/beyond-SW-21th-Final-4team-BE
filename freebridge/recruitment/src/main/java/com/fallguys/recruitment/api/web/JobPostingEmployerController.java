@@ -62,13 +62,15 @@ public class JobPostingEmployerController {
 
     @Operation(summary = "프로젝트 매칭 프리랜서 목록 조회", description = "프로젝트와 연결된 공고 기준으로 매칭된 프리랜서 목록을 조회합니다.")
     @GetMapping("/api/employer/projects/{projectId}/matched-freelancers")
-    public ResponseEntity<ApiResponse<List<MatchedFreelancerResponseDTO>>> getMatchedFreelancers(
+    public ResponseEntity<ApiResponse<PagedResponseDTO<MatchedFreelancerResponseDTO>>> getMatchedFreelancers(
             @RequestHeader("Authorization") String authorization,
-            @PathVariable Long projectId
+            @PathVariable Long projectId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
     ) {
         Long userId = tokenUserIdResolver.resolveUserId(authorization);
         List<MatchedFreelancerResponseDTO> result = jobPostingService.getMatchedFreelancers(projectId, userId);
-        return ResponseEntity.ok(ApiResponse.ok(result));
+        return ResponseEntity.ok(ApiResponse.ok(PagingUtils.toPagedResponse(result, page, size)));
     }
 
     @Operation(summary = "채용 공고 등록", description = "새로운 채용 공고를 등록합니다.")

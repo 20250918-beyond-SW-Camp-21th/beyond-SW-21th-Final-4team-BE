@@ -84,8 +84,8 @@ class JobPostingEmployerControllerTest {
     }
 
     @Test
-    @DisplayName("[TDD] 프로젝트 매칭 프리랜서 목록 조회 API는 토큰 userId를 해석해 서비스에 전달한다")
-    void getMatchedFreelancers_callsServiceAndReturnsOk() {
+    @DisplayName("[TDD] 프로젝트 매칭 프리랜서 목록 조회 API는 PagingUtils를 통해 page/size를 보정해 응답한다")
+    void getMatchedFreelancers_appliesPagingSafety() {
         String authorization = "Bearer token";
         Long projectId = 55L;
         when(tokenUserIdResolver.resolveUserId(authorization)).thenReturn(10L);
@@ -99,16 +99,42 @@ class JobPostingEmployerControllerTest {
                         "ACTIVE",
                         ProjectStatus.IN_PROGRESS,
                         LocalDateTime.of(2026, 3, 8, 18, 0)
+                ),
+                new MatchedFreelancerResponseDTO(
+                        56L,
+                        22L,
+                        "freelancer2",
+                        "[React]",
+                        "프론트엔드 3년",
+                        "POTENTIAL",
+                        ProjectStatus.IN_PROGRESS,
+                        LocalDateTime.of(2026, 3, 8, 17, 0)
+                ),
+                new MatchedFreelancerResponseDTO(
+                        57L,
+                        23L,
+                        "freelancer3",
+                        "[Node.js]",
+                        "풀스택 4년",
+                        "ACTIVE",
+                        ProjectStatus.COMPLETED,
+                        LocalDateTime.of(2026, 3, 8, 16, 0)
                 )
         ));
 
-        ResponseEntity<ApiResponse<List<MatchedFreelancerResponseDTO>>> response =
-                controller.getMatchedFreelancers(authorization, projectId);
+        ResponseEntity<ApiResponse<PagedResponseDTO<MatchedFreelancerResponseDTO>>> response =
+                controller.getMatchedFreelancers(authorization, projectId, -1, 0);
 
         verify(jobPostingService, times(1)).getMatchedFreelancers(projectId, 10L);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
         assertEquals(true, response.getBody().success());
-        assertEquals(1, response.getBody().data().size());
+
+        PagedResponseDTO<MatchedFreelancerResponseDTO> paged = response.getBody().data();
+        assertEquals(0, paged.page());
+        assertEquals(1, paged.size());
+        assertEquals(3L, paged.totalElements());
+        assertEquals(3, paged.totalPages());
+        assertEquals(1, paged.content().size());
     }
 }
