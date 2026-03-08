@@ -45,9 +45,11 @@ import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 @Slf4j
@@ -177,11 +179,22 @@ public class JobPostingServiceImpl implements JobPostingService {
         Project sourceProject = getProjectOrThrow(projectId);
         validateProjectOwnership(sourceProject, employer.id());
 
-        return projectPostingRepo.findAllByJobPostingIdOrderByCreatedAtDesc(
+        Page<Project> projects = projectPostingRepo.findAllByJobPostingIdOrderByCreatedAtDesc(
                         sourceProject.getJobPosting().getId(),
                         pageable
-                )
-                .map(this::toMatchedFreelancerResponseDto);
+                );
+
+        Map<Long, RecruitmentUser> freelancersById = recruitmentUserReader.getFreelancersByIdsOrThrow(
+                projects.getContent().stream()
+                        .map(Project::getFreelancerId)
+                        .filter(Objects::nonNull)
+                        .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new))
+        );
+
+        return projects.map(project -> toMatchedFreelancerResponseDto(
+                project,
+                getFreelancerOrThrow(freelancersById, project.getFreelancerId())
+        ));
     }
 
     @Override
@@ -314,8 +327,7 @@ public class JobPostingServiceImpl implements JobPostingService {
         );
     }
 
-    private MatchedFreelancerResponseDTO toMatchedFreelancerResponseDto(Project project) {
-        RecruitmentUser freelancer = recruitmentUserReader.getFreelancerByIdOrThrow(project.getFreelancerId());
+    private MatchedFreelancerResponseDTO toMatchedFreelancerResponseDto(Project project, RecruitmentUser freelancer) {
         return new MatchedFreelancerResponseDTO(
                 project.getId(),
                 project.getFreelancerId(),
@@ -326,6 +338,14 @@ public class JobPostingServiceImpl implements JobPostingService {
                 project.getStatus(),
                 project.getCreatedAt()
         );
+    }
+
+    private RecruitmentUser getFreelancerOrThrow(Map<Long, RecruitmentUser> freelancersById, Long freelancerId) {
+        RecruitmentUser freelancer = freelancersById.get(freelancerId);
+        if (freelancer == null) {
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+        }
+        return freelancer;
     }
 
     private boolean matchesKeyword(JobPosting jobPosting, String keyword) {

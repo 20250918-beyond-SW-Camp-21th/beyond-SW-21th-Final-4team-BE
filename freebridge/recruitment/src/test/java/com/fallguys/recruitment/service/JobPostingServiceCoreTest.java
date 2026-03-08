@@ -189,10 +189,11 @@ class JobPostingServiceCoreTest {
         when(projectPostingRepo.findById(projectId)).thenReturn(Optional.of(sourceProject));
         when(projectPostingRepo.findAllByJobPostingIdOrderByCreatedAtDesc(jobPostingId, pageable))
                 .thenReturn(new PageImpl<>(List.of(sourceProject, anotherProject), pageable, 2));
-        when(recruitmentUserReader.getFreelancerByIdOrThrow(77L))
-                .thenReturn(new RecruitmentUser(77L, "kim", "[Java]", "백엔드", "ACTIVE"));
-        when(recruitmentUserReader.getFreelancerByIdOrThrow(88L))
-                .thenReturn(new RecruitmentUser(88L, "lee", "[Spring]", "풀스택", "POTENTIAL"));
+        when(recruitmentUserReader.getFreelancersByIdsOrThrow(new java.util.LinkedHashSet<>(List.of(77L, 88L))))
+                .thenReturn(java.util.Map.of(
+                        77L, new RecruitmentUser(77L, "kim", "[Java]", "백엔드", "ACTIVE"),
+                        88L, new RecruitmentUser(88L, "lee", "[Spring]", "풀스택", "POTENTIAL")
+                ));
 
         Page<MatchedFreelancerResponseDTO> result = service.getMatchedFreelancers(projectId, employerId, pageable);
 
@@ -202,6 +203,7 @@ class JobPostingServiceCoreTest {
         assertEquals("kim", result.getContent().get(0).freelancerName());
         assertEquals(88L, result.getContent().get(1).freelancerId());
         assertEquals("lee", result.getContent().get(1).freelancerName());
+        verify(recruitmentUserReader, never()).getFreelancerByIdOrThrow(any());
     }
 
     @Test
