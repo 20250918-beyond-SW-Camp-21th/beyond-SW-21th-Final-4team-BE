@@ -14,6 +14,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -55,12 +56,13 @@ public class AdminSettlementService {
     }
 
     /**
-     * 프리랜서 월별 정산 실행
-     * scheduledDate <= 오늘 이고 PENDING 상태인 FreelancerSettlement를 처리
-     * 
+     * 프리랜서 월별 정산 실행 — 매일 09:00 자동 실행
+     * scheduledDate <= 오늘 이고 PENDING 상태인 FreelancerSettlement를 처리합니다.
+     *
      * [Note] REQUIRES_NEW 트랜잭션을 사용하는 processSingleDisbursement 호출을 위해
-     * 이 메서드는 비트랜잭션이거나 읽기 전용이어야 데드락을 방지할 수 있습니다.
+     * 이 메서드는 비트랜잭션이어야 데드락을 방지할 수 있습니다.
      */
+    @Scheduled(cron = "0 0 9 * * *")
     public void runDisbursement() {
         LocalDate today = LocalDate.now();
         List<FreelancerSettlement> pendingList = freelancerSettlementRepository

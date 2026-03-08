@@ -60,6 +60,11 @@ public class PortOneApiClient {
      * 빌링키로 즉시 결제
      * POST /payments/{paymentId}/billing-key
      *
+     * [포트원 V2 응답 구조 주의]
+     * 빌링키 결제 API의 응답은 {"payment": {"pgTxId": "...", "paidAt": "..."}} 형태로
+     * pgTxId와 paidAt만 포함합니다. status나 amount 등 전체 결제 정보가 없으므로
+     * 결제 요청 후 getPayment()를 별도 호출하여 실제 결제 상태를 확인합니다.
+     *
      * 테스트 모드에서는 테스트 빌링키를 사용하며 실제 결제가 발생하지 않습니다.
      * channelKey를 명시하여 테스트 채널로 정확히 라우팅합니다.
      */
@@ -82,17 +87,22 @@ public class PortOneApiClient {
         log.info("PortOne 빌링키 결제 요청: paymentId={}, amount={}, customerId={}", paymentId, amount, customerId);
 
         try {
-            return webClient.post()
+            // 빌링키 결제 요청 — 응답 본문(pgTxId, paidAt)은 사용하지 않고 소비만 함
+            webClient.post()
                     .uri("/payments/{paymentId}/billing-key", paymentId)
                     .bodyValue(body)
                     .retrieve()
-                    .bodyToMono(PortOnePaymentInfo.class)
+                    .bodyToMono(String.class)
                     .block();
         } catch (WebClientResponseException e) {
             log.error("PortOne chargeBillingKey 오류: billingKey={}, status={}, body={}",
                     billingKey, e.getStatusCode(), e.getResponseBodyAsString());
             throw new BusinessException(ErrorCode.PAYMENT_FAILED);
         }
+
+        // 실제 결제 상태(PAID 여부, amount 등)를 getPayment()로 재조회하여 반환
+        log.info("PortOne 빌링키 결제 완료, 결제 상태 재조회: paymentId={}", paymentId);
+        return getPayment(paymentId);
     }
 
     /**

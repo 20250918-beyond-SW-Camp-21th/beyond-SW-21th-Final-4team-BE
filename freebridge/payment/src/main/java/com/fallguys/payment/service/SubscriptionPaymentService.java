@@ -4,6 +4,7 @@ import com.fallguys.common.exception.BusinessException;
 import com.fallguys.common.exception.ErrorCode;
 import com.fallguys.common.api.payment.SubscriptionPaymentQuery;
 import com.fallguys.common.api.payment.SubscriptionPaymentResult;
+import com.fallguys.common.api.payment.SubscriptionUpgradeResult;
 import com.fallguys.payment.api.web.dto.*;
 import com.fallguys.payment.entity.*;
 import com.fallguys.payment.portone.PortOneApiClient;
@@ -17,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Slf4j
@@ -291,5 +293,39 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
                 response.status(),
                 response.errorCode(),
                 response.message());
+    }
+
+    /**
+     * 구독 업그레이드 결제를 1회 처리하고 결제 결과와 다음 결제일을 함께 반환합니다.
+     *
+     * <p>processPayment()를 통해 결제를 처리한 뒤, 저장된 BillingKey에서
+     * nextBillingDate를 읽어 결합된 결과를 반환합니다.
+     */
+    @Override
+    public SubscriptionUpgradeResult processSubscriptionUpgrade(
+            Long employerId, String planType, long amount, String billingKey) {
+
+        SubscriptionPaymentRequest request = new SubscriptionPaymentRequest(employerId, planType, amount, billingKey);
+        SubscriptionPaymentResponse response = processPayment(request);
+
+        LocalDateTime nextBillingDate = null;
+        if (response.success()) {
+            // processPayment() 내부에서 BillingKey가 새로 저장되므로 조회하여 다음 결제일을 확인
+            nextBillingDate = billingKeyRepository
+                    .findByEmployerIdAndActiveTrue(employerId)
+                    .map(bk -> bk.getNextBillingDate().atTime(9, 0))
+                    .orElse(null);
+        }
+
+        return new SubscriptionUpgradeResult(
+                response.success(),
+                response.billingId(),
+                response.planType(),
+                response.amount(),
+                response.status(),
+                response.errorCode(),
+                response.message(),
+                nextBillingDate
+        );
     }
 }
