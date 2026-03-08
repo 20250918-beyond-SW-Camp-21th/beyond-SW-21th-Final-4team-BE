@@ -1,6 +1,6 @@
 package com.fallguys.chatting.redis;
 
-import com.fallguys.chatting.dto.ChatMessageResponse;
+import com.fallguys.chatting.api.web.dto.response.ChatMessageResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
