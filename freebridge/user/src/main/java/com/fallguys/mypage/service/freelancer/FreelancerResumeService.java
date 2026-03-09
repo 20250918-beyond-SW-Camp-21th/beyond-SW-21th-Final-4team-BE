@@ -150,7 +150,7 @@ public class FreelancerResumeService {
                         .mapToObj(index -> {
                             Education e = resume.getEducations().get(index);
                             if (e == null) return null;
-                            return new EducationDto((long) index, e.getSchoolName(), e.getMajor(),
+                            return new EducationDto((long) index, e.getSchoolType(), e.getSchoolName(), e.getMajor(),
                                     e.getEntranceDate() != null ? e.getEntranceDate().toString() : null,
                                     e.getGraduationDate() != null ? e.getGraduationDate().toString() : null,
                                     e.getEduStatus() != null ? e.getEduStatus().name() : null);
@@ -163,7 +163,8 @@ public class FreelancerResumeService {
                         .mapToObj(index -> {
                             Career c = resume.getCareers().get(index);
                             if (c == null) return null;
-                            return new CareerDto((long) index, c.getCompanyName(), c.getPosition(),
+                            return new CareerDto((long) index, c.getCompanyName(), c.getDepartment(), c.getPosition(),
+                                    c.getJobType(), c.getEmploymentType(),
                                     c.getStartDate() != null ? c.getStartDate().toString() : null,
                                     c.getEndDate() != null ? c.getEndDate().toString() : null,
                                     c.getDescription());
