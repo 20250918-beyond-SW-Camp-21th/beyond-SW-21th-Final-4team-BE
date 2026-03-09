@@ -1,5 +1,7 @@
-package com.fallguys.mypage.service.freelancer;
+﻿package com.fallguys.mypage.service.freelancer;
 
+import com.fallguys.common.exception.BusinessException;
+import com.fallguys.common.exception.ErrorCode;
 import com.fallguys.mypage.api.web.dto.resume.CareerDto;
 import com.fallguys.mypage.api.web.dto.resume.CertificationDto;
 import com.fallguys.mypage.api.web.dto.resume.EducationDto;
@@ -28,8 +30,6 @@ public class FreelancerResumeService {
 
     private final ResumeRepository resumeRepository;
 
-    // ─── 이력서 조회 ──────────────────────────────────────────────
-
     @Transactional(readOnly = true)
     public FreelancerResumeResponseDto getResume(Long freelancerId) {
         return resumeRepository.findByFreelancerId(freelancerId)
@@ -38,16 +38,15 @@ public class FreelancerResumeService {
                         Collections.emptyList(), Collections.emptyList(), Collections.emptyList()));
     }
 
-    // ─── 이력서 기본정보 수정 ──────────────────────────────────────
-
     @Transactional
     public void updateResumeBasicInfo(Long freelancerId, ResumeBasicInfoRequestDto request) {
+        if (request == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
         Resume resume = findByFreelancerIdOrThrow(freelancerId);
         resume.updateBasicInfo(request.name(), request.birthDate(), request.phone(),
                 request.email(), request.address());
     }
-
-    // ─── 학력 CUD ──────────────────────────────────────────────────
 
     @Transactional
     public void addEducation(Long freelancerId, EducationRequestDto request) {
@@ -67,8 +66,6 @@ public class FreelancerResumeService {
         resume.removeEducation(index);
     }
 
-    // ─── 경력 CUD ──────────────────────────────────────────────────
-
     @Transactional
     public void addCareer(Long freelancerId, CareerRequestDto request) {
         Resume resume = findByFreelancerIdOrThrow(freelancerId);
@@ -86,8 +83,6 @@ public class FreelancerResumeService {
         Resume resume = findByFreelancerIdOrThrow(freelancerId);
         resume.removeCareer(index);
     }
-
-    // ─── 자격증 CUD ────────────────────────────────────────────────
 
     @Transactional
     public void addCertification(Long freelancerId, CertificationRequestDto request) {
@@ -107,35 +102,33 @@ public class FreelancerResumeService {
         resume.removeCertification(index);
     }
 
-    // ─── 내부 변환 헬퍼 ──────────────────────────────────────────────
-
     private Education toEducationEntity(EducationRequestDto e) {
-        if (e == null) throw new IllegalArgumentException("학력 요청 데이터가 null입니다.");
+        if (e == null) throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         EduStatus status = null;
         if (e.eduStatus() != null && !e.eduStatus().isBlank()) {
             try {
                 status = EduStatus.valueOf(e.eduStatus().toUpperCase());
             } catch (IllegalArgumentException ex) {
-                throw new IllegalArgumentException("유효하지 않은 학력 상태 값입니다: " + e.eduStatus());
+                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
             }
         }
         return new Education(e.schoolType(), e.schoolName(), e.major(), status, e.entranceDate(), e.graduationDate());
     }
 
     private Career toCareerEntity(CareerRequestDto c) {
-        if (c == null) throw new IllegalArgumentException("경력 요청 데이터가 null입니다.");
+        if (c == null) throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         return new Career(c.companyName(), c.department(), c.position(),
                 c.jobType(), c.employmentType(), c.startDate(), c.endDate(), c.description());
     }
 
     private Certification toCertificationEntity(CertificationRequestDto cert) {
-        if (cert == null) throw new IllegalArgumentException("자격증 요청 데이터가 null입니다.");
+        if (cert == null) throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         return new Certification(cert.name(), cert.issuer(), cert.acquisitionDate());
     }
 
     private Resume findByFreelancerIdOrThrow(Long freelancerId) {
         return resumeRepository.findByFreelancerId(freelancerId)
-                .orElseThrow(() -> new IllegalArgumentException("이력서를 찾을 수 없습니다."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
     }
 
     private FreelancerResumeResponseDto toResumeDto(Resume resume) {

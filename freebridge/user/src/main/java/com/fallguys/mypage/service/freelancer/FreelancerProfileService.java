@@ -1,6 +1,8 @@
 package com.fallguys.mypage.service.freelancer;
 
 
+import com.fallguys.common.exception.BusinessException;
+import com.fallguys.common.exception.ErrorCode;
 import com.fallguys.common.port.FileStorage;
 import com.fallguys.mypage.api.web.dto.freelancer.request.FreelancerProfileUpdateRequestDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerBasicProfileDto;
@@ -67,30 +69,31 @@ public class FreelancerProfileService {
     @Transactional
     public String updateAvatarUrl(Long userId, MultipartFile file) {
         if (file == null || file.isEmpty()) {
-            throw new IllegalArgumentException("업로드할 파일이 없습니다.");
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
 
         if (file.getSize() > MAX_AVATAR_BYTES) {
-            throw new IllegalArgumentException("업로드 파일 크기는 5MB를 초과할 수 없습니다.");
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
 
         String contentType = file.getContentType();
         Set<String> allowedTypes = Set.of("image/jpeg", "image/png", "image/webp", "image/gif");
         if (contentType == null || !allowedTypes.contains(contentType.toLowerCase())) {
-            throw new IllegalArgumentException("이미지 파일(JPEG, PNG, WEBP, GIF)만 업로드 가능합니다. (현재 타입: " + contentType + ")");
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
 
+        String uploadKey = null;
         try {
             byte[] fileBytes = file.getBytes();
             if (!isValidImageByMagicBytes(fileBytes)) {
-                throw new IllegalArgumentException("올바른 이미지 파일 형식이 아닙니다. (확장자 위조 의심)");
+                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
             }
 
             Freelancer freelancer = findByUserIdOrThrow(userId);
 
             String extension = getExtension(file.getOriginalFilename());
-            String key = "freelancers/avatar/" + UUID.randomUUID() + extension;
-            String uploadedUrl = fileStorage.upload(fileBytes, key, file.getContentType());
+            uploadKey = "freelancers/avatar/" + UUID.randomUUID() + extension;
+            String uploadedUrl = fileStorage.upload(fileBytes, uploadKey, file.getContentType());
 
             // DB 트랜잭션 롤백 시 업로드된 S3 파일 삭제 (고아 파일 방지)
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
@@ -98,7 +101,7 @@ public class FreelancerProfileService {
                 public void afterCompletion(int status) {
                     if (status == STATUS_ROLLED_BACK) {
                         try {
-                            fileStorage.deleteByKey(key);
+                            fileStorage.deleteByKey(uploadKey);
                         } catch (Exception ex) {
                             log.error("S3 롤백 삭제 실패 - key: {}", key, ex);
                         }
@@ -109,14 +112,20 @@ public class FreelancerProfileService {
             freelancer.updateBasicProfile(null, uploadedUrl, null);
 
             return uploadedUrl;
+        } catch (BusinessException e) {
+            throw e;
         } catch (IOException e) {
-            throw new RuntimeException("파일 업로드 중 오류가 발생했습니다.", e);
+            log.error("S3 업로드 실패 - userId: {}, fileName: {}", userId, file.getOriginalFilename(), e);
+            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
+        } catch (RuntimeException e) {
+            log.error("S3 업로드 실패 - userId: {}, key: {}", userId, uploadKey, e);
+            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
     }
 
     private Freelancer findByUserIdOrThrow(Long userId) {
         return freelancerRepository.findByUserId(userId)
-                .orElseThrow(() -> new IllegalArgumentException("해당 유저의 프리랜서 프로필을 찾을 수 없습니다."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
     }
 
     private String getExtension(String filename) {
