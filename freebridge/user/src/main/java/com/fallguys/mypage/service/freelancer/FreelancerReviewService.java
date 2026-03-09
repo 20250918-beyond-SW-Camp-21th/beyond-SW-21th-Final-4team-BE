@@ -11,6 +11,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.time.Duration;
 
 import java.util.Collections;
 import java.util.List;
@@ -23,11 +26,14 @@ public class FreelancerReviewService {
 
     private final RedisTemplate<String, Object> redisTemplate;
     private final FreelancerRepository freelancerRepository;
+    private final ReviewEngine reviewEngine;
+    private final ObjectMapper objectMapper;
 
     /**
      * 내 평판/등급 요약 조회
      * Redis Key: freelancer:review:rates:{freelancerId}
-     * Expected value: List<Map<String, Double>> { expertiseRate, communicationRate, scheduleRate }
+     * Expected value: List<Map<String, Double>> { expertiseRate, communicationRate,
+     * scheduleRate }
      * topPercentile은 Freelancer 엔티티에서 조회합니다.
      */
     @Transactional(readOnly = true)
@@ -51,35 +57,106 @@ public class FreelancerReviewService {
     }
 
     /**
-     * AI 평판 분석 리포트 조회 (뼈대 - 향후 AI 도메인 연동 예정)
+     * AI 평판 분석 리포트 조회 (Redis 캐싱 적용)
+     * Redis Key: freelancer:review:ai_report:{userId}
+     * TTL: 24시간
      */
     public FreelancerAiReputationReportDto getAiReputationReport(Long userId) {
-        // TODO: AI 도메인에서 프리랜서 리뷰 데이터를 받아 분석 결과를 조회하는 로직 구현 예정
-        return new FreelancerAiReputationReportDto(
-                "AI 분석 리포트 준비 중입니다.",
-                Collections.emptyList(),
-                Collections.emptyList()
-        );
+        String ratesRedisKey = "freelancer:review:rates:" + userId;
+        try {
+            Object ratesData = redisTemplate.opsForValue().get(ratesRedisKey);
+            // 등록된 리뷰가 명시적으로 비어있을 경우에만 AI 서버 호출 생략
+            if (ratesData instanceof List<?> list && list.isEmpty()) {
+                return new FreelancerAiReputationReportDto(
+                        "아직 충분한 리뷰가 등록되지 않았습니다.",
+                        Collections.emptyList(),
+                        Collections.emptyList(),
+                        Collections.emptyList(),
+                        Collections.emptyList());
+            }
+        } catch (Exception e) {
+            log.warn("Failed to check review existence in Redis for userId: {}", userId, e);
+        }
+
+        String redisKey = "freelancer:review:ai_report:" + userId;
+        try {
+            Object cachedData = redisTemplate.opsForValue().get(redisKey);
+            if (cachedData != null) {
+                // 저장된 캐시가 있을 경우 JSON에서 파싱
+                return objectMapper.convertValue(cachedData, FreelancerAiReputationReportDto.class);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to get AI reputation report from Redis for userId: {}", userId, e);
+        }
+
+        // 캐시가 없거나, null이어서(ratesData가 아예 없거나) 재생성이 필요한 경우 AI 서버로 호출
+        FreelancerAiReputationReportDto report = reviewEngine.getFreelancerAnalysis(userId);
+
+        try {
+            if (report != null) {
+                redisTemplate.opsForValue().set(redisKey, report, Duration.ofHours(24));
+            }
+        } catch (Exception e) {
+            log.warn("Failed to save AI reputation report to Redis for userId: {}", userId, e);
+        }
+
+        return report;
     }
 
     /**
-     * AI 평판 긍정 지수 조회 (뼈대 - AI 도메인에서 항목별 평판 점수를 받아 조회 예정)
+     * AI 평판 긍정 지수 조회
      */
     public FreelancerAiPositivityIndexDto getAiPositivityIndex(Long userId) {
-        // TODO: AI 도메인에서 전달된 긍정 지수(positivityScore) 및 등급(grade)을 조회하는 로직 구현 예정
-        return new FreelancerAiPositivityIndexDto(null, null);
+        FreelancerAiReputationReportDto report = getAiReputationReport(userId);
+        if (report == null) {
+            return new FreelancerAiPositivityIndexDto(0.0, "POOR");
+        }
+
+        double totalScore = 0.0;
+        int count = 0;
+
+        if (report.technicalScores() != null) {
+            for (com.fallguys.common.ai.dto.FreelancerAiReputationReportDto.ScoreDto score : report.technicalScores()) {
+                totalScore += score.score();
+                count++;
+            }
+        }
+        if (report.softSkills() != null) {
+            for (com.fallguys.common.ai.dto.FreelancerAiReputationReportDto.ScoreDto score : report.softSkills()) {
+                totalScore += score.score();
+                count++;
+            }
+        }
+
+        if (count == 0) {
+            return new FreelancerAiPositivityIndexDto(0.0, "POOR");
+        }
+
+        double posScore = (totalScore / count) * 20.0; // 5점 만점을 100점 만점으로 변환
+        String grade = "POOR";
+        if (posScore >= 90) {
+            grade = "EXCELLENT";
+        } else if (posScore >= 70) {
+            grade = "GOOD";
+        } else if (posScore >= 50) {
+            grade = "AVERAGE";
+        }
+
+        return new FreelancerAiPositivityIndexDto(posScore, grade);
     }
 
     /**
-     * 프리랜서 강점/약점 분석 조회 (뼈대 - AI 도메인 연동 예정)
+     * 프리랜서 강점/약점 분석 조회
      * AI가 분석한 강점 3가지, 약점 3가지를 반환합니다.
      */
     public FreelancerStrengthWeaknessDto getStrengthWeaknessAnalysis(Long userId) {
-        // TODO: AI 도메인에서 전달한 평점/리뷰 데이터를 바탕으로 강점/약점 항목 조회 로직 구현 예정
+        FreelancerAiReputationReportDto report = getAiReputationReport(userId);
+        if (report == null) {
+            return new FreelancerStrengthWeaknessDto(Collections.emptyList(), Collections.emptyList());
+        }
         return new FreelancerStrengthWeaknessDto(
-                Collections.emptyList(), // 강점 최대 3가지 (예: "전문성 우수", "의사소통 원활", "일정준수")
-                Collections.emptyList()  // 약점 최대 3가지
-        );
+                report.strengths() != null ? report.strengths() : Collections.emptyList(),
+                report.weaknesses() != null ? report.weaknesses() : Collections.emptyList());
     }
 
     // ─── 내부 헬퍼 ──────────────────────────────────────────────
