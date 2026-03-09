@@ -12,8 +12,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.http.client.MultipartBodyBuilder;
+import org.springframework.http.MediaType;
+import org.springframework.core.io.ByteArrayResource;
 
 import java.util.List;
 import java.util.Map;
@@ -59,6 +63,27 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, (request, response) -> {
                     throw new RuntimeException("AI 계약서 생성 서비스 응답 오류");
+                })
+                .body(String.class);
+    }
+
+    @Override
+    public String analyzeContract(byte[] pdfBytes, String filename) {
+        MultipartBodyBuilder builder = new MultipartBodyBuilder();
+        builder.part("file", new ByteArrayResource(pdfBytes) {
+            @Override
+            public String getFilename() {
+                return filename;
+            }
+        }, MediaType.APPLICATION_PDF);
+        
+        return restClient.post()
+                .uri(pythonUrl + "/api/v1/analysis/contract")
+                .contentType(MediaType.MULTIPART_FORM_DATA)
+                .body(builder.build())
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, (request, response) -> {
+                    throw new RuntimeException("AI 계약서 분석 파싱 오류");
                 })
                 .body(String.class);
     }

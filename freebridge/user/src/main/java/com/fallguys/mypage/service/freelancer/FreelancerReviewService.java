@@ -65,9 +65,11 @@ public class FreelancerReviewService {
         String ratesRedisKey = "freelancer:review:rates:" + userId;
         try {
             Object ratesData = redisTemplate.opsForValue().get(ratesRedisKey);
-            // 등록된 리뷰가 명시적으로 비어있을 경우에만 AI 서버 호출 생략
+            // 등록된 리뷰가 명시적으로 비어있을 경우에만 AI 서버 호출 
             if (ratesData instanceof List<?> list && list.isEmpty()) {
                 return new FreelancerAiReputationReportDto(
+                        "미정",
+                        0,
                         "아직 충분한 리뷰가 등록되지 않았습니다.",
                         Collections.emptyList(),
                         Collections.emptyList(),

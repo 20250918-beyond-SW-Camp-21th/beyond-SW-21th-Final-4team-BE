@@ -57,6 +57,21 @@ public class ContractPdfService {
         return generate(contract, true);
     }
 
+    public byte[] generateContractPdfBytes(Contract contract) {
+        log.info("Starting PDF generation (byte array) for contract {}", contract.getContractId());
+        
+        Document doc = new Document(PageSize.A4, 60, 60, 60, 60);
+        try (java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream()) {
+            PdfWriter.getInstance(doc, out);
+            doc.open();
+            buildContent(doc, contract, false);
+            doc.close();
+            return out.toByteArray();
+        } catch (Exception e) {
+            log.error("PDF byte array generation failed for contract {}: {}", contract.getContractId(), e.getMessage(), e);
+            throw new RuntimeException("계약서 PDF 생성 실패 (Bytes)", e);
+        }
+    }
 
     private String generate(Contract contract, boolean withSignatures) {
         log.info("Starting PDF generation for contract {}", contract.getContractId());

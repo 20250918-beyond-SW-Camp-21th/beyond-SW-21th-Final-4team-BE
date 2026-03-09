@@ -26,6 +26,7 @@ public class ContractResponse {
     private String contractPdfUrl;
     private String signedPdfUrl;
     private LocalDateTime signedDate;
+    private String aiLegalAdvice;
 
     // 표준근로계약서 fields
     private String jobDescription;
