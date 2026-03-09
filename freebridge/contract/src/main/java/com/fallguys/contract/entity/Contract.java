@@ -85,6 +85,9 @@ public class Contract {
     private String employerCEO;
 
     // Freelancer
+    @Column(length = 100)
+    private String freelancerName;
+
     @Column(length = 200)
     private String freelancerAddress;
 

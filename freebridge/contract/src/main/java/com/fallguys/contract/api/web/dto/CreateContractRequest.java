@@ -21,6 +21,8 @@ public class CreateContractRequest {
     @NotNull(message = "프리랜서 ID는 필수입니다.")
     private Long freelancerId;
 
+    private String freelancerName;     // 계약서 PDF에 표시될 프리랜서 이름
+
     @NotNull(message = "계약 시작일은 필수입니다.")
     private LocalDate startDate;
 
@@ -67,11 +69,9 @@ public class CreateContractRequest {
     @NotBlank(message = "고용주 대표자명은 필수입니다.")
     private String employerCEO;
 
-    @NotBlank(message = "프리랜서 주소는 필수입니다.")
-    private String freelancerAddress;
+    private String freelancerAddress;  // 프리랜서가 서명 시 직접 입력
 
-    @NotBlank(message = "프리랜서 연락처는 필수입니다.")
-    private String freelancerPhone;
+    private String freelancerPhone;    // 프리랜서가 서명 시 직접 입력
 
     private String employerSignature;  // Base64 data URL (optional at creation)
 

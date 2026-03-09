@@ -190,7 +190,7 @@ public class ContractPdfService {
                 labelFont, bodyFont));
 
         sigTable.addCell(signatureCell(
-                "프리랜서", null, freeSignedAt,
+                "프리랜서", contract.getFreelancerName(), freeSignedAt,
                 withSignatures ? contract.getFreelancerSignature() : null,
                 labelFont, bodyFont));
 
@@ -214,16 +214,16 @@ public class ContractPdfService {
         if (name != null && !name.isBlank()) {
             cell.addElement(new Paragraph("이름: " + name, bodyFont));
         }
-        if (signedAt != null) {
-            cell.addElement(new Paragraph("서명일: " + signedAt, bodyFont));
-        }
 
+        // 서명 이미지를 서명일 위에 배치
         if (base64Sig != null && !base64Sig.isBlank()) {
             try {
-                String raw     = base64Sig.replaceFirst("^data:image/[a-z]+;base64,", "");
+                String raw      = base64Sig.replaceFirst("^data:image/[a-z]+;base64,", "");
                 byte[] imgBytes = Base64.getDecoder().decode(raw);
                 Image sig = Image.getInstance(imgBytes);
                 sig.scaleToFit(160, 60);
+                sig.setSpacingBefore(6f);
+                sig.setSpacingAfter(4f);
                 cell.addElement(sig);
             } catch (Exception e) {
                 log.warn("서명 이미지 임베드 실패: {}", e.getMessage());
@@ -231,6 +231,10 @@ public class ContractPdfService {
             }
         } else {
             cell.addElement(new Paragraph("\n\n(서명 미완료)", bodyFont));
+        }
+
+        if (signedAt != null) {
+            cell.addElement(new Paragraph("서명일: " + signedAt, bodyFont));
         }
 
         return cell;
