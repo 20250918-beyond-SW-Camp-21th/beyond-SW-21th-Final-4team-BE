@@ -42,13 +42,18 @@ public class EmployerSettlementService {
             Long employerId, String status, String dateRange,
             String sort, int page, int size) {
 
+        // Treat null or blank as "ALL" to avoid valueOf("") blowing up with INVALID_INPUT_VALUE
+        if (status == null || status.isBlank()) {
+            status = "ALL";
+        }
+
         Pageable pageable = buildPageable(sort, page, size);
         Page<EmployerSettlement> pageResult;
 
         if (!"ALL".equalsIgnoreCase(status)) {
             EmployerSettlementStatus statusEnum;
             try {
-                statusEnum = EmployerSettlementStatus.valueOf(status != null ? status.trim().toUpperCase() : "");
+                statusEnum = EmployerSettlementStatus.valueOf(status.trim().toUpperCase());
             } catch (IllegalArgumentException e) {
                 throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
             }
@@ -469,6 +474,14 @@ public class EmployerSettlementService {
     }
 
     private Pageable buildPageable(String sort, int page, int size) {
+        // Guard against null/blank sort — default to ascending dueDate
+        if (sort == null || sort.isBlank()) {
+            sort = "DUE_DATE_ASC";
+        }
+        // Guard against invalid size — fall back to a sensible default
+        if (size <= 0) {
+            size = 20;
+        }
         Sort jpaSort = switch (sort) {
             case "DUE_DATE_DESC" -> Sort.by(Sort.Direction.DESC, "dueDate");
             case "AMOUNT_ASC" -> Sort.by(Sort.Direction.ASC, "totalPayment");

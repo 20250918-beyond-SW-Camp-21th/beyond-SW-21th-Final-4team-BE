@@ -19,6 +19,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -60,6 +61,16 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
         }
         // 클라이언트 제공 금액 대신 서버 사이드 플랜 가격 사용 (금액 위변조 방지)
         long amount = planType.getMonthlyPrice();
+
+        // 이중결제 방지: 5분 이내 동일 employer + planType 에 대한 SUCCESS 시도가 있으면 재결제 차단
+        final PlanType finalPlanType = planType;
+        Optional<PaymentAttempt> recentSuccess = paymentAttemptRepository.findRecentSuccess(
+                employerId, planType.name(), LocalDateTime.now().minusMinutes(5));
+        if (recentSuccess.isPresent()) {
+            log.warn("이중결제 차단: employerId={}, planType={}, recentAttemptId={}",
+                    employerId, finalPlanType, recentSuccess.get().getId());
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
 
         // 1. 트랜잭션 외부에서 빌링키로 포트원 결제 호출 (외부 API 호출이 트랜잭션에 묶이지 않도록)
         String paymentId = "sub-" + UUID.randomUUID();
@@ -104,15 +115,20 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
             });
         }
 
-        // 2. 외부 API 호출 후 트랜잭션 내부에서 DB 업데이트 처리
-        return transactionTemplate.execute(status -> {
+        // 2. 외부 결제 완료 — PaymentAttempt 상태를 즉시 별도 트랜잭션에 저장하여
+        //    이후 후처리 실패 시에도 결제 증거가 유실되지 않도록 함
+        final boolean paid = paymentInfo.isPaid();
+        final String portonePaymentId = paymentInfo.getPaymentId();
 
+        transactionTemplate.executeWithoutResult(txStatus -> {
             paymentAttemptRepository.findById(paymentId).ifPresent(attempt -> {
-                attempt.setStatus(paymentInfo.isPaid() ? "SUCCESS" : "FAILED");
+                attempt.setStatus(paid ? "SUCCESS" : "FAILED");
                 paymentAttemptRepository.save(attempt);
             });
+        });
 
-            if (!paymentInfo.isPaid()) {
+        if (!paid) {
+            return transactionTemplate.execute(txStatus -> {
                 SubscriptionBilling failedBilling = new SubscriptionBilling();
                 failedBilling.setEmployerId(employerId);
                 failedBilling.setPlanType(planType);
@@ -125,44 +141,58 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
                         false, failedBilling.getId(), employerId, planType.name(),
                         amount, SubscriptionBillingStatus.FAILED.name(), null,
                         "PAYMENT_NOT_PAID", "결제가 완료되지 않았습니다.");
-            }
+            });
+        }
 
-            // 빌링키 저장 또는 업데이트
-            billingKeyRepository.findByEmployerIdAndActiveTrue(employerId)
-                    .ifPresent(existing -> {
-                        existing.deactivate();
-                        billingKeyRepository.save(existing);
-                    });
-            BillingKey newBillingKey = new BillingKey(employerId, billingKey, planType);
-            billingKeyRepository.save(newBillingKey);
-
-            // SubscriptionBilling 레코드 생성
+        // 3. 결제 성공 확정 — SubscriptionBilling 레코드를 별도 트랜잭션에 먼저 저장.
+        //    이후 BillingKey/지갑 처리가 실패해도 결제 사실은 DB에 남아 조회/조정 가능.
+        final Long[] billingIdHolder = new Long[1];
+        transactionTemplate.executeWithoutResult(txStatus -> {
             SubscriptionBilling billing = new SubscriptionBilling();
             billing.setEmployerId(employerId);
             billing.setPlanType(planType);
             billing.setAmount(amount);
             billing.setBillingDate(LocalDate.now());
-            billing.markPaid(paymentInfo.getPaymentId());
+            billing.markPaid(portonePaymentId);
             subscriptionBillingRepository.save(billing);
-
-            // PLATFORM_REVENUE 지갑 크레딧 - 비관적 락 적용 및 UNIQUE 제약 예외처리로 동시성 이슈 해결
-            Wallet revenueWallet = getOrCreatePlatformRevenueWallet();
-            revenueWallet.credit(amount);
-            walletRepository.save(revenueWallet);
-
-            walletTransactionRepository.save(new WalletTransaction(
-                    revenueWallet.getId(), TransactionType.CREDIT, amount,
-                    TransactionReferenceType.SUBSCRIPTION_PAYMENT, billing.getId(),
-                    planType.name() + " 구독 결제 수익", revenueWallet.getBalance()));
-
-            log.info("구독 결제 완료: employerId={}, planType={}, amount={}, billingId={}",
-                    employerId, planType, amount, billing.getId());
-
-            return new SubscriptionPaymentResponse(
-                    true, billing.getId(), employerId, planType.name(),
-                    amount, SubscriptionBillingStatus.PAID.name(), LocalDate.now(),
-                    null, null);
+            billingIdHolder[0] = billing.getId();
         });
+
+        // 4. BillingKey 갱신 및 지갑 크레딧 — 실패 시 billingId로 수동 조정 가능
+        try {
+            transactionTemplate.executeWithoutResult(txStatus -> {
+                // 빌링키 저장 또는 업데이트
+                billingKeyRepository.findByEmployerIdAndActiveTrue(employerId)
+                        .ifPresent(existing -> {
+                            existing.deactivate();
+                            billingKeyRepository.save(existing);
+                        });
+                BillingKey newBillingKey = new BillingKey(employerId, billingKey, planType);
+                billingKeyRepository.save(newBillingKey);
+
+                // PLATFORM_REVENUE 지갑 크레딧 - 비관적 락 적용 및 UNIQUE 제약 예외처리로 동시성 이슈 해결
+                Wallet revenueWallet = getOrCreatePlatformRevenueWallet();
+                revenueWallet.credit(amount);
+                walletRepository.save(revenueWallet);
+
+                walletTransactionRepository.save(new WalletTransaction(
+                        revenueWallet.getId(), TransactionType.CREDIT, amount,
+                        TransactionReferenceType.SUBSCRIPTION_PAYMENT, billingIdHolder[0],
+                        planType.name() + " 구독 결제 수익", revenueWallet.getBalance()));
+
+                log.info("구독 결제 완료: employerId={}, planType={}, amount={}, billingId={}",
+                        employerId, planType, amount, billingIdHolder[0]);
+            });
+        } catch (Exception e) {
+            // BillingKey/지갑 처리 실패 — 결제 기록(billingId)은 이미 저장됐으므로 수동 조정 가능
+            log.error("구독 결제 후처리 실패 (결제는 완료됨): employerId={}, billingId={}, error={}",
+                    employerId, billingIdHolder[0], e.getMessage());
+        }
+
+        return new SubscriptionPaymentResponse(
+                true, billingIdHolder[0], employerId, planType.name(),
+                amount, SubscriptionBillingStatus.PAID.name(), LocalDate.now(),
+                null, null);
     }
 
     /**

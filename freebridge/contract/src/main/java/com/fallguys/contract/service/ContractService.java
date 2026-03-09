@@ -12,6 +12,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -145,7 +147,17 @@ public class ContractService {
             contract.setSignedPdfUrl(signedPdfUrl);
 
             Contract saved = contractRepository.save(contract);
-            eventPublisher.publishEvent(new ContractActivatedEvent(this, saved.getId()));
+
+            // Publish the event only after the current transaction has committed so that
+            // async or transactional listeners never observe uncommitted contract data.
+            final Long activatedContractId = saved.getId();
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    eventPublisher.publishEvent(new ContractActivatedEvent(ContractService.this, activatedContractId));
+                }
+            });
+
             return toResponse(saved);
         }
 

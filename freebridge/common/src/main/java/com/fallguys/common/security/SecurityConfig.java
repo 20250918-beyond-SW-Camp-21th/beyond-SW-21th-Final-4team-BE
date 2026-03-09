@@ -29,7 +29,7 @@ public class SecurityConfig {
                                                                                                               // 않음
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/employer/**", "/api/v1/employer/**").hasRole("EMPLOYER")
-                        .requestMatchers("/api/internal/payments/**").authenticated()
+                        .requestMatchers("/api/internal/payments/**").hasRole("EMPLOYER")
                         .anyRequest().permitAll())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

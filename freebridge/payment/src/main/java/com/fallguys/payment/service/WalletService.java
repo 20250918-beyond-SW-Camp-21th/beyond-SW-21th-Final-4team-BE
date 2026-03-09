@@ -97,7 +97,11 @@ public class WalletService {
             return new FreelancerWalletSummaryResponse(0L, pendingAmount, 0);
         }
 
-        Long totalEarned = wallet.getBalance();
+        // Use the cumulative sum of all PAID settlement netAmounts as "total earned",
+        // not wallet.getBalance() which only reflects the current remaining balance.
+        Long totalEarned = freelancerSettlementRepository
+                .sumNetAmountByFreelancerIdAndStatusPaid(freelancerId);
+        if (totalEarned == null) totalEarned = 0L;
         Integer transactionCount = walletTransactionRepository.countByWalletId(wallet.getId());
 
         return new FreelancerWalletSummaryResponse(totalEarned, pendingAmount, transactionCount);
