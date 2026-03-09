@@ -14,8 +14,14 @@ import com.fallguys.mypage.repository.freelancer.FreelancerRepository;
 import com.fallguys.mypage.repository.employer.EmployerRepository;
 import com.fallguys.mypage.repository.resume.ResumeRepository;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import com.fallguys.user.entity.Role;
+import com.fallguys.user.entity.User;
+import org.junit.jupiter.api.BeforeEach;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceValidationTest {
@@ -39,6 +45,21 @@ class UserServiceValidationTest {
     private StringRedisTemplate redisTemplate;
     @Mock
     private RedisTokenService redisTokenService;
+
+    @BeforeEach
+    void setUp() {
+        User user = User.builder()
+                .email("test@example.com")
+                .password("encodedPassword")
+                .name("Test User")
+                .role(Role.FREELANCER)
+                .termsAgreed(true)
+                .privacyAgreed(true)
+                .build();
+
+        lenient().when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        lenient().when(passwordEncoder.matches(anyString(), anyString())).thenReturn(true);
+    }
 
     @Test
     @DisplayName("비밀번호 검증 테스트 - 유효하지 않은 형식 (8자 미만)")
