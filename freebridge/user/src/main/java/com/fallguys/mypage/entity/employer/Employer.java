@@ -1,4 +1,4 @@
-package com.fallguys.mypage.entity.employer;
+﻿package com.fallguys.mypage.entity.employer;
 
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
 import java.time.LocalDateTime;
 
 @Entity
@@ -79,7 +80,7 @@ public class Employer {
 
     /*
      * =========================
-     * ?앹꽦 硫붿냼??
+     * 생성 관련
      * =========================
      */
     public static Employer create(
@@ -98,15 +99,16 @@ public class Employer {
 
     /*
      * =========================
-     * UPDATE 硫붿냼??
+     * UPDATE 관련
      * =========================
      */
 
     public void changeStatus(EmployerStatus newStatus) {
-        if (newStatus == null)
+        if (newStatus == null) {
             throw new IllegalArgumentException("newStatus is required");
+        }
         if (this.status == EmployerStatus.LEFT) {
-            throw new IllegalStateException("?대? ?댄깉??怨좎슜二쇱쓽 ?곹깭??蹂寃쏀븷 ???놁뒿?덈떎.");
+            throw new IllegalStateException("이미 탈퇴한 고용주는 상태를 변경할 수 없습니다.");
         }
         this.status = newStatus;
     }
@@ -117,7 +119,7 @@ public class Employer {
 
     public void changeSubscription(Subscription subscription) {
         this.subscription = requireNonNull(subscription, "subscription");
-        // 利됱떆 蹂寃????덉빟 ?댁뿭 珥덇린??
+        // 구독 변경 예약 정보 초기화
         this.pendingSubscription = null;
         this.planChangeEffectiveDate = null;
     }
@@ -136,11 +138,11 @@ public class Employer {
     public void scheduleSubscriptionChange(Subscription targetSubscription, LocalDateTime effectiveDate) {
         this.pendingSubscription = requireNonNull(targetSubscription, "targetSubscription");
         LocalDateTime nonNullEffectiveDate = requireNonNull(effectiveDate, "effectiveDate");
-        
+
         if (!nonNullEffectiveDate.isAfter(LocalDateTime.now())) {
-            throw new IllegalArgumentException("蹂寃??곸슜??effectiveDate)? ?꾩옱 ?쒖젏蹂대떎 誘몃옒?ъ빞 ?⑸땲??");
+            throw new IllegalArgumentException("구독 변경 일자(effectiveDate)는 현재 시점보다 이후여야 합니다.");
         }
-        
+
         this.planChangeEffectiveDate = nonNullEffectiveDate;
     }
 
@@ -168,7 +170,7 @@ public class Employer {
     }
 
     public void updateWebsiteUrl(String websiteUrl) {
-        // URL ?뺢탳 寃利앷퉴吏??怨쇳븷 ???덉뼱??湲곕낯 ?뺣━留?
+        // URL 유효성 검증은 상위 레이어에서 처리
         this.websiteUrl = normalizeNullable(websiteUrl);
     }
 
@@ -199,28 +201,32 @@ public class Employer {
 
     /*
      * =========================
-     * ?대? ?좏떥
+     * 공통 유틸
      * =========================
      */
     private static String normalize(String value, String fieldName) {
-        if (value == null)
-            throw new IllegalArgumentException(fieldName + " 媛믪씠 鍮꾩뼱?덉뒿?덈떎.");
+        if (value == null) {
+            throw new IllegalArgumentException(fieldName + " 필드는 필수입니다.");
+        }
         String v = value.trim();
-        if (v.isEmpty())
-            throw new IllegalArgumentException(fieldName + " 媛믪씠 鍮꾩뼱?덉뒿?덈떎.");
+        if (v.isEmpty()) {
+            throw new IllegalArgumentException(fieldName + " 필드는 필수입니다.");
+        }
         return v;
     }
 
     private static String normalizeNullable(String value) {
-        if (value == null)
+        if (value == null) {
             return null;
+        }
         String v = value.trim();
         return v.isEmpty() ? null : v;
     }
 
     private static <T> T requireNonNull(T value, String fieldName) {
-        if (value == null)
-            throw new IllegalArgumentException(fieldName + " 媛믪씠 鍮꾩뼱?덉뒿?덈떎.");
+        if (value == null) {
+            throw new IllegalArgumentException(fieldName + " 필드는 필수입니다.");
+        }
         return value;
     }
 }
