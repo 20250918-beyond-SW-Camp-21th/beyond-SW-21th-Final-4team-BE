@@ -147,7 +147,7 @@ public class UserService {
         }
 
         String accessToken = jwtTokenProvider.generateToken(
-                user.getId(), user.getEmail(), user.getRole().name(), user.getName(), user.getPhone(), grade);
+                user.getId(), user.getEmail(), user.getRole().name(), user.getName(), grade);
 
         String refreshToken = jwtTokenProvider.generateRefreshToken(user.getId());
         String refreshJti = jwtTokenProvider.getClaimsFromToken(refreshToken).getId();
@@ -235,7 +235,7 @@ public class UserService {
         }
 
         String newAccessToken = jwtTokenProvider.generateToken(
-                user.getId(), user.getEmail(), user.getRole().name(), user.getName(), user.getPhone(), grade);
+                user.getId(), user.getEmail(), user.getRole().name(), user.getName(), grade);
 
         long refreshTokenTtlMs = jwtTokenProvider.getRefreshTokenExpirationMs();
         String newRefreshToken = jwtTokenProvider.generateRefreshToken(user.getId());

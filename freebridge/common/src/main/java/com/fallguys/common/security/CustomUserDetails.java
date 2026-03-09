@@ -13,18 +13,17 @@ public class CustomUserDetails implements UserDetails {
     private final Long id;
     private final String email;
     private final String name;
-    private final String phone;
+
     private final String role;
     private final String grade;
     private final Collection<? extends GrantedAuthority> authorities;
 
     @Builder
-    public CustomUserDetails(Long id, String email, String name, String phone, String role, String grade,
+    public CustomUserDetails(Long id, String email, String name, String role, String grade,
             Collection<? extends GrantedAuthority> authorities) {
         this.id = id;
         this.email = email;
         this.name = name;
-        this.phone = phone;
         this.role = role;
         this.grade = grade;
         this.authorities = authorities;

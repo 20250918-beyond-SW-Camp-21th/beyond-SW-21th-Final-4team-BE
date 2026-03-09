@@ -39,7 +39,7 @@ public class JwtTokenProvider {
         this.refreshTokenExpirationMs = refreshTokenExpirationMs;
     }
 
-    public String generateToken(Long id, String email, String role, String name, String phone, String grade) {
+    public String generateToken(Long id, String email, String role, String name, String grade) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
 
@@ -48,7 +48,7 @@ public class JwtTokenProvider {
                 .claim("email", email) // 이메일은 별도의 클레임으로 저장
                 .claim("role", role)
                 .claim("name", name)
-                .claim("phone", phone)
+
                 .claim("grade", grade != null ? grade : "") // 회원 등급
                 .issuedAt(now)
                 .expiration(expiryDate)
