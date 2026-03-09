@@ -1,4 +1,4 @@
-﻿package com.fallguys.mypage.entity.employer;
+package com.fallguys.mypage.entity.employer;
 
 import jakarta.persistence.*;
 import lombok.AccessLevel;

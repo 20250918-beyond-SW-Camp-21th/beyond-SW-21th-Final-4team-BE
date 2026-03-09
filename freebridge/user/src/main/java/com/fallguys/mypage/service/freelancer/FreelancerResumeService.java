@@ -1,4 +1,4 @@
-﻿package com.fallguys.mypage.service.freelancer;
+package com.fallguys.mypage.service.freelancer;
 
 import com.fallguys.common.exception.BusinessException;
 import com.fallguys.common.exception.ErrorCode;
@@ -6,6 +6,7 @@ import com.fallguys.mypage.api.web.dto.resume.CareerDto;
 import com.fallguys.mypage.api.web.dto.resume.CertificationDto;
 import com.fallguys.mypage.api.web.dto.resume.EducationDto;
 import com.fallguys.mypage.api.web.dto.resume.FreelancerResumeResponseDto;
+import com.fallguys.mypage.api.web.dto.resume.ResumeBasicInfoDto;
 import com.fallguys.mypage.api.web.dto.resume.request.CareerRequestDto;
 import com.fallguys.mypage.api.web.dto.resume.request.CertificationRequestDto;
 import com.fallguys.mypage.api.web.dto.resume.request.EducationRequestDto;
@@ -23,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.IntStream;
 
 @Service
 @RequiredArgsConstructor
@@ -31,74 +33,77 @@ public class FreelancerResumeService {
     private final ResumeRepository resumeRepository;
 
     @Transactional(readOnly = true)
-    public FreelancerResumeResponseDto getResume(Long freelancerId) {
-        return resumeRepository.findByFreelancerId(freelancerId)
+    public FreelancerResumeResponseDto getResume(Long userId) {
+        return resumeRepository.findByUserId(userId)
                 .map(this::toResumeDto)
                 .orElseGet(() -> new FreelancerResumeResponseDto(
-                        Collections.emptyList(), Collections.emptyList(), Collections.emptyList()));
+                        null,
+                        Collections.emptyList(),
+                        Collections.emptyList(),
+                        Collections.emptyList()));
     }
 
     @Transactional
-    public void updateResumeBasicInfo(Long freelancerId, ResumeBasicInfoRequestDto request) {
+    public void updateResumeBasicInfo(Long userId, ResumeBasicInfoRequestDto request) {
         if (request == null) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
-        Resume resume = findByFreelancerIdOrThrow(freelancerId);
+        Resume resume = findByUserIdOrThrow(userId);
         resume.updateBasicInfo(request.name(), request.birthDate(), request.phone(),
                 request.email(), request.address());
     }
 
     @Transactional
-    public void addEducation(Long freelancerId, EducationRequestDto request) {
-        Resume resume = findByFreelancerIdOrThrow(freelancerId);
+    public void addEducation(Long userId, EducationRequestDto request) {
+        Resume resume = findByUserIdOrThrow(userId);
         resume.addEducation(toEducationEntity(request));
     }
 
     @Transactional
-    public void updateEducation(Long freelancerId, int index, EducationRequestDto request) {
-        Resume resume = findByFreelancerIdOrThrow(freelancerId);
+    public void updateEducation(Long userId, int index, EducationRequestDto request) {
+        Resume resume = findByUserIdOrThrow(userId);
         resume.updateEducation(index, toEducationEntity(request));
     }
 
     @Transactional
-    public void deleteEducation(Long freelancerId, int index) {
-        Resume resume = findByFreelancerIdOrThrow(freelancerId);
+    public void deleteEducation(Long userId, int index) {
+        Resume resume = findByUserIdOrThrow(userId);
         resume.removeEducation(index);
     }
 
     @Transactional
-    public void addCareer(Long freelancerId, CareerRequestDto request) {
-        Resume resume = findByFreelancerIdOrThrow(freelancerId);
+    public void addCareer(Long userId, CareerRequestDto request) {
+        Resume resume = findByUserIdOrThrow(userId);
         resume.addCareer(toCareerEntity(request));
     }
 
     @Transactional
-    public void updateCareer(Long freelancerId, int index, CareerRequestDto request) {
-        Resume resume = findByFreelancerIdOrThrow(freelancerId);
+    public void updateCareer(Long userId, int index, CareerRequestDto request) {
+        Resume resume = findByUserIdOrThrow(userId);
         resume.updateCareerEntry(index, toCareerEntity(request));
     }
 
     @Transactional
-    public void deleteCareer(Long freelancerId, int index) {
-        Resume resume = findByFreelancerIdOrThrow(freelancerId);
+    public void deleteCareer(Long userId, int index) {
+        Resume resume = findByUserIdOrThrow(userId);
         resume.removeCareer(index);
     }
 
     @Transactional
-    public void addCertification(Long freelancerId, CertificationRequestDto request) {
-        Resume resume = findByFreelancerIdOrThrow(freelancerId);
+    public void addCertification(Long userId, CertificationRequestDto request) {
+        Resume resume = findByUserIdOrThrow(userId);
         resume.addCertification(toCertificationEntity(request));
     }
 
     @Transactional
-    public void updateCertification(Long freelancerId, int index, CertificationRequestDto request) {
-        Resume resume = findByFreelancerIdOrThrow(freelancerId);
+    public void updateCertification(Long userId, int index, CertificationRequestDto request) {
+        Resume resume = findByUserIdOrThrow(userId);
         resume.updateCertification(index, toCertificationEntity(request));
     }
 
     @Transactional
-    public void deleteCertification(Long freelancerId, int index) {
-        Resume resume = findByFreelancerIdOrThrow(freelancerId);
+    public void deleteCertification(Long userId, int index) {
+        Resume resume = findByUserIdOrThrow(userId);
         resume.removeCertification(index);
     }
 
@@ -126,37 +131,57 @@ public class FreelancerResumeService {
         return new Certification(cert.name(), cert.issuer(), cert.acquisitionDate());
     }
 
-    private Resume findByFreelancerIdOrThrow(Long freelancerId) {
-        return resumeRepository.findByFreelancerId(freelancerId)
+    private Resume findByUserIdOrThrow(Long userId) {
+        return resumeRepository.findByUserId(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
     }
 
     private FreelancerResumeResponseDto toResumeDto(Resume resume) {
+        ResumeBasicInfoDto basicInfo = new ResumeBasicInfoDto(
+                resume.getName(),
+                resume.getBirthDate(),
+                resume.getPhone(),
+                resume.getEmail(),
+                resume.getAddress()
+        );
+
         List<EducationDto> educations = resume.getEducations() == null ? Collections.emptyList() :
-                resume.getEducations().stream()
+                IntStream.range(0, resume.getEducations().size())
+                        .mapToObj(index -> {
+                            Education e = resume.getEducations().get(index);
+                            if (e == null) return null;
+                            return new EducationDto((long) index, e.getSchoolName(), e.getMajor(),
+                                    e.getEntranceDate() != null ? e.getEntranceDate().toString() : null,
+                                    e.getGraduationDate() != null ? e.getGraduationDate().toString() : null,
+                                    e.getEduStatus() != null ? e.getEduStatus().name() : null);
+                        })
                         .filter(Objects::nonNull)
-                        .map(e -> new EducationDto(null, e.getSchoolName(), e.getMajor(),
-                                e.getEntranceDate() != null ? e.getEntranceDate().toString() : null,
-                                e.getGraduationDate() != null ? e.getGraduationDate().toString() : null,
-                                e.getEduStatus() != null ? e.getEduStatus().name() : null))
                         .toList();
 
         List<CareerDto> careers = resume.getCareers() == null ? Collections.emptyList() :
-                resume.getCareers().stream()
+                IntStream.range(0, resume.getCareers().size())
+                        .mapToObj(index -> {
+                            Career c = resume.getCareers().get(index);
+                            if (c == null) return null;
+                            return new CareerDto((long) index, c.getCompanyName(), c.getPosition(),
+                                    c.getStartDate() != null ? c.getStartDate().toString() : null,
+                                    c.getEndDate() != null ? c.getEndDate().toString() : null,
+                                    c.getDescription());
+                        })
                         .filter(Objects::nonNull)
-                        .map(c -> new CareerDto(null, c.getCompanyName(), c.getPosition(),
-                                c.getStartDate() != null ? c.getStartDate().toString() : null,
-                                c.getEndDate() != null ? c.getEndDate().toString() : null,
-                                c.getDescription()))
                         .toList();
 
         List<CertificationDto> certifications = resume.getCertifications() == null ? Collections.emptyList() :
-                resume.getCertifications().stream()
+                IntStream.range(0, resume.getCertifications().size())
+                        .mapToObj(index -> {
+                            Certification cert = resume.getCertifications().get(index);
+                            if (cert == null) return null;
+                            return new CertificationDto((long) index, cert.getName(), cert.getIssuer(),
+                                    cert.getAcquisitionDate() != null ? cert.getAcquisitionDate().toString() : null);
+                        })
                         .filter(Objects::nonNull)
-                        .map(cert -> new CertificationDto(null, cert.getName(), cert.getIssuer(),
-                                cert.getAcquisitionDate() != null ? cert.getAcquisitionDate().toString() : null))
                         .toList();
 
-        return new FreelancerResumeResponseDto(educations, careers, certifications);
+        return new FreelancerResumeResponseDto(basicInfo, educations, careers, certifications);
     }
 }
