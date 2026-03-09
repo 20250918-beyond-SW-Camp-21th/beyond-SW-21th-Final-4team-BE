@@ -23,8 +23,7 @@ public class JwtTokenProvider {
     public JwtTokenProvider(
             @Value("${security.jwt.secret:}") String jwtSecret,
             @Value("${security.jwt.expiration-ms:3600000}") long jwtExpirationMs,
-            @Value("${security.jwt.refresh-expiration-ms:604800000}") long refreshTokenExpirationMs
-    ) {
+            @Value("${security.jwt.refresh-expiration-ms:604800000}") long refreshTokenExpirationMs) {
         if (jwtSecret == null || jwtSecret.isBlank()) {
             throw new IllegalStateException("Missing required config: security.jwt.secret (env: JWT_SECRET)");
         }
@@ -49,6 +48,7 @@ public class JwtTokenProvider {
                 .claim("email", email) // 이메일은 별도의 클레임으로 저장
                 .claim("role", role)
                 .claim("name", name)
+
                 .claim("grade", grade != null ? grade : "") // 회원 등급
                 .issuedAt(now)
                 .expiration(expiryDate)

@@ -103,8 +103,7 @@ class FreelancerProfileServiceTest {
                 "안녕하세요, 풀스택 개발자입니다.",
                 5,
                 50000L,
-                List.of("Java", "React", "Spring")
-        );
+                List.of("Java", "React", "Spring"));
 
         // when
         freelancerProfileService.updateProfile(userId, request);
@@ -126,8 +125,7 @@ class FreelancerProfileServiceTest {
         given(freelancerRepository.findByUserId(userId)).willReturn(Optional.empty());
 
         FreelancerProfileUpdateRequestDto request = new FreelancerProfileUpdateRequestDto(
-                "풀스택 개발자", "소개", 3, 40000L, List.of("Java")
-        );
+                "풀스택 개발자", "소개", 3, 40000L, List.of("Java"));
 
         // when & then
         assertThatThrownBy(() -> freelancerProfileService.updateProfile(userId, request))
@@ -146,7 +144,7 @@ class FreelancerProfileServiceTest {
         given(freelancerRepository.findByUserId(userId)).willReturn(Optional.of(mockFreelancer));
 
         // 유효한 PNG 매직 바이트
-        byte[] validPngBytes = new byte[]{(byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
+        byte[] validPngBytes = new byte[] { (byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
         MockMultipartFile mockFile = new MockMultipartFile("file", "avatar.png", "image/png", validPngBytes);
 
         String uploadedUrl = "avatars/mock-uuid.png";
