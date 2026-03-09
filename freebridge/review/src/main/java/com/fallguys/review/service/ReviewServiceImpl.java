@@ -288,6 +288,15 @@ public class ReviewServiceImpl implements ReviewService {
             payload.add(item);
         }
         writeRedisValue(FREELANCER_REVIEW_RATES_KEY_PREFIX + freelancerId, payload);
+        
+        // 프리랜서 리뷰가 변경되었으므로, 해당 프리랜서의 AI 분석 리포트 캐시 무효화
+        if (redisTemplate != null) {
+            try {
+                redisTemplate.delete("freelancer:review:ai_report:" + freelancerId);
+            } catch (Exception e) {
+                log.warn("Failed to invalidate AI report cache for freelancerId: {}", freelancerId, e);
+            }
+        }
     }
 
     private Number toNumberOrZero(Integer value) {
