@@ -6,6 +6,9 @@ import com.fallguys.recruitment.api.dto.response.AiRecommendationResponseDTO;
 import com.fallguys.recruitment.api.dto.response.EmployerProjectSearchDTO;
 import com.fallguys.recruitment.api.dto.response.FreelancerJobPostingSearchDTO;
 import com.fallguys.recruitment.api.dto.response.JobPostingSearchDTO;
+import com.fallguys.recruitment.api.dto.response.MatchedFreelancerResponseDTO;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 
@@ -21,6 +24,8 @@ public interface JobPostingService {
     List<JobPostingSearchDTO> getAllJobPostings();
 
     List<EmployerProjectSearchDTO> getEmployerProjects(Long userId);
+
+    Page<MatchedFreelancerResponseDTO> getMatchedFreelancers(Long projectId, Long userId, Pageable pageable);
 
     List<FreelancerJobPostingSearchDTO> searchJobPostingsForFreelancer(
             Long userId,
