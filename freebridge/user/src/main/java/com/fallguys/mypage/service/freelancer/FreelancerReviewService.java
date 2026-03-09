@@ -12,7 +12,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.context.event.EventListener;
+import org.springframework.scheduling.annotation.Async;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fallguys.common.event.ReputationUpdateRequestedEvent;
 
 import java.time.Duration;
 
@@ -161,6 +164,22 @@ public class FreelancerReviewService {
                 report.strengths() != null ? report.strengths() : Collections.emptyList(),
                 report.weaknesses() != null ? report.weaknesses() : Collections.emptyList()
         );
+    }
+
+    /**
+     * 비동기 AI 평판 분석 이벤트 리스너
+     * 리뷰 등록/수정/삭제로 인해 캐시가 무효화된 후 백그라운드에서 AI 분석을 재요청하여 캐시를 갱신합니다.
+     */
+    @Async
+    @EventListener
+    public void handleReputationUpdateEvent(ReputationUpdateRequestedEvent event) {
+        log.info("비동기 AI 평판 리포트 갱신 시작 - freelancerId: {}", event.freelancerId());
+        try {
+            getAiReputationReport(event.freelancerId());
+            log.info("비동기 AI 평판 리포트 갱신 완료 - freelancerId: {}", event.freelancerId());
+        } catch (Exception e) {
+            log.error("비동기 AI 평판 리포트 갱신 실패 - freelancerId: {}", event.freelancerId(), e);
+        }
     }
 
     // ─── 내부 헬퍼 ──────────────────────────────────────────────

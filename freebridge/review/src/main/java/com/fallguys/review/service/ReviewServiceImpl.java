@@ -18,6 +18,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -43,6 +44,7 @@ public class ReviewServiceImpl implements ReviewService {
     private final FreelancerReviewRepository freelancerReviewRepository;
     private final ProjectExternalApi projectExternalApi;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     public Page<FreelancerReview> getEmployerReceivedReviews(Long employerId, Pageable pageable) {
@@ -293,6 +295,7 @@ public class ReviewServiceImpl implements ReviewService {
         if (redisTemplate != null) {
             try {
                 redisTemplate.delete("freelancer:review:ai_report:" + freelancerId);
+                eventPublisher.publishEvent(new com.fallguys.common.event.ReputationUpdateRequestedEvent(freelancerId));
             } catch (Exception e) {
                 log.warn("Failed to invalidate AI report cache for freelancerId: {}", freelancerId, e);
             }

@@ -16,10 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.stream.Collectors;
 
-
-import com.fallguys.common.ai.port.ContractEngine;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.JsonNode;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -34,8 +30,7 @@ public class ContractService {
     private final ContractRepository contractRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final ContractPdfService contractPdfService;
-    private final ContractEngine contractEngine;
-    private final ObjectMapper objectMapper;
+
 
     public ContractResponse createContract(CreateContractRequest req, Long employerId) {
         Contract contract = new Contract();
@@ -74,35 +69,14 @@ public class ContractService {
         String pdfUrl = contractPdfService.generateContractPdf(saved);
         saved.setContractPdfUrl(pdfUrl);
 
-        // Feature 5: AI 계약서 법률 검토 (비동기로 진행하는 것이 이상적이나 우선 동기로 구현하고 에러 시 패스)
+        // Feature 5: AI 계약서 법률 검토 (비동기 이벤트 발행)
         try {
             byte[] pdfBytes = contractPdfService.generateContractPdfBytes(saved);
-            String aiResultJson = contractEngine.analyzeContract(pdfBytes, "contract_" + saved.getContractId() + ".pdf");
-            
-            JsonNode root = objectMapper.readTree(aiResultJson);
-            StringBuilder adviceBuilder = new StringBuilder();
-            
-            if (root.has("summary")) {
-                adviceBuilder.append("### 📄 계약서 요약\n").append(root.get("summary").asText()).append("\n\n");
-            }
-            if (root.has("toxic_clauses") && root.get("toxic_clauses").isArray() && root.get("toxic_clauses").size() > 0) {
-                adviceBuilder.append("### ⚠️ 주의 / 독소 조항\n");
-                for (JsonNode clause : root.get("toxic_clauses")) {
-                    adviceBuilder.append("- ").append(clause.asText()).append("\n");
-                }
-                adviceBuilder.append("\n");
-            }
-            if (root.has("recommendations") && root.get("recommendations").isArray() && root.get("recommendations").size() > 0) {
-                adviceBuilder.append("### 💡 권장 사항\n");
-                for (JsonNode rec : root.get("recommendations")) {
-                    adviceBuilder.append("- ").append(rec.asText()).append("\n");
-                }
-            }
-            
-            saved.setAiLegalAdvice(adviceBuilder.toString().trim());
+            saved.setAiLegalAdvice("AI가 계약서의 독소 조항과 법률 위반 사항을 분석하고 있습니다...");
+            eventPublisher.publishEvent(new com.fallguys.common.event.ContractAIAnalysisRequestedEvent(saved.getId(), pdfBytes));
         } catch (Exception e) {
-            log.error("AI 계약서 분석 실패: contractId={}", saved.getContractId(), e);
-            saved.setAiLegalAdvice("AI 분석 결과를 불러오는 데 실패했습니다.");
+            log.error("AI 계약서 분석용 PDF 생성 실패: contractId={}", saved.getContractId(), e);
+            saved.setAiLegalAdvice("AI 분석 준비에 실패했습니다.");
         }
 
         saved = contractRepository.save(saved);
