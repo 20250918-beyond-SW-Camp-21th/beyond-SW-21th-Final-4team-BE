@@ -2,6 +2,7 @@ package com.fallguys.mypage.api.shared;
 
 import com.fallguys.mypage.api.web.dto.employer.response.EmployerSubscriptionResponseDto;
 import com.fallguys.mypage.api.web.dto.employer.response.EmployerNotificationSettingsDto;
+import com.fallguys.mypage.api.web.dto.employer.response.EmployerFreelancerSearchResponseDto;
 
 public interface SharedMypageApi {
 
@@ -22,4 +23,6 @@ public interface SharedMypageApi {
     EmployerNotificationSettingsDto getNotificationSettings(Long userId);
 
     void updateNotificationSettings(Long userId, Boolean emailEnabled);
+
+    EmployerFreelancerSearchResponseDto getEmployerFreelancers(int page, int size, String keyword);
 }

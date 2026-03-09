@@ -3,15 +3,21 @@ package com.fallguys.mypage.api.shared;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import com.fallguys.mypage.api.web.dto.employer.response.EmployerFreelancerSearchItemDto;
+import com.fallguys.mypage.api.web.dto.employer.response.EmployerFreelancerSearchResponseDto;
 import com.fallguys.mypage.api.web.dto.employer.response.EmployerSubscriptionResponseDto;
 import com.fallguys.mypage.api.web.dto.employer.response.EmployerNotificationSettingsDto;
 import com.fallguys.mypage.entity.employer.Employer;
 import com.fallguys.mypage.repository.employer.EmployerRepository;
+import com.fallguys.user.api.shared.ExternalFreelancerSearchApi;
 import com.fallguys.user.api.shared.ExternalUserApi;
 import com.fallguys.user.api.shared.response.ExternalUserResponse;
+import com.fallguys.user.api.shared.response.ExternalFreelancerSearchItem;
+import com.fallguys.user.api.shared.response.ExternalFreelancerSearchResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 
 @Slf4j
 @Component
@@ -20,6 +26,7 @@ public class SharedMypageApiImpl implements SharedMypageApi {
 
     private final ExternalUserApi externalUserApi;
     private final EmployerRepository employerRepository;
+    private final ExternalFreelancerSearchApi externalFreelancerSearchApi;
 
     @Override
     public void updatePassword(Long userId, String currentPassword, String updatedPassword) {
@@ -79,5 +86,36 @@ public class SharedMypageApiImpl implements SharedMypageApi {
         }
         log.info("SharedMypageApi: 외부 모듈에 알림 설정 변경 요청 전달 (userId: {}, emailEnabled: {})", userId, emailEnabled);
         externalUserApi.updateEmailNotificationSetting(userId, emailEnabled);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public EmployerFreelancerSearchResponseDto getEmployerFreelancers(int page, int size, String keyword) {
+        ExternalFreelancerSearchResponse result = externalFreelancerSearchApi.searchFreelancers(page, size, keyword);
+        List<EmployerFreelancerSearchItemDto> items = result.items().stream()
+                .map(this::toItemDto)
+                .toList();
+        return new EmployerFreelancerSearchResponseDto(
+                items,
+                result.page(),
+                result.size(),
+                result.totalElements(),
+                result.totalPages()
+        );
+    }
+
+    private EmployerFreelancerSearchItemDto toItemDto(ExternalFreelancerSearchItem item) {
+        return new EmployerFreelancerSearchItemDto(
+                item.freelancerId(),
+                item.userId(),
+                item.name(),
+                item.job(),
+                item.careerYears(),
+                item.wage(),
+                item.introduction(),
+                item.avatarUrl(),
+                item.skills() == null ? List.of() : item.skills(),
+                item.grade()
+        );
     }
 }
