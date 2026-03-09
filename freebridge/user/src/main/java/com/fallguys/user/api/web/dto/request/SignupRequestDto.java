@@ -24,6 +24,9 @@ public class SignupRequestDto {
     @NotNull(message = "역할은 필수입니다.")
     private Role role;
 
+    @NotBlank(message = "전화번호는 필수입니다.")
+    private String phone;
+
     @NotNull(message = "이용약관 동의 여부는 필수입니다.")
     private Boolean termsAgreed;
 
