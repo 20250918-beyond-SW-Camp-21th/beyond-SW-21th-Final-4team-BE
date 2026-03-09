@@ -8,7 +8,9 @@ import com.fallguys.mypage.api.web.dto.freelancer.request.FreelancerProfileUpdat
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerBasicProfileDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerProfileResponseDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerStatsDto;
+import com.fallguys.mypage.api.web.dto.freelancer.response.WorkConditionsDto;
 import com.fallguys.mypage.entity.freelancer.Freelancer;
+import com.fallguys.mypage.entity.freelancer.WorkConditions;
 import com.fallguys.mypage.repository.freelancer.FreelancerRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,16 +38,25 @@ public class FreelancerProfileService {
     public FreelancerProfileResponseDto getProfile(Long userId) {
         Freelancer freelancer = findByUserIdOrThrow(userId);
 
+        WorkConditions workConditions = freelancer.getWorkConditions();
+        WorkConditionsDto workConditionsDto = workConditions == null ? null : new WorkConditionsDto(
+                workConditions.getConditionsType(),
+                workConditions.getStartDate(),
+                workConditions.getWorkStyle(),
+                workConditions.getLocation()
+        );
+
         FreelancerBasicProfileDto basicProfile = new FreelancerBasicProfileDto(
                 freelancer.getAvatarUrl(),
-                null, // name 은 User 도메인 정보 → 현재 미연동, 추후 ExternalUserApi 확장 예정
+                null, // name 은 User 이메일/정보와 연동 필요 (추후 ExternalUserApi 확장 예정)
                 freelancer.getJob(),
                 freelancer.getIntroduction(),
                 freelancer.getGrade() != null ? freelancer.getGrade().name() : null,
                 freelancer.getCareerYears(),
                 freelancer.getWage(),
                 freelancer.getSkills(),
-                freelancer.getStatus() != null ? freelancer.getStatus().name() : null
+                freelancer.getStatus() != null ? freelancer.getStatus().name() : null,
+                workConditionsDto
         );
 
         FreelancerStatsDto stats = new FreelancerStatsDto(
@@ -64,6 +75,21 @@ public class FreelancerProfileService {
         freelancer.updateBasicProfile(request.job(), null, request.introduction());
         freelancer.updateCareer(request.careerYears(), request.wage());
         freelancer.replaceSkills(request.skills());
+
+        boolean hasWorkConditions = request.workType() != null
+                || request.availableStartDate() != null
+                || request.workStyle() != null
+                || request.workLocation() != null;
+
+        if (hasWorkConditions) {
+            WorkConditions workConditions = new WorkConditions(
+                    request.workType(),
+                    request.availableStartDate(),
+                    request.workStyle(),
+                    request.workLocation()
+            );
+            freelancer.updateWorkConditions(workConditions);
+        }
     }
 
     @Transactional
@@ -96,14 +122,15 @@ public class FreelancerProfileService {
             String uploadedUrl = fileStorage.upload(fileBytes, uploadKey, file.getContentType());
 
             // DB 트랜잭션 롤백 시 업로드된 S3 파일 삭제 (고아 파일 방지)
+            String finalUploadKey = uploadKey;
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCompletion(int status) {
                     if (status == STATUS_ROLLED_BACK) {
                         try {
-                            fileStorage.deleteByKey(uploadKey);
+                            fileStorage.deleteByKey(finalUploadKey);
                         } catch (Exception ex) {
-                            log.error("S3 롤백 삭제 실패 - key: {}", key, ex);
+                            log.error("S3 롤백 삭제 실패 - key: {}", finalUploadKey, ex);
                         }
                     }
                 }
