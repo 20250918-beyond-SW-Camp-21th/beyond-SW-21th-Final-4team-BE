@@ -17,5 +17,6 @@ public record FreelancerBasicProfileDto(
         WorkConditionsDto workConditions,
         ExpertiseDto expertise,
         CollaborationDto collaboration,
-        Double averageRating
+        Double averageRating,
+        CrmAlertsDto crmAlerts
 ) {}

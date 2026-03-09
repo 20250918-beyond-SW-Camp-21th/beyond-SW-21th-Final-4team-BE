@@ -96,6 +96,10 @@ class FreelancerProfileServiceTest {
         assertThat(result.basicProfile().workConditions().workLocation()).isEqualTo("서울");
         assertThat(result.basicProfile().workConditions().availableStartDate())
                 .isEqualTo(LocalDate.of(2026, 3, 10));
+        assertThat(result.basicProfile().crmAlerts()).isNotNull();
+        assertThat(result.basicProfile().crmAlerts().rateBumpEligible()).isFalse();
+        assertThat(result.basicProfile().crmAlerts().burnoutRisk()).isFalse();
+        assertThat(result.basicProfile().crmAlerts().churnRisk()).isFalse();
         assertThat(result.stats().statContact()).isEqualTo(0);
         assertThat(result.stats().statChat()).isEqualTo(0);
         assertThat(result.stats().statContract()).isEqualTo(0);

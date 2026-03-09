@@ -7,6 +7,7 @@ import com.fallguys.common.port.FileStorage;
 import com.fallguys.mypage.api.shared.SharedMypageApi;
 import com.fallguys.mypage.api.web.dto.freelancer.request.FreelancerProfileUpdateRequestDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.CollaborationDto;
+import com.fallguys.mypage.api.web.dto.freelancer.response.CrmAlertsDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.ExpertiseDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerBasicProfileDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerProfileResponseDto;
@@ -68,6 +69,9 @@ public class FreelancerProfileService {
                 collaboration.getDispute()
         );
 
+        // 현재 CRM 규칙 데이터가 없으므로 기본값 false로 반환
+        CrmAlertsDto crmAlerts = new CrmAlertsDto(false, false, false);
+
         FreelancerBasicProfileDto basicProfile = new FreelancerBasicProfileDto(
                 freelancer.getAvatarUrl(),
                 userResponse != null ? userResponse.getName() : null,
@@ -83,7 +87,8 @@ public class FreelancerProfileService {
                 workConditionsDto,
                 expertiseDto,
                 collaborationDto,
-                freelancer.getAverageRate()
+                freelancer.getAverageRate(),
+                crmAlerts
         );
 
         FreelancerStatsDto stats = new FreelancerStatsDto(
