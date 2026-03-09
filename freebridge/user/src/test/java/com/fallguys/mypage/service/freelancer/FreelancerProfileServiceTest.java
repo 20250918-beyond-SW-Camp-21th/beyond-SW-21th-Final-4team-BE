@@ -1,4 +1,4 @@
-﻿package com.fallguys.mypage.service.freelancer;
+package com.fallguys.mypage.service.freelancer;
 
 import com.fallguys.common.exception.BusinessException;
 import com.fallguys.common.exception.ErrorCode;
