@@ -1,9 +1,0 @@
-user_id | email | role | freelancer_id | employer_id
-------------------------------------------------------------
-12 | employer1@test.com | EMPLOYER | null | 5
-14 | emp@test.com | EMPLOYER | null | 6
-2 | lmjayoul@gmail.com | FREELANCER | 1 | null
-2 | lmjayoul@gmail.com | FREELANCER | 2 | null
-13 | free1@test.com | FREELANCER | 4 | null
-15 | fre@test.com | FREELANCER | 5 | null
-3 | lmjayoul@naver.com | EMPLOYER | null | null
