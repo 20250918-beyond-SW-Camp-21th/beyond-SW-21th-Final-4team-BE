@@ -23,6 +23,9 @@ public class SubscriptionBillingService {
         @Transactional(readOnly = true)
         public PageResponse<SubscriptionBillingItem> getBillingHistory(Long employerId, String status, int page,
                         int size) {
+                if (size <= 0) {
+                        throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+                }
                 Pageable pageable = PageRequest.of(Math.max(0, page - 1), size,
                                 Sort.by(Sort.Direction.DESC, "billingDate"));
 

@@ -23,6 +23,7 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -142,10 +143,13 @@ public class EmployerSettlementService {
     public VerifyPaymentResponse verifyContractPayment(String paymentId, Long contractId, Long employerId) {
 
         // 멱등성 체크: 동일 paymentId 재호출 시 기존 결과 반환
+        // findByTransactionId로 canonical contractId를 조회하여 caller 제공 contractId 의존 방지
         if (employerSettlementRepository.existsByTransactionId(paymentId)) {
-            List<EmployerSettlement> existing = employerSettlementRepository.findByContractId(contractId);
-            long totalVerified = existing.stream().mapToLong(EmployerSettlement::getTotalPayment).sum();
-            return new VerifyPaymentResponse(true, contractId, totalVerified, existing.size());
+            Optional<EmployerSettlement> byTxn = employerSettlementRepository.findByTransactionId(paymentId);
+            Long canonicalContractId = byTxn.map(EmployerSettlement::getContractId).orElse(contractId);
+            List<EmployerSettlement> allSettlements = employerSettlementRepository.findByContractId(canonicalContractId);
+            long totalVerified = allSettlements.stream().mapToLong(EmployerSettlement::getTotalPayment).sum();
+            return new VerifyPaymentResponse(true, canonicalContractId, totalVerified, allSettlements.size());
         }
 
         // 포트원 V2 결제 검증

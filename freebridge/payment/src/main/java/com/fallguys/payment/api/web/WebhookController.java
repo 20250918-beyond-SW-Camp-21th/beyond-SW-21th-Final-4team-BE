@@ -43,6 +43,11 @@ public class WebhookController {
                     Long contractId = paymentInfo.getCustomData().getContractId();
                     Long employerId = paymentInfo.getCustomData().getEmployerId();
 
+                    if (contractId == null || employerId == null) {
+                        log.warn("웹훅 customData에 contractId 또는 employerId 누락: paymentId={}", paymentId);
+                        return ResponseEntity.ok("Missing metadata");
+                    }
+
                     // 4. 계약 대금 선결제 및 에스크로 보관 로직 실행 (멱등성 보장 필수)
                     settlementService.verifyContractPayment(paymentId, contractId, employerId);
                 }

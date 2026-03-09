@@ -42,7 +42,11 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
         Long employerId = request.getEmployerId();
         PlanType planType;
         try {
-            planType = PlanType.valueOf(request.getPlanType());
+            // getPlanType()이 null이면 NullPointerException → IllegalArgumentException으로 잡히지 않으므로 사전 검증
+            if (request.getPlanType() == null || request.getPlanType().isBlank()) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+            }
+            planType = PlanType.valueOf(request.getPlanType().trim().toUpperCase());
         } catch (IllegalArgumentException e) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
@@ -50,10 +54,8 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
         if (employerId == null || billingKey == null || billingKey.trim().isEmpty()) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
-        long amount = request.getAmount();
-        if (amount <= 0) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-        }
+        // 클라이언트 제공 금액 대신 서버 사이드 플랜 가격 사용 (금액 위변조 방지)
+        long amount = planType.getMonthlyPrice();
 
         // 1. 트랜잭션 외부에서 빌링키로 포트원 결제 호출 (외부 API 호출이 트랜잭션에 묶이지 않도록)
         String paymentId = "sub-" + UUID.randomUUID();
@@ -268,9 +270,14 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
     }
 
     @Transactional(readOnly = true)
-    public SubscriptionBillingItem getBillingById(Long billingId) {
+    public SubscriptionBillingItem getBillingById(Long billingId, Long requesterId) {
         SubscriptionBilling billing = subscriptionBillingRepository.findById(billingId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.SETTLEMENT_NOT_FOUND));
+
+        // 본인 결제 내역만 조회 허용
+        if (!billing.getEmployerId().equals(requesterId)) {
+            throw new BusinessException(ErrorCode.SETTLEMENT_FORBIDDEN);
+        }
 
         return new SubscriptionBillingItem(
                 billing.getId(), billing.getPlanType().name(),

@@ -35,6 +35,10 @@ public class AdminSettlementService {
 
     /**
      * 계약 정산 레코드 수동 생성 (포트원 검증 없이, 어드민/테스트 용도)
+     *
+     * <p>정산 레코드 생성 후 PLATFORM_ESCROW 지갑에 총 결제 금액을 크레딧합니다.
+     * 이후 runDisbursement()에서 processSingleDisbursement()를 호출할 때
+     * 에스크로 잔액이 충분해야 지급이 가능합니다.
      */
     @Transactional
     public void generateSettlements(Long contractId) {
@@ -46,13 +50,35 @@ public class AdminSettlementService {
             return;
         }
 
+        List<EmployerSettlement> settlements;
         try {
-            employerSettlementService.createSettlementRecords(contract, "MANUAL-" + contractId,
+            settlements = employerSettlementService.createSettlementRecords(contract, "MANUAL-" + contractId,
                     contract.employerId());
         } catch (DataIntegrityViolationException e) {
             log.info("동시 정산 생성 감지 - 기존 정산 레코드 사용: {}", contractId);
+            settlements = employerSettlementRepository.findByContractId(contractId);
         }
-        log.info("계약 #{} 정산 레코드 수동 생성 완료", contractId);
+
+        // 수동 생성 시에도 PLATFORM_ESCROW에 자금 적립 (processSingleDisbursement가 에스크로에서 차감하므로 필수)
+        long totalAmount = settlements.stream().mapToLong(EmployerSettlement::getTotalPayment).sum();
+        if (totalAmount > 0) {
+            Wallet escrowWallet = walletRepository.findByWalletTypeWithLock(WalletType.PLATFORM_ESCROW)
+                    .orElseGet(() -> {
+                        Wallet w = new Wallet();
+                        w.setWalletType(WalletType.PLATFORM_ESCROW);
+                        w.setBalance(0L);
+                        try {
+                            return walletRepository.save(w);
+                        } catch (DataIntegrityViolationException ex) {
+                            return walletRepository.findByWalletTypeWithLock(WalletType.PLATFORM_ESCROW)
+                                    .orElseThrow(() -> new BusinessException(ErrorCode.WALLET_NOT_FOUND));
+                        }
+                    });
+            escrowWallet.credit(totalAmount);
+            walletRepository.save(escrowWallet);
+        }
+
+        log.info("계약 #{} 정산 레코드 수동 생성 완료 (에스크로 적립: {})", contractId, totalAmount);
     }
 
     /**

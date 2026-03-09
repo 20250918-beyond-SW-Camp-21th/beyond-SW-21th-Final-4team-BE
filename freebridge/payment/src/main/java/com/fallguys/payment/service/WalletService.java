@@ -1,5 +1,7 @@
 package com.fallguys.payment.service;
 
+import com.fallguys.common.exception.BusinessException;
+import com.fallguys.common.exception.ErrorCode;
 import com.fallguys.payment.api.web.dto.*;
 import com.fallguys.payment.entity.FreelancerSettlementStatus;
 import com.fallguys.payment.entity.TransactionReferenceType;
@@ -43,6 +45,10 @@ public class WalletService {
     public PageResponse<WalletTransactionItem> getEmployerTransactions(
             Long employerId, String referenceType, int page, int size) {
 
+        if (size <= 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
         Wallet wallet = walletRepository.findByOwnerIdAndWalletType(employerId, WalletType.EMPLOYER)
                 .orElse(null);
         if (wallet == null) {
@@ -52,10 +58,20 @@ public class WalletService {
         Pageable pageable = PageRequest.of(Math.max(0, page - 1), size,
                 Sort.by(Sort.Direction.DESC, "createdAt"));
 
-        var pageResult = "ALL".equalsIgnoreCase(referenceType)
+        TransactionReferenceType parsedRefType = null;
+        if (!"ALL".equalsIgnoreCase(referenceType)) {
+            try {
+                parsedRefType = TransactionReferenceType.valueOf(referenceType);
+            } catch (IllegalArgumentException e) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+            }
+        }
+
+        final TransactionReferenceType finalRefType = parsedRefType;
+        var pageResult = (finalRefType == null)
                 ? walletTransactionRepository.findByWalletId(wallet.getId(), pageable)
                 : walletTransactionRepository.findByWalletIdAndReferenceType(
-                        wallet.getId(), TransactionReferenceType.valueOf(referenceType), pageable);
+                        wallet.getId(), finalRefType, pageable);
 
         List<WalletTransactionItem> items = pageResult.getContent().stream()
                 .map(t -> new WalletTransactionItem(
@@ -89,6 +105,9 @@ public class WalletService {
 
     @Transactional(readOnly = true)
     public PageResponse<WalletTransactionItem> getFreelancerTransactions(Long freelancerId, int page, int size) {
+        if (size <= 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
         Wallet wallet = walletRepository.findByOwnerIdAndWalletType(freelancerId, WalletType.FREELANCER)
                 .orElse(null);
         if (wallet == null) {

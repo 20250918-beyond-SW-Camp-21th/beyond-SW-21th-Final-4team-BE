@@ -23,6 +23,7 @@ public class WalletController {
     // ─── Employer ───────────────────────────────────────────────────────────
 
     @Operation(summary = "고용주 지갑 요약 조회", description = "총 지출액 및 거래 건수")
+    @PreAuthorize("hasRole('EMPLOYER')")
     @GetMapping("/employer/summary")
     public ResponseEntity<ApiResponse<EmployerWalletSummaryResponse>> employerSummary(
             @AuthenticationPrincipal CustomUserDetails user) {
@@ -33,6 +34,7 @@ public class WalletController {
     }
 
     @Operation(summary = "고용주 거래 내역 조회", description = "계약 결제, 구독 결제, 환불 내역 페이지네이션 조회")
+    @PreAuthorize("hasRole('EMPLOYER')")
     @GetMapping("/employer/transactions")
     public ResponseEntity<ApiResponse<PageResponse<WalletTransactionItem>>> employerTransactions(
             @AuthenticationPrincipal CustomUserDetails user,
@@ -49,6 +51,7 @@ public class WalletController {
     // ─── Freelancer ──────────────────────────────────────────────────────────
 
     @Operation(summary = "프리랜서 지갑 요약 조회", description = "총 수령액, 지급 예정 금액 및 거래 건수")
+    @PreAuthorize("hasRole('FREELANCER')")
     @GetMapping("/freelancer/summary")
     public ResponseEntity<ApiResponse<FreelancerWalletSummaryResponse>> freelancerSummary(
             @AuthenticationPrincipal CustomUserDetails user) {
@@ -59,6 +62,7 @@ public class WalletController {
     }
 
     @Operation(summary = "프리랜서 거래 내역 조회", description = "지급 내역 페이지네이션 조회")
+    @PreAuthorize("hasRole('FREELANCER')")
     @GetMapping("/freelancer/transactions")
     public ResponseEntity<ApiResponse<PageResponse<WalletTransactionItem>>> freelancerTransactions(
             @AuthenticationPrincipal CustomUserDetails user,

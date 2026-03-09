@@ -53,7 +53,6 @@ public class ContractService {
         contract.setEmployerBusinessName(req.getEmployerBusinessName());
         contract.setEmployerAddress(req.getEmployerAddress());
         contract.setEmployerCEO(req.getEmployerCEO());
-        contract.setFreelancerName(req.getFreelancerName());
         contract.setFreelancerAddress(req.getFreelancerAddress());
         contract.setFreelancerPhone(req.getFreelancerPhone());
 
@@ -119,19 +118,13 @@ public class ContractService {
         return toResponse(contract);
     }
 
-    public ContractResponse sign(Long contractId, SignContractRequest request, String role, Long userId) {
+    public ContractResponse sign(Long contractId, String signature, String role, Long userId) {
+        if (signature == null || signature.isBlank()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
         Contract contract = findByContractId(contractId);
         validateOwnership(contract, userId);
-        contract.signBy(role, request.getSignature());
-
-        if ("FREELANCER".equalsIgnoreCase(role)) {
-            if (request.getFreelancerAddress() != null && !request.getFreelancerAddress().isBlank()) {
-                contract.setFreelancerAddress(request.getFreelancerAddress());
-            }
-            if (request.getFreelancerPhone() != null && !request.getFreelancerPhone().isBlank()) {
-                contract.setFreelancerPhone(request.getFreelancerPhone());
-            }
-        }
+        contract.signBy(role, signature);
 
         if (contract.isActivatable()) {
             contract.activate();
@@ -213,7 +206,7 @@ public class ContractService {
                 .employerSignedDate(c.getEmployerSignedDate())
                 .freelancerSignature(c.getFreelancerSignature())
                 .freelancerSignedDate(c.getFreelancerSignedDate())
-                .freelancerName(c.getFreelancerName() != null ? c.getFreelancerName() : getMockUserName(c.getFreelancerId()))
+                .freelancerName(getMockUserName(c.getFreelancerId()))
                 .employerName(getMockUserName(c.getEmployerId()))
                 .build();
     }
@@ -231,7 +224,7 @@ public class ContractService {
                 .budget(c.getBudget())
                 .employerSigned(c.getEmployerSignature() != null)
                 .freelancerSigned(c.getFreelancerSignature() != null)
-                .freelancerName(c.getFreelancerName() != null ? c.getFreelancerName() : getMockUserName(c.getFreelancerId()))
+                .freelancerName(getMockUserName(c.getFreelancerId()))
                 .employerName(getMockUserName(c.getEmployerId()))
                 .build();
     }

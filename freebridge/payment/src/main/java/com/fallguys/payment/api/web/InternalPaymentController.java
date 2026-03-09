@@ -55,12 +55,13 @@ public class InternalPaymentController {
     }
 
     @Operation(summary = "[Internal] 구독 결제 내역 단건 조회",
-            description = "billingId로 SubscriptionBilling 레코드 조회")
+            description = "billingId로 SubscriptionBilling 레코드 조회. 본인 결제 내역만 조회 가능합니다.")
     @GetMapping("/subscription/{billingId}")
     public ResponseEntity<ApiResponse<SubscriptionBillingItem>> getSubscriptionBilling(
-            @PathVariable Long billingId) {
+            @PathVariable Long billingId,
+            @AuthenticationPrincipal CustomUserDetails user) {
 
-        SubscriptionBillingItem response = subscriptionPaymentService.getBillingById(billingId);
+        SubscriptionBillingItem response = subscriptionPaymentService.getBillingById(billingId, user.getId());
         ApiResponse<SubscriptionBillingItem> apiResponse = ApiResponse.ok(response);
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }

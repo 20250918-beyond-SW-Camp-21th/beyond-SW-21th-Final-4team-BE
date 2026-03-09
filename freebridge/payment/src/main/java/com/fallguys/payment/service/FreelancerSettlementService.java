@@ -2,6 +2,7 @@ package com.fallguys.payment.service;
 
 import com.fallguys.common.exception.BusinessException;
 import com.fallguys.common.exception.ErrorCode;
+import lombok.extern.slf4j.Slf4j;
 import com.fallguys.common.api.contract.ContractInfo;
 import com.fallguys.common.api.contract.ContractQuery;
 import com.fallguys.payment.api.web.dto.*;
@@ -19,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class FreelancerSettlementService {
@@ -35,7 +37,13 @@ public class FreelancerSettlementService {
         Page<FreelancerSettlement> pageResult;
 
         if (!"ALL".equalsIgnoreCase(status)) {
-            FreelancerSettlementStatus statusEnum = FreelancerSettlementStatus.valueOf(status);
+            FreelancerSettlementStatus statusEnum;
+            try {
+                statusEnum = FreelancerSettlementStatus.valueOf(
+                        status != null ? status.trim().toUpperCase() : "");
+            } catch (IllegalArgumentException e) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+            }
             pageResult = freelancerSettlementRepository.findByFreelancerIdAndStatus(freelancerId, statusEnum, pageable);
         } else {
             pageResult = freelancerSettlementRepository.findByFreelancerId(freelancerId, pageable);
@@ -116,12 +124,16 @@ public class FreelancerSettlementService {
     }
 
     private Pageable buildPageable(String sort, int page, int size) {
-        Sort jpaSort = switch (sort) {
-            case "SCHEDULED_DATE_DESC" -> Sort.by(Sort.Direction.DESC, "scheduledDate");
-            case "AMOUNT_ASC" -> Sort.by(Sort.Direction.ASC, "netAmount");
-            case "AMOUNT_DESC" -> Sort.by(Sort.Direction.DESC, "netAmount");
-            default -> Sort.by(Sort.Direction.ASC, "scheduledDate");
-        };
+        if (size <= 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        Sort jpaSort = (sort == null) ? Sort.by(Sort.Direction.ASC, "scheduledDate") :
+                switch (sort) {
+                    case "SCHEDULED_DATE_DESC" -> Sort.by(Sort.Direction.DESC, "scheduledDate");
+                    case "AMOUNT_ASC" -> Sort.by(Sort.Direction.ASC, "netAmount");
+                    case "AMOUNT_DESC" -> Sort.by(Sort.Direction.DESC, "netAmount");
+                    default -> Sort.by(Sort.Direction.ASC, "scheduledDate");
+                };
         return PageRequest.of(Math.max(0, page - 1), size, jpaSort);
     }
 }

@@ -48,7 +48,7 @@ public class AdminSettlementDisbursementService {
                 escrowWalletLocked.debit(es.getTotalPayment());
                 walletRepository.save(escrowWalletLocked);
 
-                // PLATFORM_REVENUE 에 플랫폼 수수료(고용주 측) + 세금(프리랜서 측) 크레딧
+                // PLATFORM_REVENUE 에 플랫폼 수수료(고용주 측) + 플랫폼 수수료(프리랜서 측) + 세금(프리랜서 측) 크레딧
                 Wallet revenueWalletLocked = walletRepository.findByWalletTypeWithLock(WalletType.PLATFORM_REVENUE)
                                 .orElseGet(() -> {
                                         Wallet w = new Wallet();
@@ -63,7 +63,9 @@ public class AdminSettlementDisbursementService {
                                                                                 ErrorCode.WALLET_NOT_FOUND));
                                         }
                                 });
-                long revenueAmount = es.getPlatformFee() + fs.getTax();
+                // revenueAmount = 고용주 측 수수료 + 프리랜서 측 수수료 + 세금
+                // escrowDebit(es.totalPayment) = revenueAmount + fs.netAmount 가 성립해야 합니다.
+                long revenueAmount = es.getPlatformFee() + fs.getPlatformFee() + fs.getTax();
                 revenueWalletLocked.credit(revenueAmount);
                 walletRepository.save(revenueWalletLocked);
 
