@@ -33,8 +33,7 @@ public class FreelancerReviewService {
     /**
      * 내 평판/등급 요약 조회
      * Redis Key: freelancer:review:rates:{freelancerId}
-     * Expected value: List<Map<String, Double>> { expertiseRate, communicationRate,
-     * scheduleRate }
+     * Expected value: List<Map<String, Double>> { expertiseRate, communicationRate, scheduleRate }
      * topPercentile은 Freelancer 엔티티에서 조회합니다.
      */
     @Transactional(readOnly = true)
