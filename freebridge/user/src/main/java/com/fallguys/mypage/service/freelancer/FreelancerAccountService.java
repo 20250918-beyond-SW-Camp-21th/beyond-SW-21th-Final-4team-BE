@@ -21,7 +21,7 @@ public class FreelancerAccountService {
     public void updatePassword(Long userId, UpdatePasswordRequestDto request) {
         if (request == null
                 || request.currentPassword() == null || request.currentPassword().isBlank()
-                || request.newPassword() == null || request.newPassword().isBlank()) {
+                || request.newPassword() == null     || request.newPassword().isBlank()) {
             throw new IllegalArgumentException("현재 비밀번호와 새 비밀번호를 모두 입력해야 합니다.");
         }
         sharedMypageApi.updatePassword(userId, request.currentPassword(), request.newPassword());
@@ -35,7 +35,8 @@ public class FreelancerAccountService {
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 프리랜서입니다."));
         return new FreelancerNotificationSettingsDto(
                 Boolean.TRUE.equals(freelancer.getRequestNotificationEnabled()),
-                Boolean.TRUE.equals(freelancer.getContractNotificationEnabled()));
+                Boolean.TRUE.equals(freelancer.getContractNotificationEnabled())
+        );
     }
 
     // ─── 알림 설정 수정 ─────────────────────────────────────────────
@@ -49,6 +50,7 @@ public class FreelancerAccountService {
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 프리랜서입니다."));
         freelancer.updateNotificationSettings(
                 request.requestNotificationEnabled(),
-                request.contractNotificationEnabled());
+                request.contractNotificationEnabled()
+        );
     }
 }

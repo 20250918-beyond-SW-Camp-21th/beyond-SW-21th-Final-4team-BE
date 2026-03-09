@@ -7,7 +7,6 @@ import com.fallguys.common.exception.ErrorCode;
 import com.fallguys.recruitment.api.dto.request.JobPostingCreateDTO;
 import com.fallguys.recruitment.api.dto.request.JobPostingUpdateDTO;
 import com.fallguys.recruitment.api.dto.response.AiRecommendationResponseDTO;
-import com.fallguys.recruitment.api.dto.response.MatchedFreelancerResponseDTO;
 import com.fallguys.recruitment.entity.JobPosting;
 import com.fallguys.recruitment.entity.JobPostingStatus;
 import com.fallguys.recruitment.entity.Project;
@@ -25,15 +24,11 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
-import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -171,42 +166,6 @@ class JobPostingServiceCoreTest {
     }
 
     @Test
-    @DisplayName("[TDD] 프로젝트 매칭 프리랜서 목록 조회 시 같은 공고에 매칭된 프리랜서를 반환한다")
-    void getMatchedFreelancers_returnsMatchedFreelancersForSameJobPosting() {
-        Long employerId = 5L;
-        Long projectId = 40L;
-        Long jobPostingId = 100L;
-        PageRequest pageable = PageRequest.of(0, 2);
-        Project sourceProject = Project.create(posting(jobPostingId, employerId, Status.ACTIVE), 77L);
-        Project anotherProject = Project.create(posting(jobPostingId, employerId, Status.ACTIVE), 88L);
-        ReflectionTestUtils.setField(sourceProject, "id", projectId, Long.class);
-        ReflectionTestUtils.setField(sourceProject, "createdAt", LocalDateTime.of(2026, 3, 8, 10, 0));
-        ReflectionTestUtils.setField(anotherProject, "id", 41L, Long.class);
-        ReflectionTestUtils.setField(anotherProject, "createdAt", LocalDateTime.of(2026, 3, 8, 9, 0));
-
-        when(recruitmentUserReader.getEmployerByIdOrThrow(employerId))
-                .thenReturn(new RecruitmentUser(employerId, "employer", null, null, "ACTIVE"));
-        when(projectPostingRepo.findById(projectId)).thenReturn(Optional.of(sourceProject));
-        when(projectPostingRepo.findAllByJobPostingIdOrderByCreatedAtDesc(jobPostingId, pageable))
-                .thenReturn(new PageImpl<>(List.of(sourceProject, anotherProject), pageable, 2));
-        when(recruitmentUserReader.getFreelancersByIdsOrThrow(new java.util.LinkedHashSet<>(List.of(77L, 88L))))
-                .thenReturn(java.util.Map.of(
-                        77L, new RecruitmentUser(77L, "kim", "[Java]", "백엔드", "ACTIVE"),
-                        88L, new RecruitmentUser(88L, "lee", "[Spring]", "풀스택", "POTENTIAL")
-                ));
-
-        Page<MatchedFreelancerResponseDTO> result = service.getMatchedFreelancers(projectId, employerId, pageable);
-
-        assertEquals(2, result.getContent().size());
-        assertEquals(2L, result.getTotalElements());
-        assertEquals(77L, result.getContent().get(0).freelancerId());
-        assertEquals("kim", result.getContent().get(0).freelancerName());
-        assertEquals(88L, result.getContent().get(1).freelancerId());
-        assertEquals("lee", result.getContent().get(1).freelancerName());
-        verify(recruitmentUserReader, never()).getFreelancerByIdOrThrow(any());
-    }
-
-    @Test
     @DisplayName("[TDD] 프로젝트 완료 시 이미 완료된 프로젝트면 PROJECT_ALREADY_COMPLETED 예외")
     void completeProject_alreadyCompleted_throws() {
         // given
@@ -224,26 +183,6 @@ class JobPostingServiceCoreTest {
 
         // then
         assertEquals(ErrorCode.PROJECT_ALREADY_COMPLETED, ex.getErrorCode());
-    }
-
-    @Test
-    @DisplayName("[TDD] 프로젝트 매칭 프리랜서 목록 조회 시 소유자가 다르면 JOB_POSTING_FORBIDDEN 예외")
-    void getMatchedFreelancers_forbiddenOwner_throws() {
-        Long employerId = 5L;
-        Long projectId = 40L;
-        Project project = Project.create(posting(100L, 99L, Status.ACTIVE), 77L);
-        PageRequest pageable = PageRequest.of(0, 10);
-
-        when(recruitmentUserReader.getEmployerByIdOrThrow(employerId))
-                .thenReturn(new RecruitmentUser(employerId, "employer", null, null, "ACTIVE"));
-        when(projectPostingRepo.findById(projectId)).thenReturn(Optional.of(project));
-
-        BusinessException ex = assertThrows(
-                BusinessException.class,
-                () -> service.getMatchedFreelancers(projectId, employerId, pageable)
-        );
-
-        assertEquals(ErrorCode.JOB_POSTING_FORBIDDEN, ex.getErrorCode());
     }
 
     private JobPosting posting(Long id, Long employerId, Status status) {

@@ -2,7 +2,6 @@ package com.fallguys.review.service;
 
 import com.fallguys.common.exception.BusinessException;
 import com.fallguys.common.exception.ErrorCode;
-import com.fallguys.common.port.ProjectExternalApi;
 import com.fallguys.review.api.dto.request.EmployerReviewCreateRequest;
 import com.fallguys.review.api.dto.request.EmployerReviewUpdateRequest;
 import com.fallguys.review.api.dto.request.FreelancerReviewCreateRequest;
@@ -41,7 +40,6 @@ public class ReviewServiceImpl implements ReviewService {
 
     private final EmployerReviewRepository employerReviewRepository;
     private final FreelancerReviewRepository freelancerReviewRepository;
-    private final ProjectExternalApi projectExternalApi;
     private final RedisTemplate<String, Object> redisTemplate;
 
     @Override
@@ -65,7 +63,6 @@ public class ReviewServiceImpl implements ReviewService {
     @Override
     @Transactional
     public Long createEmployerReview(Long employerId, EmployerReviewCreateRequest request) {
-        // 1. 중복 리뷰 체크 로직
         employerReviewRepository
                 .findByProjectIdAndEmployerIdAndFreelancerIdAndStatus(
                         request.projectId(),
@@ -77,7 +74,6 @@ public class ReviewServiceImpl implements ReviewService {
                     throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
                 });
 
-        // 2. 리뷰 엔티티 생성
         EmployerReview review = EmployerReview.builder()
                 .projectId(request.projectId())
                 .employerId(employerId)
@@ -92,26 +88,9 @@ public class ReviewServiceImpl implements ReviewService {
                 .build();
 
         try {
-            EmployerReview savedReview = employerReviewRepository.save(review);
-            Long reviewId = savedReview.getId();
-
+            Long reviewId = employerReviewRepository.save(review).getId();
             runAfterCommitSafely(() -> refreshFreelancerReviewRates(request.freelancerId()));
-
-            projectExternalApi.completeProjectWithReview(
-                    new ProjectExternalApi.ProjectCompletionData(
-                            savedReview.getProjectId(),
-                            savedReview.getFreelancerId(),
-                            savedReview.getDescription(),
-                            savedReview.getCommunication() != null ? savedReview.getCommunication() : 0,
-                            savedReview.getDebugging() != null ? savedReview.getDebugging() : 0,
-                            savedReview.getFramework() != null ? savedReview.getFramework() : 0,
-                            savedReview.getLanguage() != null ? savedReview.getLanguage() : 0,
-                            savedReview.getSchedule() != null ? savedReview.getSchedule() : 0
-                    )
-            );
-
             return reviewId;
-
         } catch (DataIntegrityViolationException e) {
             if (!isDuplicateKeyViolation(e)) {
                 throw e;

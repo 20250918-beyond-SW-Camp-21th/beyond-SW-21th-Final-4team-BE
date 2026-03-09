@@ -98,12 +98,12 @@ public class ExternalSubscriptionPortImpl implements ExternalSubscriptionPort {
     private Employer getEmployerOrThrow(Long userId) {
         return employerRepository.findByUserId(userId)
                 .orElseThrow(() -> new BusinessException(
-                        ErrorCode.USER_NOT_FOUND));
+                        ErrorCode.USER_NOT_FOUND
+                ));
     }
 
     private PlanGrade toPlanGrade(Subscription subscription) {
-        if (subscription == null)
-            return PlanGrade.BASIC;
+        if (subscription == null) return PlanGrade.BASIC;
         return switch (subscription) {
             case BASIC -> PlanGrade.BASIC;
             case PRO -> PlanGrade.PRO;

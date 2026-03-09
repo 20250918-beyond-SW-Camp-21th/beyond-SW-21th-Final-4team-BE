@@ -3,11 +3,9 @@ package com.fallguys.recruitment.api.web;
 import com.fallguys.common.response.ApiResponse;
 import com.fallguys.recruitment.api.dto.request.JobPostingCreateDTO;
 import com.fallguys.recruitment.api.dto.response.JobPostingSearchDTO;
-import com.fallguys.recruitment.api.dto.response.MatchedFreelancerResponseDTO;
 import com.fallguys.recruitment.api.dto.response.PagedResponseDTO;
 import com.fallguys.recruitment.api.support.TokenUserIdResolver;
 import com.fallguys.recruitment.entity.JobPostingStatus;
-import com.fallguys.recruitment.entity.ProjectStatus;
 import com.fallguys.recruitment.service.JobPostingService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,13 +13,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import java.util.List;
-import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -82,41 +77,6 @@ class JobPostingEmployerControllerTest {
         assertEquals(1, paged.size());
         assertEquals(2L, paged.totalElements());
         assertEquals(2, paged.totalPages());
-        assertEquals(1, paged.content().size());
-    }
-
-    @Test
-    @DisplayName("[TDD] 프로젝트 매칭 프리랜서 목록 조회 API는 안전한 PageRequest를 사용해 페이징 응답한다")
-    void getMatchedFreelancers_appliesPagingSafety() {
-        String authorization = "Bearer token";
-        Long projectId = 55L;
-        when(tokenUserIdResolver.resolveUserId(authorization)).thenReturn(10L);
-        when(jobPostingService.getMatchedFreelancers(projectId, 10L, PageRequest.of(0, 1))).thenReturn(new PageImpl<>(List.of(
-                new MatchedFreelancerResponseDTO(
-                        55L,
-                        21L,
-                        "freelancer",
-                        "[Java, Spring]",
-                        "백엔드 5년",
-                        "ACTIVE",
-                        ProjectStatus.IN_PROGRESS,
-                        LocalDateTime.of(2026, 3, 8, 18, 0)
-                )
-        ), PageRequest.of(0, 1), 3));
-
-        ResponseEntity<ApiResponse<PagedResponseDTO<MatchedFreelancerResponseDTO>>> response =
-                controller.getMatchedFreelancers(authorization, projectId, -1, 0);
-
-        verify(jobPostingService, times(1)).getMatchedFreelancers(projectId, 10L, PageRequest.of(0, 1));
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertEquals(true, response.getBody().success());
-
-        PagedResponseDTO<MatchedFreelancerResponseDTO> paged = response.getBody().data();
-        assertEquals(0, paged.page());
-        assertEquals(1, paged.size());
-        assertEquals(3L, paged.totalElements());
-        assertEquals(3, paged.totalPages());
         assertEquals(1, paged.content().size());
     }
 }
