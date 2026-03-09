@@ -65,8 +65,8 @@ public class FreelancerReviewService {
         String ratesRedisKey = "freelancer:review:rates:" + userId;
         try {
             Object ratesData = redisTemplate.opsForValue().get(ratesRedisKey);
-            // 등록된 리뷰가 없으면 AI 서버 호출을 생략하고 기본값 반환 (비용 절감 및 속도 개선)
-            if (ratesData == null || (ratesData instanceof List<?> list && list.isEmpty())) {
+            // 등록된 리뷰가 명시적으로 비어있을 경우에만 AI 서버 호출 생략
+            if (ratesData instanceof List<?> list && list.isEmpty()) {
                 return new FreelancerAiReputationReportDto(
                         "아직 충분한 리뷰가 등록되지 않았습니다.",
                         Collections.emptyList(),
@@ -83,14 +83,14 @@ public class FreelancerReviewService {
         try {
             Object cachedData = redisTemplate.opsForValue().get(redisKey);
             if (cachedData != null) {
-                // 저장된 캐시가 있을 경우 JSON에서 파싱 (LinkedHashMap으로 나올 수 있음을 대비해 objectMapper 필요)
+                // 저장된 캐시가 있을 경우 JSON에서 파싱
                 return objectMapper.convertValue(cachedData, FreelancerAiReputationReportDto.class);
             }
         } catch (Exception e) {
             log.warn("Failed to get AI reputation report from Redis for userId: {}", userId, e);
         }
 
-        // 캐시 존재하지 않으면 AI 서버 (ReviewEngine) 호출
+        // 캐시가 없거나, null이어서(ratesData가 아예 없거나) 재생성이 필요한 경우 AI 서버로 호출
         FreelancerAiReputationReportDto report = reviewEngine.getFreelancerAnalysis(userId);
 
         try {
