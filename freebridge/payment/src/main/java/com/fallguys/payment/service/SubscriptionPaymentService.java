@@ -64,8 +64,9 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
 
         // 이중결제 방지: 5분 이내 동일 employer + planType 에 대한 SUCCESS 시도가 있으면 재결제 차단
         final PlanType finalPlanType = planType;
-        Optional<PaymentAttempt> recentSuccess = paymentAttemptRepository.findRecentSuccess(
-                employerId, planType.name(), LocalDateTime.now().minusMinutes(5));
+        Optional<PaymentAttempt> recentSuccess = paymentAttemptRepository
+                .findFirstByEmployerIdAndPlanTypeAndStatusAndCreatedAtGreaterThanEqualOrderByCreatedAtDesc(
+                        employerId, planType.name(), "SUCCESS", LocalDateTime.now().minusMinutes(5));
         if (recentSuccess.isPresent()) {
             log.warn("이중결제 차단: employerId={}, planType={}, recentAttemptId={}",
                     employerId, finalPlanType, recentSuccess.get().getId());
@@ -196,23 +197,44 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
     }
 
     /**
-     * 스케줄러 전용 자동결제 메서드
-     * BillingKey 엔티티를 변경하지 않고 PortOne에 결제 요청만 합니다.
-     * 외부 호출을 트랜잭션 외부에서 실행합니다.
+     * 스케줄러 전용 자동결제 메서드.
+     * processPayment()와 동일한 내구성(durability) 패턴을 적용합니다:
+     *   1. PENDING PaymentAttempt 저장 (별도 트랜잭션)
+     *   2. PortOne API 호출 (트랜잭션 외부)
+     *   3. PaymentAttempt 상태 업데이트 (별도 트랜잭션) — 결제 증거 보존
+     *   4. SubscriptionBilling 저장 (별도 트랜잭션) — 결제 사실 기록
+     *   5. BillingKey 갱신 + 지갑 처리 (별도 트랜잭션, try/catch)
      */
     public void chargeScheduled(BillingKey billingKey, long amount) {
-        if (amount <= 0) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-        }
         Long employerId = billingKey.getEmployerId();
         String bKey = billingKey.getBillingKey();
         if (employerId == null || bKey == null || bKey.trim().isEmpty()) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
         PlanType planType = billingKey.getPlanType();
+        if (planType == null || planType == PlanType.FREE) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        // 클라이언트 제공 금액 대신 서버 사이드 플랜 가격 사용 (금액 위변조 방지)
+        amount = planType.getMonthlyPrice();
+        if (amount <= 0) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
 
-        String paymentId = "sub-" + UUID.randomUUID();
-        transactionTemplate.executeWithoutResult(status -> {
+        // 이중결제 방지: 5분 이내 동일 employer + planType 에 대한 SUCCESS 시도가 있으면 재결제 차단
+        Optional<PaymentAttempt> recentSuccess = paymentAttemptRepository
+                .findFirstByEmployerIdAndPlanTypeAndStatusAndCreatedAtGreaterThanEqualOrderByCreatedAtDesc(
+                        employerId, planType.name(), "SUCCESS", LocalDateTime.now().minusMinutes(5));
+        if (recentSuccess.isPresent()) {
+            log.warn("[자동결제] 이중결제 차단: employerId={}, planType={}, recentAttemptId={}",
+                    employerId, planType, recentSuccess.get().getId());
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        // 1. PENDING PaymentAttempt 저장
+        final String paymentId = "sub-" + UUID.randomUUID();
+        final long finalAmount = amount;
+        transactionTemplate.executeWithoutResult(txStatus -> {
             PaymentAttempt attempt = new PaymentAttempt();
             attempt.setId(paymentId);
             attempt.setEmployerId(employerId);
@@ -221,17 +243,16 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
             paymentAttemptRepository.save(attempt);
         });
 
-        // 트랜잭션 외부에서 API 호출
-        PortOnePaymentInfo paymentInfo = null;
+        // 2. 트랜잭션 외부에서 포트원 API 호출
+        PortOnePaymentInfo paymentInfo;
         try {
             paymentInfo = portOneApiClient.chargeBillingKey(
                     paymentId, bKey,
-                    amount,
+                    finalAmount,
                     planType.name() + " 구독 자동결제",
                     "employer-" + employerId);
         } catch (Exception e) {
-            // BusinessException 및 기타 모든 예외(네트워크 오류, RuntimeException 등) 동일하게 처리
-            transactionTemplate.executeWithoutResult(status -> {
+            transactionTemplate.executeWithoutResult(txStatus -> {
                 paymentAttemptRepository.findById(paymentId).ifPresent(attempt -> {
                     attempt.setStatus("FAILED");
                     paymentAttemptRepository.save(attempt);
@@ -239,7 +260,7 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
                 SubscriptionBilling billing = new SubscriptionBilling();
                 billing.setEmployerId(employerId);
                 billing.setPlanType(planType);
-                billing.setAmount(amount);
+                billing.setAmount(finalAmount);
                 billing.setBillingDate(LocalDate.now());
                 billing.setStatus(SubscriptionBillingStatus.FAILED);
                 subscriptionBillingRepository.save(billing);
@@ -250,44 +271,63 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
 
         final PortOnePaymentInfo finalPaymentInfo = paymentInfo;
 
-        transactionTemplate.executeWithoutResult(status -> {
+        // 3. 결제 결과에 따라 PaymentAttempt 상태를 즉시 별도 트랜잭션에 저장 — 결제 증거 보존
+        transactionTemplate.executeWithoutResult(txStatus -> {
             paymentAttemptRepository.findById(paymentId).ifPresent(attempt -> {
                 attempt.setStatus(finalPaymentInfo.isPaid() ? "SUCCESS" : "FAILED");
                 paymentAttemptRepository.save(attempt);
             });
+        });
 
-            SubscriptionBilling billing = new SubscriptionBilling();
-            billing.setEmployerId(employerId);
-            billing.setPlanType(planType);
-            billing.setAmount(amount);
-            billing.setBillingDate(LocalDate.now());
-
-            if (!finalPaymentInfo.isPaid()) {
+        if (!finalPaymentInfo.isPaid()) {
+            transactionTemplate.executeWithoutResult(txStatus -> {
+                SubscriptionBilling billing = new SubscriptionBilling();
+                billing.setEmployerId(employerId);
+                billing.setPlanType(planType);
+                billing.setAmount(finalAmount);
+                billing.setBillingDate(LocalDate.now());
                 billing.setStatus(SubscriptionBillingStatus.FAILED);
                 subscriptionBillingRepository.save(billing);
                 log.warn("[자동결제] 결제 미완료: employerId={}, planType={}", employerId, planType);
-                return;
-            }
+            });
+            return;
+        }
 
+        // 4. 결제 성공 확정 — SubscriptionBilling 레코드를 별도 트랜잭션에 먼저 저장
+        final Long[] billingIdHolder = new Long[1];
+        transactionTemplate.executeWithoutResult(txStatus -> {
+            SubscriptionBilling billing = new SubscriptionBilling();
+            billing.setEmployerId(employerId);
+            billing.setPlanType(planType);
+            billing.setAmount(finalAmount);
+            billing.setBillingDate(LocalDate.now());
             billing.markPaid(finalPaymentInfo.getPaymentId());
             subscriptionBillingRepository.save(billing);
-
-            billingKey.updateNextBillingDate();
-            billingKeyRepository.save(billingKey);
-
-            // PLATFORM_REVENUE 지갑 크레딧 - 비관적 락 적용 및 UNIQUE 제약 예외처리로 동시성 이슈 해결
-            Wallet revenueWallet = getOrCreatePlatformRevenueWallet();
-            revenueWallet.credit(amount);
-            walletRepository.save(revenueWallet);
-
-            walletTransactionRepository.save(new WalletTransaction(
-                    revenueWallet.getId(), TransactionType.CREDIT, amount,
-                    TransactionReferenceType.SUBSCRIPTION_PAYMENT, billing.getId(),
-                    planType.name() + " 구독 자동결제 수익", revenueWallet.getBalance()));
-
-            log.info("[자동결제] 완료: employerId={}, planType={}, amount={}, billingId={}",
-                    employerId, planType, amount, billing.getId());
+            billingIdHolder[0] = billing.getId();
         });
+
+        // 5. BillingKey 갱신 + 지갑 처리 — 실패 시 billingId로 수동 조정 가능
+        try {
+            transactionTemplate.executeWithoutResult(txStatus -> {
+                billingKey.updateNextBillingDate();
+                billingKeyRepository.save(billingKey);
+
+                Wallet revenueWallet = getOrCreatePlatformRevenueWallet();
+                revenueWallet.credit(finalAmount);
+                walletRepository.save(revenueWallet);
+
+                walletTransactionRepository.save(new WalletTransaction(
+                        revenueWallet.getId(), TransactionType.CREDIT, finalAmount,
+                        TransactionReferenceType.SUBSCRIPTION_PAYMENT, billingIdHolder[0],
+                        planType.name() + " 구독 자동결제 수익", revenueWallet.getBalance()));
+
+                log.info("[자동결제] 완료: employerId={}, planType={}, amount={}, billingId={}",
+                        employerId, planType, finalAmount, billingIdHolder[0]);
+            });
+        } catch (Exception e) {
+            log.error("[자동결제] 후처리 실패 (결제는 완료됨): employerId={}, billingId={}, error={}",
+                    employerId, billingIdHolder[0], e.getMessage());
+        }
     }
 
     private Wallet getOrCreatePlatformRevenueWallet() {

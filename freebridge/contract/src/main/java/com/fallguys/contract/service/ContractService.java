@@ -121,6 +121,9 @@ public class ContractService {
     }
 
     public ContractResponse sign(Long contractId, SignContractRequest request, String role, Long userId) {
+        if (request == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
         String signature = request.getSignature();
         if (signature == null || signature.isBlank()) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);

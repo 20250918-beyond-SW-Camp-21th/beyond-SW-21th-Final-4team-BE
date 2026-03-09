@@ -46,6 +46,10 @@ public class EmployerSettlementService {
         if (status == null || status.isBlank()) {
             status = "ALL";
         }
+        // Normalize dateRange — a null value would cause parseDateRange() to throw NPE
+        if (dateRange == null || dateRange.isBlank()) {
+            dateRange = "ALL";
+        }
 
         Pageable pageable = buildPageable(sort, page, size);
         Page<EmployerSettlement> pageResult;
@@ -148,17 +152,26 @@ public class EmployerSettlementService {
     public VerifyPaymentResponse verifyContractPayment(String paymentId, Long contractId, Long employerId) {
 
         // 멱등성 체크: 동일 paymentId 재호출 시 기존 결과 반환
-        // findByTransactionId로 canonical contractId를 조회하여 caller 제공 contractId 의존 방지
         if (employerSettlementRepository.existsByTransactionId(paymentId)) {
             Optional<EmployerSettlement> byTxn = employerSettlementRepository.findByTransactionId(paymentId);
-            // 다른 employer가 동일 paymentId로 타인 정산 데이터를 조회하는 것을 방지
-            if (byTxn.isPresent() && !byTxn.get().getEmployerId().equals(employerId)) {
-                throw new BusinessException(ErrorCode.SETTLEMENT_FORBIDDEN);
+            if (byTxn.isPresent()) {
+                EmployerSettlement existing = byTxn.get();
+                // 다른 employer가 동일 paymentId로 타인 정산 데이터를 조회하는 것을 방지
+                if (!existing.getEmployerId().equals(employerId)) {
+                    throw new BusinessException(ErrorCode.SETTLEMENT_FORBIDDEN);
+                }
+                Long canonicalContractId = existing.getContractId();
+                // paymentId가 다른 계약에 이미 사용된 경우 재사용 방지 (cross-contract reuse attack)
+                if (!canonicalContractId.equals(contractId)) {
+                    log.warn("paymentId 재사용 시도 차단: paymentId={}, 요청 contractId={}, 실제 contractId={}",
+                            paymentId, contractId, canonicalContractId);
+                    throw new BusinessException(ErrorCode.PAYMENT_FAILED);
+                }
+                List<EmployerSettlement> allSettlements = employerSettlementRepository.findByContractId(canonicalContractId);
+                long totalVerified = allSettlements.stream().mapToLong(EmployerSettlement::getTotalPayment).sum();
+                return new VerifyPaymentResponse(true, canonicalContractId, totalVerified, allSettlements.size());
             }
-            Long canonicalContractId = byTxn.map(EmployerSettlement::getContractId).orElse(contractId);
-            List<EmployerSettlement> allSettlements = employerSettlementRepository.findByContractId(canonicalContractId);
-            long totalVerified = allSettlements.stream().mapToLong(EmployerSettlement::getTotalPayment).sum();
-            return new VerifyPaymentResponse(true, canonicalContractId, totalVerified, allSettlements.size());
+            // Race condition: existsByTransactionId returned true but row disappeared — fall through to re-process
         }
 
         // 포트원 V2 결제 검증
@@ -186,8 +199,11 @@ public class EmployerSettlementService {
         try {
             settlements = createSettlementRecords(contract, paymentId, employerId);
         } catch (DataIntegrityViolationException e) {
-            log.info("동시 정산 생성 감지 - 기존 정산 레코드 사용: {}", paymentId);
-            settlements = employerSettlementRepository.findByContractId(contractId);
+            // 동시 요청이 이미 정산 레코드를 생성 완료한 경우 — 지갑 이중 처리를 막기 위해 즉시 반환
+            log.info("동시 정산 생성 감지 - 지갑 처리 없이 기존 정산 레코드 반환: paymentId={}", paymentId);
+            List<EmployerSettlement> existing = employerSettlementRepository.findByContractId(contractId);
+            long total = existing.stream().mapToLong(EmployerSettlement::getTotalPayment).sum();
+            return new VerifyPaymentResponse(true, contractId, total, existing.size());
         }
 
         // 금액 검증: PortOne 결제 금액 == 전체 회차 totalPayment 합산

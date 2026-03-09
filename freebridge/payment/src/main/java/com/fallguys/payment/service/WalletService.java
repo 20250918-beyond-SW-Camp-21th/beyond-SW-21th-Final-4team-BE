@@ -58,6 +58,11 @@ public class WalletService {
         Pageable pageable = PageRequest.of(page - 1, size,
                 Sort.by(Sort.Direction.DESC, "createdAt"));
 
+        // Normalize null/blank to "ALL" before valueOf to avoid NullPointerException
+        if (referenceType == null || referenceType.isBlank()) {
+            referenceType = "ALL";
+        }
+
         TransactionReferenceType parsedRefType = null;
         if (!"ALL".equalsIgnoreCase(referenceType)) {
             try {
@@ -89,19 +94,18 @@ public class WalletService {
         Wallet wallet = walletRepository.findByOwnerIdAndWalletType(freelancerId, WalletType.FREELANCER)
                 .orElse(null);
 
-        // PENDING 상태 정산의 예정 수령액 (지갑 미생성 상태에서도 조회 가능)
+        // Calculate both amounts before the wallet-null check so that freelancers
+        // whose wallet has not been created yet still receive the correct totalEarned.
         Long pendingAmount = freelancerSettlementRepository
                 .sumNetAmountByFreelancerIdAndStatusPending(freelancerId);
-
-        if (wallet == null) {
-            return new FreelancerWalletSummaryResponse(0L, pendingAmount, 0);
-        }
-
-        // Use the cumulative sum of all PAID settlement netAmounts as "total earned",
-        // not wallet.getBalance() which only reflects the current remaining balance.
         Long totalEarned = freelancerSettlementRepository
                 .sumNetAmountByFreelancerIdAndStatusPaid(freelancerId);
         if (totalEarned == null) totalEarned = 0L;
+
+        if (wallet == null) {
+            return new FreelancerWalletSummaryResponse(totalEarned, pendingAmount, 0);
+        }
+
         Integer transactionCount = walletTransactionRepository.countByWalletId(wallet.getId());
 
         return new FreelancerWalletSummaryResponse(totalEarned, pendingAmount, transactionCount);
