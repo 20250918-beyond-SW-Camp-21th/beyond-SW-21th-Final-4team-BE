@@ -11,6 +11,7 @@ import com.fallguys.recruitment.api.dto.response.AiRecommendationResponseDTO;
 import com.fallguys.recruitment.api.dto.response.EmployerProjectSearchDTO;
 import com.fallguys.recruitment.api.dto.response.FreelancerJobPostingSearchDTO;
 import com.fallguys.recruitment.api.dto.response.JobPostingSearchDTO;
+import com.fallguys.recruitment.api.dto.response.MatchedFreelancerResponseDTO;
 import com.fallguys.recruitment.entity.JobPostingFavorite;
 import com.fallguys.recruitment.entity.JobPosting;
 import com.fallguys.recruitment.entity.JobPostingStatus;
@@ -25,6 +26,8 @@ import com.fallguys.recruitment.service.port.RecruitmentUserReader;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.Cursor;
 import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -42,9 +45,11 @@ import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 @Slf4j
@@ -169,6 +174,30 @@ public class JobPostingServiceImpl implements JobPostingService {
     }
 
     @Override
+    public Page<MatchedFreelancerResponseDTO> getMatchedFreelancers(Long projectId, Long userId, Pageable pageable) {
+        RecruitmentUser employer = recruitmentUserReader.getEmployerByIdOrThrow(userId);
+        Project sourceProject = getProjectOrThrow(projectId);
+        validateProjectOwnership(sourceProject, employer.id());
+
+        Page<Project> projects = projectPostingRepo.findAllByJobPostingIdOrderByCreatedAtDesc(
+                        sourceProject.getJobPosting().getId(),
+                        pageable
+                );
+
+        Map<Long, RecruitmentUser> freelancersById = recruitmentUserReader.getFreelancersByIdsOrThrow(
+                projects.getContent().stream()
+                        .map(Project::getFreelancerId)
+                        .filter(Objects::nonNull)
+                        .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new))
+        );
+
+        return projects.map(project -> toMatchedFreelancerResponseDto(
+                project,
+                getFreelancerOrThrow(freelancersById, project.getFreelancerId())
+        ));
+    }
+
+    @Override
     public List<FreelancerJobPostingSearchDTO> searchJobPostingsForFreelancer(Long userId, String keyword, boolean favoritesOnly) {
         RecruitmentUser user = recruitmentUserReader.getFreelancerByIdOrThrow(userId);
         Long freelancerId = user.id();
@@ -232,6 +261,11 @@ public class JobPostingServiceImpl implements JobPostingService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.JOB_POSTING_NOT_FOUND));
     }
 
+    private Project getProjectOrThrow(Long projectId) {
+        return projectPostingRepo.findById(projectId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.PROJECT_NOT_FOUND));
+    }
+
     private void validateOwnership(JobPosting jobPosting, Long userId) {
         if (!jobPosting.getEmployerId().equals(userId)) {
             throw new BusinessException(ErrorCode.JOB_POSTING_FORBIDDEN);
@@ -241,6 +275,12 @@ public class JobPostingServiceImpl implements JobPostingService {
     private void validateNotDeleted(JobPosting jobPosting) {
         if (jobPosting.getStatus() == Status.DELETED) {
             throw new BusinessException(ErrorCode.JOB_POSTING_ALREADY_DELETED);
+        }
+    }
+
+    private void validateProjectOwnership(Project project, Long userId) {
+        if (!project.getEmployerId().equals(userId)) {
+            throw new BusinessException(ErrorCode.JOB_POSTING_FORBIDDEN);
         }
     }
 
@@ -285,6 +325,27 @@ public class JobPostingServiceImpl implements JobPostingService {
                 project.getEndDate(),
                 project.getStatus()
         );
+    }
+
+    private MatchedFreelancerResponseDTO toMatchedFreelancerResponseDto(Project project, RecruitmentUser freelancer) {
+        return new MatchedFreelancerResponseDTO(
+                project.getId(),
+                project.getFreelancerId(),
+                freelancer.name(),
+                freelancer.skills(),
+                freelancer.experience(),
+                freelancer.status(),
+                project.getStatus(),
+                project.getCreatedAt()
+        );
+    }
+
+    private RecruitmentUser getFreelancerOrThrow(Map<Long, RecruitmentUser> freelancersById, Long freelancerId) {
+        RecruitmentUser freelancer = freelancersById.get(freelancerId);
+        if (freelancer == null) {
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+        }
+        return freelancer;
     }
 
     private boolean matchesKeyword(JobPosting jobPosting, String keyword) {
