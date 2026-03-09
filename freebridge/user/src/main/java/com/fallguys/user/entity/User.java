@@ -26,7 +26,7 @@ public class User extends BaseTimeEntity {
     @Column(nullable = false)
     private String name;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String phone;
 
     @Enumerated(EnumType.STRING)
