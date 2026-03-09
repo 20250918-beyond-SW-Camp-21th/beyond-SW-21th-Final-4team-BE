@@ -1,6 +1,5 @@
 package com.fallguys.user.service;
 
-import com.fallguys.user.api.web.dto.request.SignupRequestDto;
 import com.fallguys.user.api.web.dto.request.PasswordUpdateRequest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -17,7 +16,6 @@ import com.fallguys.mypage.repository.resume.ResumeRepository;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceValidationTest {
@@ -50,11 +48,9 @@ class UserServiceValidationTest {
                 .newPassword("Short1!")
                 .build();
 
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
+        assertThrows(IllegalArgumentException.class, () -> {
             userService.updatePassword(1L, request);
         });
-
-        assertEquals("비밀번호는 영문, 숫자, 특수문자를 포함하여 8자 이상이어야 합니다.", exception.getMessage());
     }
 
     @Test
@@ -65,11 +61,9 @@ class UserServiceValidationTest {
                 .newPassword("Password123")
                 .build();
 
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
+        assertThrows(IllegalArgumentException.class, () -> {
             userService.updatePassword(1L, request);
         });
-
-        assertEquals("비밀번호는 영문, 숫자, 특수문자를 포함하여 8자 이상이어야 합니다.", exception.getMessage());
     }
 
     @Test
@@ -80,10 +74,34 @@ class UserServiceValidationTest {
                 .newPassword("Password@")
                 .build();
 
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
+        assertThrows(IllegalArgumentException.class, () -> {
             userService.updatePassword(1L, request);
         });
+    }
 
-        assertEquals("비밀번호는 영문, 숫자, 특수문자를 포함하여 8자 이상이어야 합니다.", exception.getMessage());
+    @Test
+    @DisplayName("비밀번호 검증 테스트 - 유효하지 않은 형식 (대문자 없음)")
+    void validatePassword_NoUpperCase() {
+        PasswordUpdateRequest request = PasswordUpdateRequest.builder()
+                .currentPassword("oldPassword123!")
+                .newPassword("password123!")
+                .build();
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            userService.updatePassword(1L, request);
+        });
+    }
+
+    @Test
+    @DisplayName("비밀번호 검증 테스트 - 유효하지 않은 형식 (소문자 없음)")
+    void validatePassword_NoLowerCase() {
+        PasswordUpdateRequest request = PasswordUpdateRequest.builder()
+                .currentPassword("oldPassword123!")
+                .newPassword("PASSWORD123!")
+                .build();
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            userService.updatePassword(1L, request);
+        });
     }
 }

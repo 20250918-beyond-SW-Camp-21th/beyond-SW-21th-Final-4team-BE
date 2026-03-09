@@ -1,0 +1,42 @@
+> Task :common:compileJava UP-TO-DATE
+> Task :common:processResources UP-TO-DATE
+> Task :common:classes UP-TO-DATE
+> Task :common:jar UP-TO-DATE
+> Task :infra-common:compileJava UP-TO-DATE
+> Task :infra-common:processResources UP-TO-DATE
+> Task :infra-common:classes UP-TO-DATE
+> Task :infra-common:jar UP-TO-DATE
+> Task :user:compileJava UP-TO-DATE
+> Task :user:processResources UP-TO-DATE
+> Task :user:classes UP-TO-DATE
+> Task :user:compileTestJava UP-TO-DATE
+> Task :user:processTestResources NO-SOURCE
+> Task :user:testClasses UP-TO-DATE
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+
+> Task :user:test
+
+UserServiceValidationTest > 鍮꾨?踰덊샇 寃利??뚯뒪??- ?좏슚?섏? ?딆? ?뺤떇 (?뱀닔臾몄옄 ?놁쓬) FAILED
+    org.opentest4j.AssertionFailedError at UserServiceValidationTest.java:72
+
+UserServiceValidationTest > 鍮꾨?踰덊샇 寃利??뚯뒪??- ?좏슚?섏? ?딆? ?뺤떇 (8??誘몃쭔) FAILED
+    org.opentest4j.AssertionFailedError at UserServiceValidationTest.java:57
+
+UserServiceValidationTest > 鍮꾨?踰덊샇 寃利??뚯뒪??- ?좏슚?섏? ?딆? ?뺤떇 (?レ옄 ?놁쓬) FAILED
+    org.opentest4j.AssertionFailedError at UserServiceValidationTest.java:87
+
+3 tests completed, 3 failed
+
+> Task :user:test FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':user:test'.
+> There were failing tests. See the report at: file:///C:/project/beyond-SW-21th-final/beyond-SW-21th-Final-4team-BE/freebridge/user/build/reports/tests/test/index.html
+
+* Try:
+> Run with --scan to get full insights.
+
+BUILD FAILED in 12s
+10 actionable tasks: 1 executed, 9 up-to-date

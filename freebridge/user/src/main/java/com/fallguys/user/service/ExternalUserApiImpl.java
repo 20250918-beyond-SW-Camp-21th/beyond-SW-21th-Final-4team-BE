@@ -41,11 +41,14 @@ public class ExternalUserApiImpl implements ExternalUserApi {
     public void updatePassword(Long userId, String currentPassword, String newPassword) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다. ID: " + userId));
-                
+
         if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
             throw new IllegalArgumentException("현재 비밀번호가 일치하지 않습니다.");
         }
-        
+
+        // 새로운 비밀번호 유효성 검사
+        validatePassword(newPassword);
+
         user.updatePassword(passwordEncoder.encode(newPassword));
     }
 
@@ -71,5 +74,15 @@ public class ExternalUserApiImpl implements ExternalUserApi {
                 .emailEnabled(user.getEmailEnabled())
                 .createdAt(user.getCreatedAt())
                 .build();
+    }
+
+    /**
+     * 비밀번호 유효성 검사 (대문자, 소문자, 숫자, 특수문자 포함 8자 이상)
+     */
+    private void validatePassword(String password) {
+        String regex = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*#?&])[A-Za-z\\d@$!%*#?&]{8,}$";
+        if (password == null || !password.matches(regex)) {
+            throw new IllegalArgumentException("비밀번호는 대문자, 소문자, 숫자, 특수문자를 포함하여 8자 이상이어야 합니다.");
+        }
     }
 }
