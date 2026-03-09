@@ -45,7 +45,7 @@ public class WalletService {
     public PageResponse<WalletTransactionItem> getEmployerTransactions(
             Long employerId, String referenceType, int page, int size) {
 
-        if (size <= 0) {
+        if (size <= 0 || page <= 0) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
 
@@ -55,7 +55,7 @@ public class WalletService {
             return new PageResponse<>(List.of(), 0L, 0, page);
         }
 
-        Pageable pageable = PageRequest.of(Math.max(0, page - 1), size,
+        Pageable pageable = PageRequest.of(page - 1, size,
                 Sort.by(Sort.Direction.DESC, "createdAt"));
 
         TransactionReferenceType parsedRefType = null;
@@ -105,7 +105,7 @@ public class WalletService {
 
     @Transactional(readOnly = true)
     public PageResponse<WalletTransactionItem> getFreelancerTransactions(Long freelancerId, int page, int size) {
-        if (size <= 0) {
+        if (size <= 0 || page <= 0) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
         Wallet wallet = walletRepository.findByOwnerIdAndWalletType(freelancerId, WalletType.FREELANCER)
@@ -114,7 +114,7 @@ public class WalletService {
             return new PageResponse<>(List.of(), 0L, 0, page);
         }
 
-        Pageable pageable = PageRequest.of(Math.max(0, page - 1), size,
+        Pageable pageable = PageRequest.of(page - 1, size,
                 Sort.by(Sort.Direction.DESC, "createdAt"));
 
         var pageResult = walletTransactionRepository.findByWalletId(wallet.getId(), pageable);

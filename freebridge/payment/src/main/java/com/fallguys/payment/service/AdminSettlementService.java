@@ -50,6 +50,7 @@ public class AdminSettlementService {
             return;
         }
 
+        boolean created = true;
         List<EmployerSettlement> settlements;
         try {
             settlements = employerSettlementService.createSettlementRecords(contract, "MANUAL-" + contractId,
@@ -57,11 +58,13 @@ public class AdminSettlementService {
         } catch (DataIntegrityViolationException e) {
             log.info("동시 정산 생성 감지 - 기존 정산 레코드 사용: {}", contractId);
             settlements = employerSettlementRepository.findByContractId(contractId);
+            created = false; // 이미 존재하는 레코드 → 에스크로 중복 크레딧 방지
         }
 
         // 수동 생성 시에도 PLATFORM_ESCROW에 자금 적립 (processSingleDisbursement가 에스크로에서 차감하므로 필수)
+        // created == false이면 이미 크레딧된 에스크로 → 이중 크레딧 방지를 위해 스킵
         long totalAmount = settlements.stream().mapToLong(EmployerSettlement::getTotalPayment).sum();
-        if (totalAmount > 0) {
+        if (created && totalAmount > 0) {
             Wallet escrowWallet = walletRepository.findByWalletTypeWithLock(WalletType.PLATFORM_ESCROW)
                     .orElseGet(() -> {
                         Wallet w = new Wallet();

@@ -50,6 +50,10 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
         } catch (IllegalArgumentException e) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
+        // FREE 플랜은 결제 대상이 아님 (0원 결제 및 포트원 호출 방지)
+        if (planType == PlanType.FREE) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
         String billingKey = request.getBillingKey();
         if (employerId == null || billingKey == null || billingKey.trim().isEmpty()) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
@@ -74,7 +78,8 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
                     paymentId, billingKey, amount,
                     planType.name() + " 구독 결제",
                     "employer-" + employerId);
-        } catch (BusinessException e) {
+        } catch (Exception e) {
+            // BusinessException 및 기타 모든 예외(네트워크 오류, RuntimeException 등) 동일하게 처리
             transactionTemplate.executeWithoutResult(status -> {
                 paymentAttemptRepository.findById(paymentId).ifPresent(attempt -> {
                     attempt.setStatus("FAILED");
@@ -194,7 +199,8 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
                     amount,
                     planType.name() + " 구독 자동결제",
                     "employer-" + employerId);
-        } catch (BusinessException e) {
+        } catch (Exception e) {
+            // BusinessException 및 기타 모든 예외(네트워크 오류, RuntimeException 등) 동일하게 처리
             transactionTemplate.executeWithoutResult(status -> {
                 paymentAttemptRepository.findById(paymentId).ifPresent(attempt -> {
                     attempt.setStatus("FAILED");
@@ -209,7 +215,7 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
                 subscriptionBillingRepository.save(billing);
                 log.error("[자동결제] 실패: employerId={}, error={}", employerId, e.getMessage());
             });
-            throw e; // 스케줄러에서 개별 실패 로깅을 위해 재던짐
+            throw new RuntimeException("자동결제 처리 실패: " + e.getMessage(), e);
         }
 
         final PortOnePaymentInfo finalPaymentInfo = paymentInfo;

@@ -84,7 +84,7 @@ public class ContractController {
         Long userId = principal.getId();
         String userRole = principal.getRole();
 
-        ContractResponse response = contractService.sign(contractId, request.getSignature(), userRole, userId);
+        ContractResponse response = contractService.sign(contractId, request, userRole, userId);
         ApiResponse<ContractResponse> apiResponse = ApiResponse.ok(response);
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }

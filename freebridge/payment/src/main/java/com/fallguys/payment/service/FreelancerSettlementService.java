@@ -36,11 +36,12 @@ public class FreelancerSettlementService {
         Pageable pageable = buildPageable(sort, page, size);
         Page<FreelancerSettlement> pageResult;
 
-        if (!"ALL".equalsIgnoreCase(status)) {
+        // null 또는 blank는 "ALL"과 동일하게 처리 (전체 조회)
+        // 명시적으로 잘못된 값(non-blank, non-ALL, 존재하지 않는 enum)만 400 에러
+        if (status != null && !status.isBlank() && !"ALL".equalsIgnoreCase(status)) {
             FreelancerSettlementStatus statusEnum;
             try {
-                statusEnum = FreelancerSettlementStatus.valueOf(
-                        status != null ? status.trim().toUpperCase() : "");
+                statusEnum = FreelancerSettlementStatus.valueOf(status.trim().toUpperCase());
             } catch (IllegalArgumentException e) {
                 throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
             }

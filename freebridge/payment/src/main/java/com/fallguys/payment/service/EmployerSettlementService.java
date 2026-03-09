@@ -146,6 +146,10 @@ public class EmployerSettlementService {
         // findByTransactionId로 canonical contractId를 조회하여 caller 제공 contractId 의존 방지
         if (employerSettlementRepository.existsByTransactionId(paymentId)) {
             Optional<EmployerSettlement> byTxn = employerSettlementRepository.findByTransactionId(paymentId);
+            // 다른 employer가 동일 paymentId로 타인 정산 데이터를 조회하는 것을 방지
+            if (byTxn.isPresent() && !byTxn.get().getEmployerId().equals(employerId)) {
+                throw new BusinessException(ErrorCode.SETTLEMENT_FORBIDDEN);
+            }
             Long canonicalContractId = byTxn.map(EmployerSettlement::getContractId).orElse(contractId);
             List<EmployerSettlement> allSettlements = employerSettlementRepository.findByContractId(canonicalContractId);
             long totalVerified = allSettlements.stream().mapToLong(EmployerSettlement::getTotalPayment).sum();
@@ -156,6 +160,16 @@ public class EmployerSettlementService {
         PortOnePaymentInfo payment = portOneApiClient.getPayment(paymentId);
 
         if (!payment.isPaid()) {
+            throw new BusinessException(ErrorCode.PAYMENT_FAILED);
+        }
+
+        // 포트원에 저장된 customData(contractId/employerId)와 요청값 교차 검증 (위변조 방지)
+        PortOnePaymentInfo.CustomDataInfo customData = payment.getCustomData();
+        if (customData == null
+                || !contractId.equals(customData.getContractId())
+                || !employerId.equals(customData.getEmployerId())) {
+            log.warn("결제 customData 불일치: paymentId={}, 요청 contractId={}/employerId={}, 실제={}",
+                    paymentId, contractId, employerId, customData);
             throw new BusinessException(ErrorCode.PAYMENT_FAILED);
         }
 
@@ -187,6 +201,11 @@ public class EmployerSettlementService {
 
         // 고용주 지갑 데빗: balance 차감 후 저장해야 balanceAfter 스냅샷도 정확해짐
         Wallet employerWallet = getOrCreateUserWallet(employerId, WalletType.EMPLOYER);
+        if (employerWallet.getBalance() < totalExpected) {
+            log.warn("고용주 지갑 잔액 부족: employerId={}, balance={}, required={}",
+                    employerId, employerWallet.getBalance(), totalExpected);
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
         employerWallet.debit(totalExpected);
         walletRepository.save(employerWallet);
         walletTransactionRepository.save(new WalletTransaction(
