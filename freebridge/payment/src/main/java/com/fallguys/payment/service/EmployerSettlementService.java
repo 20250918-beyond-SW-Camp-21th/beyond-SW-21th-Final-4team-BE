@@ -19,6 +19,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -194,56 +196,73 @@ public class EmployerSettlementService {
         // 계약 정보 조회
         ContractInfo contract = contractQuery.getContractInfo(contractId);
 
-        // 회차별 정산 레코드 생성
-        List<EmployerSettlement> settlements;
+        // 이 지점부터 외부 결제는 PAID 확정 — 내부 처리 실패 시 cancelPayment로 보상
         try {
-            settlements = createSettlementRecords(contract, paymentId, employerId);
-        } catch (DataIntegrityViolationException e) {
-            // 동시 요청이 이미 정산 레코드를 생성 완료한 경우 — 지갑 이중 처리를 막기 위해 즉시 반환
-            log.info("동시 정산 생성 감지 - 지갑 처리 없이 기존 정산 레코드 반환: paymentId={}", paymentId);
-            List<EmployerSettlement> existing = employerSettlementRepository.findByContractId(contractId);
-            long total = existing.stream().mapToLong(EmployerSettlement::getTotalPayment).sum();
-            return new VerifyPaymentResponse(true, contractId, total, existing.size());
+            // 회차별 정산 레코드 생성
+            List<EmployerSettlement> settlements;
+            try {
+                settlements = createSettlementRecords(contract, paymentId, employerId);
+            } catch (DataIntegrityViolationException e) {
+                // 동시 요청이 이미 정산 레코드를 생성 완료한 경우 — 지갑 이중 처리를 막기 위해 즉시 반환
+                log.info("동시 정산 생성 감지 - 지갑 처리 없이 기존 정산 레코드 반환: paymentId={}", paymentId);
+                List<EmployerSettlement> existing = employerSettlementRepository.findByContractId(contractId);
+                long total = existing.stream().mapToLong(EmployerSettlement::getTotalPayment).sum();
+                return new VerifyPaymentResponse(true, contractId, total, existing.size());
+            }
+
+            // 금액 검증: PortOne 결제 금액 == 전체 회차 totalPayment 합산
+            long totalExpected = settlements.stream().mapToLong(EmployerSettlement::getTotalPayment).sum();
+
+            if (payment.getTotalAmount() != totalExpected) {
+                log.warn("결제 금액 불일치: portone={}, expected={}, contractId={}",
+                        payment.getTotalAmount(), totalExpected, contractId);
+                throw new BusinessException(ErrorCode.PAYMENT_AMOUNT_MISMATCH);
+            }
+
+            // PLATFORM_ESCROW 지갑 크레딧
+            Wallet escrowWallet = getOrCreatePlatformWallet(WalletType.PLATFORM_ESCROW);
+            escrowWallet.credit(totalExpected);
+            walletRepository.save(escrowWallet);
+
+            // 고용주 지갑 데빗: balance 차감 후 저장해야 balanceAfter 스냅샷도 정확해짐
+            Wallet employerWallet = getOrCreateUserWallet(employerId, WalletType.EMPLOYER);
+            if (employerWallet.getBalance() < totalExpected) {
+                log.warn("고용주 지갑 잔액 부족: employerId={}, balance={}, required={}",
+                        employerId, employerWallet.getBalance(), totalExpected);
+                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+            }
+            employerWallet.debit(totalExpected);
+            walletRepository.save(employerWallet);
+            walletTransactionRepository.save(new WalletTransaction(
+                    employerWallet.getId(), TransactionType.DEBIT, totalExpected,
+                    TransactionReferenceType.CONTRACT_PAYMENT, contractId,
+                    "계약금 결제 (계약 #" + contractId + ")", employerWallet.getBalance()));
+
+            // ESCROW 크레딧 트랜잭션 기록
+            walletTransactionRepository.save(new WalletTransaction(
+                    escrowWallet.getId(), TransactionType.CREDIT, totalExpected,
+                    TransactionReferenceType.CONTRACT_PAYMENT, contractId,
+                    "계약 에스크로 입금 (계약 #" + contractId + ")", escrowWallet.getBalance()));
+
+            log.info("계약 결제 검증 완료: paymentId={}, contractId={}, installments={}, total={}",
+                    paymentId, contractId, settlements.size(), totalExpected);
+
+            return new VerifyPaymentResponse(true, contractId, totalExpected, settlements.size());
+
+        } catch (Exception e) {
+            // 외부 결제가 PAID이지만 내부 처리 실패 — 포트원 결제 취소로 보상 (자금 미포착 상태 유지)
+            log.error("결제 후처리 실패, 포트원 결제 취소 보상 시작: paymentId={}, contractId={}, error={}",
+                    paymentId, contractId, e.getMessage());
+            try {
+                portOneApiClient.cancelPayment(paymentId, payment.getTotalAmount(),
+                        "내부 처리 실패 자동 보상 취소: " + e.getMessage());
+                log.info("포트원 결제 취소 보상 완료: paymentId={}", paymentId);
+            } catch (Exception cancelEx) {
+                log.error("보상 취소 실패 — 수동 조정 필요: paymentId={}, contractId={}, cancelError={}",
+                        paymentId, contractId, cancelEx.getMessage());
+            }
+            throw (e instanceof RuntimeException re) ? re : new RuntimeException(e);
         }
-
-        // 금액 검증: PortOne 결제 금액 == 전체 회차 totalPayment 합산
-        long totalExpected = settlements.stream().mapToLong(EmployerSettlement::getTotalPayment).sum();
-
-        if (payment.getTotalAmount() != totalExpected) {
-            log.warn("결제 금액 불일치: portone={}, expected={}, contractId={}",
-                    payment.getTotalAmount(), totalExpected, contractId);
-            throw new BusinessException(ErrorCode.PAYMENT_AMOUNT_MISMATCH);
-        }
-
-        // PLATFORM_ESCROW 지갑 크레딧
-        Wallet escrowWallet = getOrCreatePlatformWallet(WalletType.PLATFORM_ESCROW);
-        escrowWallet.credit(totalExpected);
-        walletRepository.save(escrowWallet);
-
-        // 고용주 지갑 데빗: balance 차감 후 저장해야 balanceAfter 스냅샷도 정확해짐
-        Wallet employerWallet = getOrCreateUserWallet(employerId, WalletType.EMPLOYER);
-        if (employerWallet.getBalance() < totalExpected) {
-            log.warn("고용주 지갑 잔액 부족: employerId={}, balance={}, required={}",
-                    employerId, employerWallet.getBalance(), totalExpected);
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-        }
-        employerWallet.debit(totalExpected);
-        walletRepository.save(employerWallet);
-        walletTransactionRepository.save(new WalletTransaction(
-                employerWallet.getId(), TransactionType.DEBIT, totalExpected,
-                TransactionReferenceType.CONTRACT_PAYMENT, contractId,
-                "계약금 결제 (계약 #" + contractId + ")", employerWallet.getBalance()));
-
-        // ESCROW 크레딧 트랜잭션 기록
-        walletTransactionRepository.save(new WalletTransaction(
-                escrowWallet.getId(), TransactionType.CREDIT, totalExpected,
-                TransactionReferenceType.CONTRACT_PAYMENT, contractId,
-                "계약 에스크로 입금 (계약 #" + contractId + ")", escrowWallet.getBalance()));
-
-        log.info("계약 결제 검증 완료: paymentId={}, contractId={}, installments={}, total={}",
-                paymentId, contractId, settlements.size(), totalExpected);
-
-        return new VerifyPaymentResponse(true, contractId, totalExpected, settlements.size());
     }
 
     /**
@@ -263,6 +282,9 @@ public class EmployerSettlementService {
             totalMonths = 1;
 
         long baseInstallment = budget / totalMonths;
+        // BigDecimal constants for exact monetary arithmetic (avoids floating-point rounding errors)
+        BigDecimal commissionRateBD = BigDecimal.valueOf(commissionRate);
+        BigDecimal taxRateBD = new BigDecimal("0.033");
         List<EmployerSettlement> result = new ArrayList<>();
 
         for (int i = 1; i <= totalMonths; i++) {
@@ -270,7 +292,9 @@ public class EmployerSettlementService {
                     ? baseInstallment
                     : budget - baseInstallment * (totalMonths - 1);
 
-            long platformFee = (long) (billingAmount * commissionRate);
+            BigDecimal billingBD = BigDecimal.valueOf(billingAmount);
+            long platformFee = billingBD.multiply(commissionRateBD)
+                    .setScale(0, RoundingMode.HALF_UP).longValue();
             long totalPayment = billingAmount + platformFee;
             LocalDate dueDate = buildDueDate(startDate, i - 1, paymentDay);
 
@@ -289,8 +313,11 @@ public class EmployerSettlementService {
             employerSettlementRepository.save(es);
 
             // 대응하는 FreelancerSettlement 생성
-            long fsPlatformFee = (long) (billingAmount * commissionRate);
-            long tax = (long) ((billingAmount - fsPlatformFee) * 0.033);
+            long fsPlatformFee = billingBD.multiply(commissionRateBD)
+                    .setScale(0, RoundingMode.HALF_UP).longValue();
+            long tax = BigDecimal.valueOf(billingAmount - fsPlatformFee)
+                    .multiply(taxRateBD)
+                    .setScale(0, RoundingMode.HALF_UP).longValue();
             long netAmount = billingAmount - fsPlatformFee - tax;
 
             FreelancerSettlement fs = new FreelancerSettlement();

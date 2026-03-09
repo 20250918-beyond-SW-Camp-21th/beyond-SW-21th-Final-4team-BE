@@ -19,6 +19,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -73,16 +74,25 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
 
-        // 1. 트랜잭션 외부에서 빌링키로 포트원 결제 호출 (외부 API 호출이 트랜잭션에 묶이지 않도록)
+        // 1. PENDING PaymentAttempt 저장 — idempotencyKey 중복 삽입 시 DataIntegrityViolationException으로
+        //    TOCTOU 이중결제 원자적 차단 (soft 5분 체크는 정상 흐름에서의 조기 차단)
         String paymentId = "sub-" + UUID.randomUUID();
-        transactionTemplate.executeWithoutResult(status -> {
-            PaymentAttempt attempt = new PaymentAttempt();
-            attempt.setId(paymentId);
-            attempt.setEmployerId(employerId);
-            attempt.setPlanType(planType.name());
-            attempt.setStatus("PENDING");
-            paymentAttemptRepository.save(attempt);
-        });
+        final String idempotencyKey = "pay:" + employerId + ":" + planType.name() + ":" + YearMonth.now();
+        try {
+            transactionTemplate.executeWithoutResult(status -> {
+                PaymentAttempt attempt = new PaymentAttempt();
+                attempt.setId(paymentId);
+                attempt.setEmployerId(employerId);
+                attempt.setPlanType(planType.name());
+                attempt.setStatus("PENDING");
+                attempt.setIdempotencyKey(idempotencyKey);
+                paymentAttemptRepository.save(attempt);
+            });
+        } catch (DataIntegrityViolationException e) {
+            log.warn("이중결제 원자적 차단 (idempotencyKey 중복): employerId={}, planType={}, key={}",
+                    employerId, planType, idempotencyKey);
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
 
         PortOnePaymentInfo paymentInfo;
         try {
@@ -231,17 +241,25 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
 
-        // 1. PENDING PaymentAttempt 저장
+        // 1. PENDING PaymentAttempt 저장 — idempotencyKey 중복 삽입으로 TOCTOU 이중결제 원자적 차단
         final String paymentId = "sub-" + UUID.randomUUID();
         final long finalAmount = amount;
-        transactionTemplate.executeWithoutResult(txStatus -> {
-            PaymentAttempt attempt = new PaymentAttempt();
-            attempt.setId(paymentId);
-            attempt.setEmployerId(employerId);
-            attempt.setPlanType(planType.name());
-            attempt.setStatus("PENDING");
-            paymentAttemptRepository.save(attempt);
-        });
+        final String idempotencyKey = "sub:" + employerId + ":" + planType.name() + ":" + YearMonth.now();
+        try {
+            transactionTemplate.executeWithoutResult(txStatus -> {
+                PaymentAttempt attempt = new PaymentAttempt();
+                attempt.setId(paymentId);
+                attempt.setEmployerId(employerId);
+                attempt.setPlanType(planType.name());
+                attempt.setStatus("PENDING");
+                attempt.setIdempotencyKey(idempotencyKey);
+                paymentAttemptRepository.save(attempt);
+            });
+        } catch (DataIntegrityViolationException e) {
+            log.warn("[자동결제] 이중결제 원자적 차단 (idempotencyKey 중복): employerId={}, planType={}, key={}",
+                    employerId, planType, idempotencyKey);
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
 
         // 2. 트랜잭션 외부에서 포트원 API 호출
         PortOnePaymentInfo paymentInfo;

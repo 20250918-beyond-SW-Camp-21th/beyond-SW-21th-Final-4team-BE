@@ -106,31 +106,27 @@ public class PortOneApiClient {
     }
 
     /**
-     * 포트원 결제 부분 취소
+     * 포트원 결제 부분 취소 (보상 트랜잭션용)
      * POST /payments/{paymentId}/cancel
      */
-    /*
-     * public PortOnePaymentInfo cancelPayment(String paymentId, long amount, String
-     * reason) {
-     * Map<String, Object> body = new HashMap<>();
-     * body.put("amount", amount);
-     * body.put("reason", reason);
-     * 
-     * log.info("PortOne 결제 취소 요청: paymentId={}, amount={}, reason={}", paymentId,
-     * amount, reason);
-     * 
-     * try {
-     * return webClient.post()
-     * .uri("/payments/{paymentId}/cancel", paymentId)
-     * .bodyValue(body)
-     * .retrieve()
-     * .bodyToMono(PortOnePaymentInfo.class)
-     * .block();
-     * } catch (WebClientResponseException e) {
-     * log.error("PortOne cancelPayment 오류: paymentId={}, status={}, body={}",
-     * paymentId, e.getStatusCode(), e.getResponseBodyAsString());
-     * throw new BusinessException(ErrorCode.PAYMENT_FAILED);
-     * }
-     * }
-     */
+    public PortOnePaymentInfo cancelPayment(String paymentId, long amount, String reason) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("amount", amount);
+        body.put("reason", reason);
+
+        log.info("PortOne 결제 취소 요청: paymentId={}, amount={}, reason={}", paymentId, amount, reason);
+
+        try {
+            return webClient.post()
+                    .uri("/payments/{paymentId}/cancel", paymentId)
+                    .bodyValue(body)
+                    .retrieve()
+                    .bodyToMono(PortOnePaymentInfo.class)
+                    .block();
+        } catch (WebClientResponseException e) {
+            log.error("PortOne cancelPayment 오류: paymentId={}, status={}, body={}",
+                    paymentId, e.getStatusCode(), e.getResponseBodyAsString());
+            throw new BusinessException(ErrorCode.PAYMENT_FAILED);
+        }
+    }
 }

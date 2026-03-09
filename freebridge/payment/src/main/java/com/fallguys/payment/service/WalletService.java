@@ -17,6 +17,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -96,8 +97,10 @@ public class WalletService {
 
         // Calculate both amounts before the wallet-null check so that freelancers
         // whose wallet has not been created yet still receive the correct totalEarned.
+        // SQL SUM() returns NULL for empty result sets — guard both variables consistently.
         Long pendingAmount = freelancerSettlementRepository
                 .sumNetAmountByFreelancerIdAndStatusPending(freelancerId);
+        if (pendingAmount == null) pendingAmount = 0L;
         Long totalEarned = freelancerSettlementRepository
                 .sumNetAmountByFreelancerIdAndStatusPaid(freelancerId);
         if (totalEarned == null) totalEarned = 0L;
@@ -156,6 +159,9 @@ public class WalletService {
         Wallet w = new Wallet();
         w.setWalletType(type);
         w.setBalance(0L);
+        // Set a non-null updatedAt so PlatformWalletResponse never serializes null
+        // (JPA @LastModifiedDate only fires on persist/merge, not for in-memory sentinels)
+        w.setUpdatedAt(LocalDateTime.now());
         return w;
     }
 }
