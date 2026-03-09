@@ -41,12 +41,20 @@ public class ExternalUserApiImpl implements ExternalUserApi {
     public void updatePassword(Long userId, String currentPassword, String newPassword) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다. ID: " + userId));
-                
+
         if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
             throw new IllegalArgumentException("현재 비밀번호가 일치하지 않습니다.");
         }
-        
+
+        if (passwordEncoder.matches(newPassword, user.getPassword())) {
+            throw new IllegalArgumentException("새 비밀번호는 현재 비밀번호와 달라야 합니다.");
+        }
+
         user.updatePassword(passwordEncoder.encode(newPassword));
+
+        // Log explicitly using Slf4j instance to keep it identical to UserService
+        org.slf4j.LoggerFactory.getLogger(ExternalUserApiImpl.class)
+                .info("비밀번호 변경 완료 - userId: {}", userId);
     }
 
     @Override

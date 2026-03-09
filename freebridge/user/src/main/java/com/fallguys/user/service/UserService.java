@@ -150,7 +150,8 @@ public class UserService {
 
         String refreshToken = jwtTokenProvider.generateRefreshToken(user.getId());
         String refreshJti = jwtTokenProvider.getClaimsFromToken(refreshToken).getId();
-        redisTokenService.saveRefreshToken(user.getId(), refreshToken, refreshJti, jwtTokenProvider.getRefreshTokenExpirationMs());
+        redisTokenService.saveRefreshToken(user.getId(), refreshToken, refreshJti,
+                jwtTokenProvider.getRefreshTokenExpirationMs());
 
         log.info("로그인 성공 - userId: {}", user.getId());
 
@@ -238,7 +239,8 @@ public class UserService {
         long refreshTokenTtlMs = jwtTokenProvider.getRefreshTokenExpirationMs();
         String newRefreshToken = jwtTokenProvider.generateRefreshToken(user.getId());
         String newRefreshJti = jwtTokenProvider.getClaimsFromToken(newRefreshToken).getId();
-        boolean rotated = redisTokenService.compareAndSetRefreshToken(userId, incomingRefreshToken, incomingJti, newRefreshToken, newRefreshJti, refreshTokenTtlMs);
+        boolean rotated = redisTokenService.compareAndSetRefreshToken(userId, incomingRefreshToken, incomingJti,
+                newRefreshToken, newRefreshJti, refreshTokenTtlMs);
         if (!rotated) {
             throw new IllegalArgumentException("Refresh Token이 일치하지 않거나 로그아웃 되었습니다.");
         }
@@ -309,6 +311,10 @@ public class UserService {
 
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
             throw new IllegalArgumentException("현재 비밀번호가 일치하지 않습니다.");
+        }
+
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+            throw new IllegalArgumentException("새 비밀번호는 현재 비밀번호와 달라야 합니다.");
         }
 
         user.updatePassword(passwordEncoder.encode(request.getNewPassword()));
