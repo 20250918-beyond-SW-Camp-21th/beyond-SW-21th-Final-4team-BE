@@ -1,4 +1,4 @@
-﻿package com.fallguys.mypage.api.web.dto.resume;
+package com.fallguys.mypage.api.web.dto.resume;
 
 public record EducationDto(
         Long educationId,

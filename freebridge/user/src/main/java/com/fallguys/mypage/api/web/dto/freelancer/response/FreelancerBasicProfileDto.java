@@ -5,6 +5,8 @@ import java.util.List;
 public record FreelancerBasicProfileDto(
         String avatarUrl,
         String name,
+        String email,
+        String phone,
         String job,
         String introduction,
         String grade, // FreelancerGrade enum name
@@ -12,5 +14,8 @@ public record FreelancerBasicProfileDto(
         Long wage, // 희망 단가
         List<String> skills,
         String status, // POTENTIAL, CONTRACTING 등
-        WorkConditionsDto workConditions
+        WorkConditionsDto workConditions,
+        ExpertiseDto expertise,
+        CollaborationDto collaboration,
+        Double averageRating
 ) {}

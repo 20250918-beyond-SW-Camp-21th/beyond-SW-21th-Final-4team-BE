@@ -4,14 +4,20 @@ package com.fallguys.mypage.service.freelancer;
 import com.fallguys.common.exception.BusinessException;
 import com.fallguys.common.exception.ErrorCode;
 import com.fallguys.common.port.FileStorage;
+import com.fallguys.mypage.api.shared.SharedMypageApi;
 import com.fallguys.mypage.api.web.dto.freelancer.request.FreelancerProfileUpdateRequestDto;
+import com.fallguys.mypage.api.web.dto.freelancer.response.CollaborationDto;
+import com.fallguys.mypage.api.web.dto.freelancer.response.ExpertiseDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerBasicProfileDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerProfileResponseDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerStatsDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.WorkConditionsDto;
+import com.fallguys.mypage.entity.freelancer.Collaboration;
+import com.fallguys.mypage.entity.freelancer.Expertise;
 import com.fallguys.mypage.entity.freelancer.Freelancer;
 import com.fallguys.mypage.entity.freelancer.WorkConditions;
 import com.fallguys.mypage.repository.freelancer.FreelancerRepository;
+import com.fallguys.user.api.shared.response.ExternalUserResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -31,12 +37,14 @@ public class FreelancerProfileService {
 
     private final FreelancerRepository freelancerRepository;
     private final FileStorage fileStorage;
+    private final SharedMypageApi sharedMypageApi;
 
     private static final long MAX_AVATAR_BYTES = 5 * 1024 * 1024; // 5MB
 
     @Transactional(readOnly = true)
     public FreelancerProfileResponseDto getProfile(Long userId) {
         Freelancer freelancer = findByUserIdOrThrow(userId);
+        ExternalUserResponse userResponse = sharedMypageApi.getUserById(userId);
 
         WorkConditions workConditions = freelancer.getWorkConditions();
         WorkConditionsDto workConditionsDto = workConditions == null ? null : new WorkConditionsDto(
@@ -46,9 +54,25 @@ public class FreelancerProfileService {
                 workConditions.getLocation()
         );
 
+        Expertise expertise = freelancer.getExpertise();
+        ExpertiseDto expertiseDto = expertise == null ? null : new ExpertiseDto(
+                expertise.getProgramming(),
+                expertise.getFramework(),
+                expertise.getProblemSolving()
+        );
+
+        Collaboration collaboration = freelancer.getCollaboration();
+        CollaborationDto collaborationDto = collaboration == null ? null : new CollaborationDto(
+                collaboration.getCommunication(),
+                collaboration.getScheduleAdherence(),
+                collaboration.getDispute()
+        );
+
         FreelancerBasicProfileDto basicProfile = new FreelancerBasicProfileDto(
                 freelancer.getAvatarUrl(),
-                null, // name 은 User 이메일/정보와 연동 필요 (추후 ExternalUserApi 확장 예정)
+                userResponse != null ? userResponse.getName() : null,
+                userResponse != null ? userResponse.getEmail() : null,
+                null,
                 freelancer.getJob(),
                 freelancer.getIntroduction(),
                 freelancer.getGrade() != null ? freelancer.getGrade().name() : null,
@@ -56,7 +80,10 @@ public class FreelancerProfileService {
                 freelancer.getWage(),
                 freelancer.getSkills(),
                 freelancer.getStatus() != null ? freelancer.getStatus().name() : null,
-                workConditionsDto
+                workConditionsDto,
+                expertiseDto,
+                collaborationDto,
+                freelancer.getAverageRate()
         );
 
         FreelancerStatsDto stats = new FreelancerStatsDto(
@@ -76,6 +103,10 @@ public class FreelancerProfileService {
         freelancer.updateCareer(request.careerYears(), request.wage());
         freelancer.replaceSkills(request.skills());
 
+        if (request.name() != null && !request.name().isBlank()) {
+            sharedMypageApi.updateUserName(userId, request.name());
+        }
+
         boolean hasWorkConditions = request.workType() != null
                 || request.availableStartDate() != null
                 || request.workStyle() != null
@@ -89,6 +120,36 @@ public class FreelancerProfileService {
                     request.workLocation()
             );
             freelancer.updateWorkConditions(workConditions);
+        }
+
+        boolean hasExpertise = request.expertiseProgramming() != null
+                || request.expertiseFramework() != null
+                || request.expertiseProblemSolving() != null;
+
+        if (hasExpertise) {
+            Expertise expertise = new Expertise(
+                    request.expertiseProgramming(),
+                    request.expertiseFramework(),
+                    request.expertiseProblemSolving()
+            );
+            freelancer.updateExpertise(expertise);
+        }
+
+        boolean hasCollaboration = request.collaborationCommunication() != null
+                || request.collaborationScheduleAdherence() != null
+                || request.collaborationDispute() != null;
+
+        if (hasCollaboration) {
+            Collaboration collaboration = new Collaboration(
+                    request.collaborationCommunication(),
+                    request.collaborationScheduleAdherence(),
+                    request.collaborationDispute()
+            );
+            freelancer.updateCollaboration(collaboration);
+        }
+
+        if (request.averageRating() != null) {
+            freelancer.updateAverageRate(request.averageRating());
         }
     }
 

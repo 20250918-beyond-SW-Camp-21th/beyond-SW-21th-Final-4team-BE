@@ -3,6 +3,7 @@ package com.fallguys.mypage.api.web.dto.freelancer.request;
 import java.time.LocalDate;
 import java.util.List;
 
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
@@ -39,5 +40,36 @@ public record FreelancerProfileUpdateRequestDto(
         String workStyle,
 
         @Size(max = 100, message = "근무 위치(workLocation)는 100자 이내로 작성해주세요.")
-        String workLocation
+        String workLocation,
+
+        @Size(max = 50, message = "이름은 50자 이내로 작성해주세요.")
+        String name,
+
+        @Min(value = 0, message = "전문성 점수는 0 이상이어야 합니다.")
+        @Max(value = 5, message = "전문성 점수는 5 이하여야 합니다.")
+        Integer expertiseProgramming,
+
+        @Min(value = 0, message = "프레임워크 점수는 0 이상이어야 합니다.")
+        @Max(value = 5, message = "프레임워크 점수는 5 이하여야 합니다.")
+        Integer expertiseFramework,
+
+        @Min(value = 0, message = "문제해결 점수는 0 이상이어야 합니다.")
+        @Max(value = 5, message = "문제해결 점수는 5 이하여야 합니다.")
+        Integer expertiseProblemSolving,
+
+        @Min(value = 0, message = "소통 점수는 0 이상이어야 합니다.")
+        @Max(value = 5, message = "소통 점수는 5 이하여야 합니다.")
+        Integer collaborationCommunication,
+
+        @Min(value = 0, message = "일정 준수 점수는 0 이상이어야 합니다.")
+        @Max(value = 5, message = "일정 준수 점수는 5 이하여야 합니다.")
+        Integer collaborationScheduleAdherence,
+
+        @Min(value = 0, message = "분쟁 대응 점수는 0 이상이어야 합니다.")
+        @Max(value = 5, message = "분쟁 대응 점수는 5 이하여야 합니다.")
+        Integer collaborationDispute,
+
+        @Min(value = 0, message = "평점은 0 이상이어야 합니다.")
+        @Max(value = 5, message = "평점은 5 이하여야 합니다.")
+        Double averageRating
 ) {}

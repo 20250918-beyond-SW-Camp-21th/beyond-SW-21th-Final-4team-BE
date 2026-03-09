@@ -1,14 +1,16 @@
-package com.fallguys.mypage.service.freelancer;
+﻿package com.fallguys.mypage.service.freelancer;
 
 import com.fallguys.common.exception.BusinessException;
 import com.fallguys.common.exception.ErrorCode;
 import com.fallguys.common.port.FileStorage;
+import com.fallguys.mypage.api.shared.SharedMypageApi;
 import com.fallguys.mypage.api.web.dto.freelancer.request.FreelancerProfileUpdateRequestDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerProfileResponseDto;
 import com.fallguys.mypage.entity.freelancer.Freelancer;
 import com.fallguys.mypage.entity.freelancer.FreelancerGrade;
 import com.fallguys.mypage.entity.freelancer.WorkConditions;
 import com.fallguys.mypage.repository.freelancer.FreelancerRepository;
+import com.fallguys.user.api.shared.response.ExternalUserResponse;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -42,6 +44,9 @@ class FreelancerProfileServiceTest {
     @Mock
     private FileStorage fileStorage;
 
+    @Mock
+    private SharedMypageApi sharedMypageApi;
+
     @BeforeEach
     void setUp() {
         TransactionSynchronizationManager.initSynchronization();
@@ -64,7 +69,14 @@ class FreelancerProfileServiceTest {
                 "원격",
                 "서울"
         ));
+        ExternalUserResponse userResponse = ExternalUserResponse.builder()
+                .id(userId)
+                .email("gdragon@gmail.com")
+                .name("지드래곤")
+                .build();
+
         given(freelancerRepository.findByUserId(userId)).willReturn(Optional.of(mockFreelancer));
+        given(sharedMypageApi.getUserById(userId)).willReturn(userResponse);
 
         // when
         FreelancerProfileResponseDto result = freelancerProfileService.getProfile(userId);
@@ -76,6 +88,8 @@ class FreelancerProfileServiceTest {
         assertThat(result.basicProfile().job()).isEqualTo("백엔드 개발자");
         assertThat(result.basicProfile().grade()).isEqualTo("JUNIOR");
         assertThat(result.basicProfile().status()).isEqualTo("POTENTIAL");
+        assertThat(result.basicProfile().name()).isEqualTo("지드래곤");
+        assertThat(result.basicProfile().email()).isEqualTo("gdragon@gmail.com");
         assertThat(result.basicProfile().workConditions()).isNotNull();
         assertThat(result.basicProfile().workConditions().workType()).isEqualTo("개인");
         assertThat(result.basicProfile().workConditions().workStyle()).isEqualTo("원격");
@@ -87,6 +101,7 @@ class FreelancerProfileServiceTest {
         assertThat(result.stats().statContract()).isEqualTo(0);
 
         verify(freelancerRepository, times(1)).findByUserId(userId);
+        verify(sharedMypageApi, times(1)).getUserById(userId);
     }
 
     @Test
@@ -120,7 +135,15 @@ class FreelancerProfileServiceTest {
                 "팀",
                 LocalDate.of(2026, 3, 15),
                 "혼합",
-                "부산"
+                "부산",
+                "지드래곤",
+                4,
+                5,
+                3,
+                4,
+                4,
+                2,
+                4.5
         );
 
         // when
@@ -128,6 +151,7 @@ class FreelancerProfileServiceTest {
 
         // then
         verify(freelancerRepository, times(1)).findByUserId(userId);
+        verify(sharedMypageApi, times(1)).updateUserName(userId, "지드래곤");
         assertThat(mockFreelancer.getJob()).isEqualTo("풀스택 개발자");
         assertThat(mockFreelancer.getIntroduction()).isEqualTo("안녕하세요. 풀스택 개발자입니다.");
         assertThat(mockFreelancer.getCareerYears()).isEqualTo(5);
@@ -153,6 +177,14 @@ class FreelancerProfileServiceTest {
                 3,
                 40000L,
                 List.of("Java"),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 null,
                 null,
                 null,
