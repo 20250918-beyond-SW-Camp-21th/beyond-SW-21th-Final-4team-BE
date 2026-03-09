@@ -1,6 +1,6 @@
-package com.fallguys.chatting.controller;
+package com.fallguys.chatting.api.web;
 
-import com.fallguys.chatting.dto.ChatMessageRequest;
+import com.fallguys.chatting.api.web.dto.request.ChatMessageRequest;
 import com.fallguys.chatting.service.ChatMessageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.handler.annotation.MessageMapping;

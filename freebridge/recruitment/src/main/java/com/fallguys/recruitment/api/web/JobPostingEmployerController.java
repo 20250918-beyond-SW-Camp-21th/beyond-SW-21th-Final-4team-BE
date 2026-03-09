@@ -6,6 +6,7 @@ import com.fallguys.recruitment.api.dto.request.JobPostingUpdateDTO;
 import com.fallguys.recruitment.api.dto.response.AiRecommendationResponseDTO;
 import com.fallguys.recruitment.api.dto.response.EmployerProjectSearchDTO;
 import com.fallguys.recruitment.api.dto.response.JobPostingSearchDTO;
+import com.fallguys.recruitment.api.dto.response.MatchedFreelancerResponseDTO;
 import com.fallguys.recruitment.api.dto.response.PagedResponseDTO;
 import com.fallguys.recruitment.api.support.TokenUserIdResolver;
 import com.fallguys.recruitment.api.util.PagingUtils;
@@ -14,6 +15,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -57,6 +60,31 @@ public class JobPostingEmployerController {
         Long userId = tokenUserIdResolver.resolveUserId(authorization);
         List<EmployerProjectSearchDTO> result = jobPostingService.getEmployerProjects(userId);
         return ResponseEntity.ok(ApiResponse.ok(PagingUtils.toPagedResponse(result, page, size)));
+    }
+
+    @Operation(summary = "프로젝트 매칭 프리랜서 목록 조회", description = "프로젝트와 연결된 공고 기준으로 매칭된 프리랜서 목록을 조회합니다.")
+    @GetMapping("/api/employer/projects/{projectId}/matched-freelancers")
+    public ResponseEntity<ApiResponse<PagedResponseDTO<MatchedFreelancerResponseDTO>>> getMatchedFreelancers(
+            @RequestHeader("Authorization") String authorization,
+            @PathVariable Long projectId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        int safePage = Math.max(0, page);
+        int safeSize = Math.max(1, size);
+        Long userId = tokenUserIdResolver.resolveUserId(authorization);
+        Page<MatchedFreelancerResponseDTO> result = jobPostingService.getMatchedFreelancers(
+                projectId,
+                userId,
+                PageRequest.of(safePage, safeSize)
+        );
+        return ResponseEntity.ok(ApiResponse.ok(new PagedResponseDTO<>(
+                result.getContent(),
+                result.getNumber(),
+                result.getSize(),
+                result.getTotalElements(),
+                result.getTotalPages()
+        )));
     }
 
     @Operation(summary = "채용 공고 등록", description = "새로운 채용 공고를 등록합니다.")

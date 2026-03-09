@@ -36,6 +36,7 @@ class ChatPresenceServiceTest {
         chatPresenceService.connectUser("e1");
 
         verify(valueOperations, times(1)).set("presence:e1", "ONLINE", 1, TimeUnit.HOURS);
+        verify(valueOperations, times(1)).set("presence:lastSeen:e1", "1", 1, TimeUnit.HOURS);
     }
 
     @Test
@@ -46,15 +47,19 @@ class ChatPresenceServiceTest {
         chatPresenceService.disconnectUser("e1");
 
         verify(valueOperations, times(1)).set("presence:e1", "OFFLINE", 1, TimeUnit.HOURS);
+        verify(redisTemplate, times(1)).delete("presence:lastSeen:e1");
     }
 
     @Test
     @DisplayName("유저가 접속 중인지 확인한다")
     void isUserOnline_Success() {
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        when(valueOperations.get("presence:e1")).thenReturn("ONLINE");
-        when(valueOperations.get("presence:f1")).thenReturn("OFFLINE");
-        when(valueOperations.get("presence:f2")).thenReturn(null);
+        lenient().when(valueOperations.get("presence:e1")).thenReturn("ONLINE");
+        lenient().when(valueOperations.get("presence:lastSeen:e1")).thenReturn("1");
+        lenient().when(valueOperations.get("presence:f1")).thenReturn("OFFLINE");
+        lenient().when(valueOperations.get("presence:lastSeen:f1")).thenReturn("1");
+        lenient().when(valueOperations.get("presence:f2")).thenReturn(null);
+        lenient().when(valueOperations.get("presence:lastSeen:f2")).thenReturn(null);
 
         assertThat(chatPresenceService.isUserOnline("e1")).isTrue();
         assertThat(chatPresenceService.isUserOnline("f1")).isFalse();

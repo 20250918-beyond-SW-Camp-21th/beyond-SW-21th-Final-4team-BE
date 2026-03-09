@@ -1,4 +1,4 @@
-package com.fallguys.chatting.dto;
+package com.fallguys.chatting.api.web.dto.response;
 
 import com.fallguys.chatting.domain.ChatMessage;
 import com.fallguys.chatting.domain.MessageType;

@@ -1,4 +1,4 @@
-package com.fallguys.user.dto;
+package com.fallguys.user.api.web.dto.request;
 
 import com.fallguys.user.entity.Role;
 import jakarta.validation.constraints.Email;
@@ -20,6 +20,9 @@ public class SignupRequestDto {
 
     @NotBlank(message = "이름은 필수입니다.")
     private String name;
+
+    @NotBlank(message = "휴대폰 번호는 필수입니다.")
+    private String phone;
 
     @NotNull(message = "역할은 필수입니다.")
     private Role role;

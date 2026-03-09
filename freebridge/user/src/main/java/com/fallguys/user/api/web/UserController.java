@@ -1,11 +1,12 @@
 package com.fallguys.user.api.web;
 
-import com.fallguys.user.dto.LoginRequestDto;
-import com.fallguys.user.dto.LoginResponseDto;
-import com.fallguys.user.dto.PasswordUpdateRequest;
-import com.fallguys.user.dto.EmailNotificationSettingDto;
-import com.fallguys.user.dto.SignupRequestDto;
-import com.fallguys.user.dto.UserResponseDto;
+import com.fallguys.user.api.web.dto.request.LoginRequestDto;
+import com.fallguys.user.api.web.dto.response.LoginResponseDto;
+import com.fallguys.user.api.web.dto.request.PasswordUpdateRequest;
+import com.fallguys.user.api.web.dto.request.EmailNotificationSettingDto;
+import com.fallguys.user.api.web.dto.request.SignupRequestDto;
+import com.fallguys.user.api.web.dto.response.UserResponseDto;
+import com.fallguys.user.api.web.dto.request.RefreshTokenRequestDto;
 import com.fallguys.user.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -63,6 +64,61 @@ public class UserController {
             response.put("success", false);
             response.put("message", e.getMessage());
             return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    /*
+     * 로그아웃
+     * POST /api/users/logout
+     */
+    @PostMapping("/logout")
+    public ResponseEntity<Map<String, Object>> logout(
+            @org.springframework.security.core.annotation.AuthenticationPrincipal com.fallguys.common.security.CustomUserDetails userDetails,
+            jakarta.servlet.http.HttpServletRequest request) {
+
+        if (userDetails == null) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "인증 정보가 없습니다.");
+            return ResponseEntity.status(401).body(response);
+        }
+
+        String authHeader = request.getHeader("Authorization");
+
+        try {
+            userService.logout(userDetails.getId(), authHeader);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "로그아웃 성공");
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    /*
+     * 토큰 재발급
+     * POST /api/users/refresh
+     */
+    @PostMapping("/refresh")
+    public ResponseEntity<Map<String, Object>> refreshTokens(
+            @Valid @RequestBody RefreshTokenRequestDto request) {
+        try {
+            LoginResponseDto tokens = userService
+                    .refreshTokens(request.getRefreshToken());
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "토큰 재발급 성공");
+            response.put("data", tokens);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.status(401).body(response);
         }
     }
 
@@ -143,6 +199,7 @@ public class UserController {
         userData.put("id", user.getId());
         userData.put("email", user.getEmail());
         userData.put("name", user.getName());
+
         userData.put("role", user.getRole());
         userData.put("grade", user.getGrade());
 

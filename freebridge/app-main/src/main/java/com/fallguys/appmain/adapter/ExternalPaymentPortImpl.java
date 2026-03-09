@@ -1,7 +1,7 @@
 package com.fallguys.appmain.adapter;
 
-import com.fallguys.payment.api.shared.SubscriptionPaymentQuery;
-import com.fallguys.payment.api.shared.SubscriptionPaymentResult;
+import com.fallguys.common.api.payment.SubscriptionPaymentQuery;
+import com.fallguys.common.api.payment.SubscriptionPaymentResult;
 import com.fallguys.subscription.api.shared.ExternalPaymentPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
