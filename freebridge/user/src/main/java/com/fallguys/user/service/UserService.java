@@ -80,6 +80,7 @@ public class UserService {
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .name(request.getName())
+                .phone(request.getPhone())
                 .role(request.getRole())
                 .termsAgreed(request.getTermsAgreed())
                 .privacyAgreed(request.getPrivacyAgreed())
@@ -146,11 +147,12 @@ public class UserService {
         }
 
         String accessToken = jwtTokenProvider.generateToken(
-                user.getId(), user.getEmail(), user.getRole().name(), user.getName(), grade);
+                user.getId(), user.getEmail(), user.getRole().name(), user.getName(), user.getPhone(), grade);
 
         String refreshToken = jwtTokenProvider.generateRefreshToken(user.getId());
         String refreshJti = jwtTokenProvider.getClaimsFromToken(refreshToken).getId();
-        redisTokenService.saveRefreshToken(user.getId(), refreshToken, refreshJti, jwtTokenProvider.getRefreshTokenExpirationMs());
+        redisTokenService.saveRefreshToken(user.getId(), refreshToken, refreshJti,
+                jwtTokenProvider.getRefreshTokenExpirationMs());
 
         log.info("로그인 성공 - userId: {}", user.getId());
 
@@ -233,12 +235,13 @@ public class UserService {
         }
 
         String newAccessToken = jwtTokenProvider.generateToken(
-                user.getId(), user.getEmail(), user.getRole().name(), user.getName(), grade);
+                user.getId(), user.getEmail(), user.getRole().name(), user.getName(), user.getPhone(), grade);
 
         long refreshTokenTtlMs = jwtTokenProvider.getRefreshTokenExpirationMs();
         String newRefreshToken = jwtTokenProvider.generateRefreshToken(user.getId());
         String newRefreshJti = jwtTokenProvider.getClaimsFromToken(newRefreshToken).getId();
-        boolean rotated = redisTokenService.compareAndSetRefreshToken(userId, incomingRefreshToken, incomingJti, newRefreshToken, newRefreshJti, refreshTokenTtlMs);
+        boolean rotated = redisTokenService.compareAndSetRefreshToken(userId, incomingRefreshToken, incomingJti,
+                newRefreshToken, newRefreshJti, refreshTokenTtlMs);
         if (!rotated) {
             throw new IllegalArgumentException("Refresh Token이 일치하지 않거나 로그아웃 되었습니다.");
         }

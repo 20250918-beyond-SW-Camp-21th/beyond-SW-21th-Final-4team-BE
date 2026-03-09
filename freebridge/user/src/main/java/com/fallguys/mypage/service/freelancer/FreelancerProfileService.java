@@ -1,6 +1,5 @@
 package com.fallguys.mypage.service.freelancer;
 
-
 import com.fallguys.common.port.FileStorage;
 import com.fallguys.mypage.api.web.dto.freelancer.request.FreelancerProfileUpdateRequestDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerBasicProfileDto;
@@ -43,14 +42,12 @@ public class FreelancerProfileService {
                 freelancer.getCareerYears(),
                 freelancer.getWage(),
                 freelancer.getSkills(),
-                freelancer.getStatus() != null ? freelancer.getStatus().name() : null
-        );
+                freelancer.getStatus() != null ? freelancer.getStatus().name() : null);
 
         FreelancerStatsDto stats = new FreelancerStatsDto(
                 freelancer.getStatContact(),
                 freelancer.getStatChat(),
-                freelancer.getStatContract()
-        );
+                freelancer.getStatContract());
 
         return new FreelancerProfileResponseDto(basicProfile, stats);
     }
@@ -135,19 +132,24 @@ public class FreelancerProfileService {
             return true;
         }
         // PNG: 89 50 4E 47 0D 0A 1A 0A
-        if ((bytes[0] & 0xFF) == 0x89 && (bytes[1] & 0xFF) == 0x50 && (bytes[2] & 0xFF) == 0x4E && (bytes[3] & 0xFF) == 0x47
-                && (bytes[4] & 0xFF) == 0x0D && (bytes[5] & 0xFF) == 0x0A && (bytes[6] & 0xFF) == 0x1A && (bytes[7] & 0xFF) == 0x0A) {
+        if ((bytes[0] & 0xFF) == 0x89 && (bytes[1] & 0xFF) == 0x50 && (bytes[2] & 0xFF) == 0x4E
+                && (bytes[3] & 0xFF) == 0x47
+                && (bytes[4] & 0xFF) == 0x0D && (bytes[5] & 0xFF) == 0x0A && (bytes[6] & 0xFF) == 0x1A
+                && (bytes[7] & 0xFF) == 0x0A) {
             return true;
         }
         // GIF87a / GIF89a
-        if ((bytes[0] & 0xFF) == 0x47 && (bytes[1] & 0xFF) == 0x49 && (bytes[2] & 0xFF) == 0x46 && (bytes[3] & 0xFF) == 0x38
+        if ((bytes[0] & 0xFF) == 0x47 && (bytes[1] & 0xFF) == 0x49 && (bytes[2] & 0xFF) == 0x46
+                && (bytes[3] & 0xFF) == 0x38
                 && ((bytes[4] & 0xFF) == 0x37 || (bytes[4] & 0xFF) == 0x39) && (bytes[5] & 0xFF) == 0x61) {
             return true;
         }
         // WEBP: RIFF....WEBP
         if (bytes.length >= 12
-                && (bytes[0] & 0xFF) == 0x52 && (bytes[1] & 0xFF) == 0x49 && (bytes[2] & 0xFF) == 0x46 && (bytes[3] & 0xFF) == 0x46
-                && (bytes[8] & 0xFF) == 0x57 && (bytes[9] & 0xFF) == 0x45 && (bytes[10] & 0xFF) == 0x42 && (bytes[11] & 0xFF) == 0x50) {
+                && (bytes[0] & 0xFF) == 0x52 && (bytes[1] & 0xFF) == 0x49 && (bytes[2] & 0xFF) == 0x46
+                && (bytes[3] & 0xFF) == 0x46
+                && (bytes[8] & 0xFF) == 0x57 && (bytes[9] & 0xFF) == 0x45 && (bytes[10] & 0xFF) == 0x42
+                && (bytes[11] & 0xFF) == 0x50) {
             return true;
         }
         return false;

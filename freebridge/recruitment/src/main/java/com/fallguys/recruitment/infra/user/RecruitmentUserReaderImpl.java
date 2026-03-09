@@ -45,8 +45,7 @@ public class RecruitmentUserReaderImpl implements RecruitmentUserReader {
                 user.getName(),
                 Optional.ofNullable(freelancer.getSkills()).map(Object::toString).orElse("[]"),
                 Optional.ofNullable(freelancer.getIntroduction()).orElse("정보 없음"),
-                Optional.ofNullable(freelancer.getStatus()).map(Enum::name).orElse("POTENTIAL")
-        );
+                Optional.ofNullable(freelancer.getStatus()).map(Enum::name).orElse("POTENTIAL"));
     }
 
     private User getByIdOrThrow(Long userId) {

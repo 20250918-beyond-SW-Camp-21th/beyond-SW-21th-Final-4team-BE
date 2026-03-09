@@ -199,6 +199,7 @@ public class UserController {
         userData.put("id", user.getId());
         userData.put("email", user.getEmail());
         userData.put("name", user.getName());
+        userData.put("phone", user.getPhone());
         userData.put("role", user.getRole());
         userData.put("grade", user.getGrade());
 

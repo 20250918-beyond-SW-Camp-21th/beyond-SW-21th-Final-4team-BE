@@ -58,6 +58,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         .id(userId)
                         .email(email)
                         .name(claims.get("name", String.class))
+                        .phone(claims.get("phone", String.class))
                         .role(role)
                         .grade(claims.get("grade", String.class))
                         .authorities(authorities)

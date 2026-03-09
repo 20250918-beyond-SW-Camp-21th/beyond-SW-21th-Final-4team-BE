@@ -27,7 +27,8 @@ public class FreelancerReviewService {
     /**
      * 내 평판/등급 요약 조회
      * Redis Key: freelancer:review:rates:{freelancerId}
-     * Expected value: List<Map<String, Double>> { expertiseRate, communicationRate, scheduleRate }
+     * Expected value: List<Map<String, Double>> { expertiseRate, communicationRate,
+     * scheduleRate }
      * topPercentile은 Freelancer 엔티티에서 조회합니다.
      */
     @Transactional(readOnly = true)
@@ -58,8 +59,7 @@ public class FreelancerReviewService {
         return new FreelancerAiReputationReportDto(
                 "AI 분석 리포트 준비 중입니다.",
                 Collections.emptyList(),
-                Collections.emptyList()
-        );
+                Collections.emptyList());
     }
 
     /**
@@ -78,7 +78,7 @@ public class FreelancerReviewService {
         // TODO: AI 도메인에서 전달한 평점/리뷰 데이터를 바탕으로 강점/약점 항목 조회 로직 구현 예정
         return new FreelancerStrengthWeaknessDto(
                 Collections.emptyList(), // 강점 최대 3가지 (예: "전문성 우수", "의사소통 원활", "일정준수")
-                Collections.emptyList()  // 약점 최대 3가지
+                Collections.emptyList() // 약점 최대 3가지
         );
     }
 
