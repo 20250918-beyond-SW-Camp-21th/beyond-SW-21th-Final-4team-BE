@@ -22,9 +22,8 @@ public class EmployerFreelancerQueryController {
     public ApiResponse<EmployerFreelancerSearchResponseDto> getFreelancers(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
-            @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) String skill
+            @RequestParam(required = false) String keyword
     ) {
-        return ApiResponse.ok(sharedMypageApi.getEmployerFreelancers(page, size, keyword, skill));
+        return ApiResponse.ok(sharedMypageApi.getEmployerFreelancers(page, size, keyword));
     }
 }

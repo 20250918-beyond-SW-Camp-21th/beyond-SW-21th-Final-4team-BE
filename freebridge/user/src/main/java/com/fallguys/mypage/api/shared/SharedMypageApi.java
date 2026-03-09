@@ -24,5 +24,5 @@ public interface SharedMypageApi {
 
     void updateNotificationSettings(Long userId, Boolean emailEnabled);
 
-    EmployerFreelancerSearchResponseDto getEmployerFreelancers(int page, int size, String keyword, String skill);
+    EmployerFreelancerSearchResponseDto getEmployerFreelancers(int page, int size, String keyword);
 }

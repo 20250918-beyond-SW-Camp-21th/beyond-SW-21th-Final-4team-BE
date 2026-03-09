@@ -90,8 +90,8 @@ public class SharedMypageApiImpl implements SharedMypageApi {
 
     @Override
     @Transactional(readOnly = true)
-    public EmployerFreelancerSearchResponseDto getEmployerFreelancers(int page, int size, String keyword, String skill) {
-        ExternalFreelancerSearchResponse result = externalFreelancerSearchApi.searchFreelancers(page, size, keyword, skill);
+    public EmployerFreelancerSearchResponseDto getEmployerFreelancers(int page, int size, String keyword) {
+        ExternalFreelancerSearchResponse result = externalFreelancerSearchApi.searchFreelancers(page, size, keyword);
         List<EmployerFreelancerSearchItemDto> items = result.items().stream()
                 .map(this::toItemDto)
                 .toList();

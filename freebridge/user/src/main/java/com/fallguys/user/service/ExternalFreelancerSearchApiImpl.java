@@ -29,9 +29,9 @@ public class ExternalFreelancerSearchApiImpl implements ExternalFreelancerSearch
 
     @Override
     @Transactional(readOnly = true)
-    public ExternalFreelancerSearchResponse searchFreelancers(int page, int size, String keyword, String skill) {
+    public ExternalFreelancerSearchResponse searchFreelancers(int page, int size, String keyword) {
         Pageable pageable = PageRequest.of(page, size);
-        Page<Freelancer> result = freelancerRepository.searchFreelancers(keyword, skill, pageable);
+        Page<Freelancer> result = freelancerRepository.searchFreelancers(keyword, pageable);
 
         Map<Long, String> userNameMap = loadUserNames(result.getContent());
 

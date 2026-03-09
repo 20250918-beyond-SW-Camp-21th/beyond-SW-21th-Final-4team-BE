@@ -8,12 +8,17 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface FreelancerRepository extends JpaRepository<Freelancer, Long> {
 
     Optional<Freelancer> findByUserId(Long userId);
+
+    List<Freelancer> findAllByUserIdIn(Collection<Long> userIds);
 
     @Query(
             value = """
@@ -24,8 +29,6 @@ public interface FreelancerRepository extends JpaRepository<Freelancer, Long> {
                 where (:keyword is null or :keyword = ''
                     or lower(u.name) like lower(concat('%', :keyword, '%'))
                     or lower(s) like lower(concat('%', :keyword, '%')))
-                  and (:skill is null or :skill = ''
-                    or lower(s) = lower(:skill))
             """,
             countQuery = """
                 select count(distinct f)
@@ -35,12 +38,9 @@ public interface FreelancerRepository extends JpaRepository<Freelancer, Long> {
                 where (:keyword is null or :keyword = ''
                     or lower(u.name) like lower(concat('%', :keyword, '%'))
                     or lower(s) like lower(concat('%', :keyword, '%')))
-                  and (:skill is null or :skill = ''
-                    or lower(s) = lower(:skill))
             """
     )
     Page<Freelancer> searchFreelancers(@Param("keyword") String keyword,
-                                       @Param("skill") String skill,
                                        Pageable pageable);
 
 }
