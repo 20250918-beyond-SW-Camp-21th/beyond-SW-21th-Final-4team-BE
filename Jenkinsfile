@@ -26,7 +26,6 @@ pipeline {
 
     stages {
         stage('EKS Preflight') {
-            agent any
             steps {
                 script {
                     withCredentials([[
@@ -144,7 +143,6 @@ pipeline {
             }
         }
         stage('Install Ingress Nginx If Missing') {
-            agent any
             steps {
                 script {
                     withCredentials([[
@@ -193,7 +191,6 @@ pipeline {
         }
 
         stage('Deploy to EKS') {
-            agent any
             steps {
                 script {
                     withCredentials([[
