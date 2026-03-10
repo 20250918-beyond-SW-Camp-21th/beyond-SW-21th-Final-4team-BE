@@ -77,7 +77,7 @@ public class FreelancerProfileService {
                 portfolioInfo.getPortfolioLastUpdated()
         );
 
-        CrmAlertsDto crmAlerts = new CrmAlertsDto(false, false, false);
+        CrmAlertsDto crmAlerts = new CrmAlertsDto(null, null, null);
 
         FreelancerBasicProfileDto basicProfile = new FreelancerBasicProfileDto(
                 freelancer.getAvatarUrl(),
