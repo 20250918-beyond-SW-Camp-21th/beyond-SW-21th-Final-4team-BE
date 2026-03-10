@@ -133,7 +133,7 @@ public class FreelancerResumeService {
 
     private Resume findByUserIdOrThrow(Long userId) {
         return resumeRepository.findByUserId(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESUME_NOT_FOUND));
     }
 
     private FreelancerResumeResponseDto toResumeDto(Resume resume) {

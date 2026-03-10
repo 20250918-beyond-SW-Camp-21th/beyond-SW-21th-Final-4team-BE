@@ -62,10 +62,11 @@ class FreelancerProfileServiceTest {
     void getProfile_Success() {
         // given
         Long userId = 100L;
+        LocalDate futureStartDate = LocalDate.now().plusDays(30);
         Freelancer mockFreelancer = Freelancer.create(userId, "백엔드 개발자", FreelancerGrade.JUNIOR);
         mockFreelancer.updateWorkConditions(new WorkConditions(
                 "개인",
-                LocalDate.of(2026, 3, 10),
+                futureStartDate,
                 "원격",
                 "서울"
         ));
@@ -95,7 +96,7 @@ class FreelancerProfileServiceTest {
         assertThat(result.basicProfile().workConditions().workStyle()).isEqualTo("원격");
         assertThat(result.basicProfile().workConditions().workLocation()).isEqualTo("서울");
         assertThat(result.basicProfile().workConditions().availableStartDate())
-                .isEqualTo(LocalDate.of(2026, 3, 10));
+                .isEqualTo(futureStartDate);
         assertThat(result.basicProfile().crmAlerts()).isNotNull();
         assertThat(result.basicProfile().crmAlerts().rateBumpEligible()).isFalse();
         assertThat(result.basicProfile().crmAlerts().burnoutRisk()).isFalse();
@@ -137,7 +138,7 @@ class FreelancerProfileServiceTest {
                 50000L,
                 List.of("Java", "React", "Spring"),
                 "팀",
-                LocalDate.of(2026, 3, 15),
+                LocalDate.now().plusDays(45),
                 "혼합",
                 "부산",
                 "지드래곤",
@@ -162,8 +163,17 @@ class FreelancerProfileServiceTest {
         assertThat(mockFreelancer.getWage()).isEqualTo(50000L);
         assertThat(mockFreelancer.getSkills()).containsExactlyInAnyOrder("Java", "React", "Spring");
         assertThat(mockFreelancer.getWorkConditions()).isNotNull();
+        assertThat(mockFreelancer.getExpertise()).isNotNull();
+        assertThat(mockFreelancer.getExpertise().getProgramming()).isEqualTo(4);
+        assertThat(mockFreelancer.getExpertise().getFramework()).isEqualTo(5);
+        assertThat(mockFreelancer.getExpertise().getProblemSolving()).isEqualTo(3);
+        assertThat(mockFreelancer.getCollaboration()).isNotNull();
+        assertThat(mockFreelancer.getCollaboration().getCommunication()).isEqualTo(4);
+        assertThat(mockFreelancer.getCollaboration().getScheduleAdherence()).isEqualTo(4);
+        assertThat(mockFreelancer.getCollaboration().getDispute()).isEqualTo(2);
+        assertThat(mockFreelancer.getAverageRate()).isEqualTo(4.5);
         assertThat(mockFreelancer.getWorkConditions().getConditionsType()).isEqualTo("팀");
-        assertThat(mockFreelancer.getWorkConditions().getStartDate()).isEqualTo(LocalDate.of(2026, 3, 15));
+        assertThat(mockFreelancer.getWorkConditions().getStartDate()).isEqualTo(LocalDate.now().plusDays(45));
         assertThat(mockFreelancer.getWorkConditions().getWorkStyle()).isEqualTo("혼합");
         assertThat(mockFreelancer.getWorkConditions().getLocation()).isEqualTo("부산");
     }

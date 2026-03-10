@@ -55,7 +55,10 @@ public enum ErrorCode {
     SUBSCRIPTION_SAME_PLAN(400, "SUB003", "현재와 동일한 플랜으로는 변경할 수 없습니다."),
     SUBSCRIPTION_BILLING_KEY_REQUIRED(400, "SUB004", "유료 플랜 변경에는 billingKey가 필요합니다."),
     SUBSCRIPTION_CANCEL_REQUIRED(400, "SUB005", "무료 플랜 전환은 구독 취소 기능을 이용해주세요."),
-    SUBSCRIPTION_ALREADY_BASIC(400, "SUB006", "이미 BASIC 플랜을 사용 중입니다.");
+    SUBSCRIPTION_ALREADY_BASIC(400, "SUB006", "이미 BASIC 플랜을 사용 중입니다."),
+
+    // Resume
+    RESUME_NOT_FOUND(404, "RES001", "이력서를 찾을 수 없습니다.");
 
     private final int status;
     private final String code;

@@ -75,7 +75,7 @@ public class FreelancerGradeCalculatorService {
 
         String basis = String.format("%s + 경력 %d년 -> %s(%s)",
                 license.getDescription(), years, gradeLabel(grade), grade.name());
-        return GradeCalculationResultDto.of(grade, basis, years, "자격");
+        return GradeCalculationResultDto.of(grade, basis, years, "자격자");
     }
 
     private FreelancerGrade gradeByThresholds(int years, int midThreshold, int seniorThreshold, int masterThreshold) {

@@ -33,12 +33,12 @@ public class FreelancerGradeService {
             if (request.education() == null || request.education().isBlank()) {
                 throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
             }
-            parseAcademicDegree(request.education());
+            validateAcademicDegree(request.education());
         } else {
             if (request.certification() == null || request.certification().isBlank()) {
                 throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
             }
-            parseLicenseGrade(request.certification());
+            validateLicenseGrade(request.certification());
         }
 
         FreelancerGrade grade = parseFreelancerGrade(request.grade());
@@ -48,21 +48,21 @@ public class FreelancerGradeService {
         freelancer.changeGrade(grade);
     }
 
-    private AcademicDegree parseAcademicDegree(String value) {
+    private void validateAcademicDegree(String value) {
         String normalized = value.trim();
         for (AcademicDegree degree : AcademicDegree.values()) {
             if (degree.name().equalsIgnoreCase(normalized) || degree.getDescription().equals(normalized)) {
-                return degree;
+                return;
             }
         }
         throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
     }
 
-    private LicenseGrade parseLicenseGrade(String value) {
+    private void validateLicenseGrade(String value) {
         String normalized = value.trim();
         for (LicenseGrade grade : LicenseGrade.values()) {
             if (grade.name().equalsIgnoreCase(normalized) || grade.getDescription().equals(normalized)) {
-                return grade;
+                return;
             }
         }
         throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);

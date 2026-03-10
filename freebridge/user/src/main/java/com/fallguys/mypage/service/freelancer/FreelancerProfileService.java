@@ -126,11 +126,24 @@ public class FreelancerProfileService {
                 || request.workLocation() != null;
 
         if (hasWorkConditions) {
+            WorkConditions existing = freelancer.getWorkConditions();
+            String workType = request.workType() != null
+                    ? request.workType()
+                    : existing != null ? existing.getConditionsType() : null;
+            var availableStartDate = request.availableStartDate() != null
+                    ? request.availableStartDate()
+                    : existing != null ? existing.getStartDate() : null;
+            String workStyle = request.workStyle() != null
+                    ? request.workStyle()
+                    : existing != null ? existing.getWorkStyle() : null;
+            String workLocation = request.workLocation() != null
+                    ? request.workLocation()
+                    : existing != null ? existing.getLocation() : null;
             WorkConditions workConditions = new WorkConditions(
-                    request.workType(),
-                    request.availableStartDate(),
-                    request.workStyle(),
-                    request.workLocation()
+                    workType,
+                    availableStartDate,
+                    workStyle,
+                    workLocation
             );
             freelancer.updateWorkConditions(workConditions);
         }
@@ -140,10 +153,20 @@ public class FreelancerProfileService {
                 || request.expertiseProblemSolving() != null;
 
         if (hasExpertise) {
+            Expertise existing = freelancer.getExpertise();
+            Integer programming = request.expertiseProgramming() != null
+                    ? request.expertiseProgramming()
+                    : existing != null ? existing.getProgramming() : null;
+            Integer framework = request.expertiseFramework() != null
+                    ? request.expertiseFramework()
+                    : existing != null ? existing.getFramework() : null;
+            Integer problemSolving = request.expertiseProblemSolving() != null
+                    ? request.expertiseProblemSolving()
+                    : existing != null ? existing.getProblemSolving() : null;
             Expertise expertise = new Expertise(
-                    request.expertiseProgramming(),
-                    request.expertiseFramework(),
-                    request.expertiseProblemSolving()
+                    programming,
+                    framework,
+                    problemSolving
             );
             freelancer.updateExpertise(expertise);
         }
@@ -153,10 +176,20 @@ public class FreelancerProfileService {
                 || request.collaborationDispute() != null;
 
         if (hasCollaboration) {
+            Collaboration existing = freelancer.getCollaboration();
+            Integer communication = request.collaborationCommunication() != null
+                    ? request.collaborationCommunication()
+                    : existing != null ? existing.getCommunication() : null;
+            Integer scheduleAdherence = request.collaborationScheduleAdherence() != null
+                    ? request.collaborationScheduleAdherence()
+                    : existing != null ? existing.getScheduleAdherence() : null;
+            Integer dispute = request.collaborationDispute() != null
+                    ? request.collaborationDispute()
+                    : existing != null ? existing.getDispute() : null;
             Collaboration collaboration = new Collaboration(
-                    request.collaborationCommunication(),
-                    request.collaborationScheduleAdherence(),
-                    request.collaborationDispute()
+                    communication,
+                    scheduleAdherence,
+                    dispute
             );
             freelancer.updateCollaboration(collaboration);
         }
