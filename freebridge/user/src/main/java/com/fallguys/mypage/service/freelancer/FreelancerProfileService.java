@@ -1,6 +1,5 @@
 package com.fallguys.mypage.service.freelancer;
 
-
 import com.fallguys.common.exception.BusinessException;
 import com.fallguys.common.exception.ErrorCode;
 import com.fallguys.common.port.FileStorage;
@@ -12,10 +11,12 @@ import com.fallguys.mypage.api.web.dto.freelancer.response.ExpertiseDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerBasicProfileDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerProfileResponseDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerStatsDto;
+import com.fallguys.mypage.api.web.dto.freelancer.response.PortfolioInfoDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.WorkConditionsDto;
 import com.fallguys.mypage.entity.freelancer.Collaboration;
 import com.fallguys.mypage.entity.freelancer.Expertise;
 import com.fallguys.mypage.entity.freelancer.Freelancer;
+import com.fallguys.mypage.entity.freelancer.PortfolioInfo;
 import com.fallguys.mypage.entity.freelancer.WorkConditions;
 import com.fallguys.mypage.repository.freelancer.FreelancerRepository;
 import com.fallguys.user.api.shared.response.ExternalUserResponse;
@@ -40,7 +41,7 @@ public class FreelancerProfileService {
     private final FileStorage fileStorage;
     private final SharedMypageApi sharedMypageApi;
 
-    private static final long MAX_AVATAR_BYTES = 5 * 1024 * 1024; // 5MB
+    private static final long MAX_AVATAR_BYTES = 5 * 1024 * 1024; // 프로필 이미지 최대 5MB
 
     @Transactional(readOnly = true)
     public FreelancerProfileResponseDto getProfile(Long userId) {
@@ -69,7 +70,13 @@ public class FreelancerProfileService {
                 collaboration.getDispute()
         );
 
-        // 현재 CRM 규칙 데이터가 없으므로 기본값 false로 반환
+        PortfolioInfo portfolioInfo = freelancer.getPortfolioInfo();
+        PortfolioInfoDto portfolioInfoDto = portfolioInfo == null ? null : new PortfolioInfoDto(
+                portfolioInfo.getPortfolioFileUrl(),
+                portfolioInfo.getPortfolioFileName(),
+                portfolioInfo.getPortfolioLastUpdated()
+        );
+
         CrmAlertsDto crmAlerts = new CrmAlertsDto(false, false, false);
 
         FreelancerBasicProfileDto basicProfile = new FreelancerBasicProfileDto(
@@ -88,6 +95,7 @@ public class FreelancerProfileService {
                 expertiseDto,
                 collaborationDto,
                 freelancer.getAverageRate(),
+                portfolioInfoDto,
                 crmAlerts
         );
 
@@ -187,7 +195,7 @@ public class FreelancerProfileService {
             uploadKey = "freelancers/avatar/" + UUID.randomUUID() + extension;
             String uploadedUrl = fileStorage.upload(fileBytes, uploadKey, file.getContentType());
 
-            // DB 트랜잭션 롤백 시 업로드된 S3 파일 삭제 (고아 파일 방지)
+            // DB 롤백 시 이미 업로드된 S3 파일 삭제 (고아 파일 방지)
             String finalUploadKey = uploadKey;
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
@@ -196,7 +204,7 @@ public class FreelancerProfileService {
                         try {
                             fileStorage.deleteByKey(finalUploadKey);
                         } catch (Exception ex) {
-                            log.error("S3 롤백 삭제 실패 - key: {}", finalUploadKey, ex);
+                            log.error("S3 롤백 파일 삭제 실패 - key: {}", finalUploadKey, ex);
                         }
                     }
                 }

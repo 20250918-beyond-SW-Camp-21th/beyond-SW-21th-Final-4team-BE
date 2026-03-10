@@ -11,12 +11,13 @@ public record FreelancerBasicProfileDto(
         String introduction,
         String grade, // FreelancerGrade enum name
         Integer careerYears,
-        Long wage, // 희망 단가
+        Long wage, // ?щ쭩 ?④?
         List<String> skills,
-        String status, // POTENTIAL, CONTRACTING 등
+        String status, // POTENTIAL, CONTRACTING ??
         WorkConditionsDto workConditions,
         ExpertiseDto expertise,
         CollaborationDto collaboration,
         Double averageRating,
+        PortfolioInfoDto portfolio,
         CrmAlertsDto crmAlerts
 ) {}
