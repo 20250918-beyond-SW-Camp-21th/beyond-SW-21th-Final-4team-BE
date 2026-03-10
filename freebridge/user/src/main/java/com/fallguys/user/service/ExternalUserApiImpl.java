@@ -1,5 +1,7 @@
 package com.fallguys.user.service;
 
+import com.fallguys.common.exception.BusinessException;
+import com.fallguys.common.exception.ErrorCode;
 import com.fallguys.user.api.shared.ExternalUserApi;
 import com.fallguys.user.api.shared.response.ExternalUserResponse;
 import com.fallguys.user.entity.User;
@@ -20,7 +22,7 @@ public class ExternalUserApiImpl implements ExternalUserApi {
     @Override
     public ExternalUserResponse getUserById(Long userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다. ID: " + userId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         return toSharedDto(user);
     }
 
@@ -64,7 +66,7 @@ public class ExternalUserApiImpl implements ExternalUserApi {
     @Transactional
     public void updateName(Long userId, String name) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다. ID: " + userId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         user.updateName(name);
     }
 
