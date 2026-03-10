@@ -63,6 +63,9 @@ public class UserService {
      */
     @Transactional
     public UserResponseDto signup(SignupRequestDto request) {
+        // 비밀번호 유효성 검사
+        validatePassword(request.getPassword());
+
         // 이메일 중복 검사
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new IllegalArgumentException("이미 사용 중인 이메일입니다.");
@@ -80,6 +83,7 @@ public class UserService {
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .name(request.getName())
+                .phone(request.getPhone())
                 .role(request.getRole())
                 .termsAgreed(request.getTermsAgreed())
                 .privacyAgreed(request.getPrivacyAgreed())
@@ -150,7 +154,8 @@ public class UserService {
 
         String refreshToken = jwtTokenProvider.generateRefreshToken(user.getId());
         String refreshJti = jwtTokenProvider.getClaimsFromToken(refreshToken).getId();
-        redisTokenService.saveRefreshToken(user.getId(), refreshToken, refreshJti, jwtTokenProvider.getRefreshTokenExpirationMs());
+        redisTokenService.saveRefreshToken(user.getId(), refreshToken, refreshJti,
+                jwtTokenProvider.getRefreshTokenExpirationMs());
 
         log.info("로그인 성공 - userId: {}", user.getId());
 
@@ -238,7 +243,8 @@ public class UserService {
         long refreshTokenTtlMs = jwtTokenProvider.getRefreshTokenExpirationMs();
         String newRefreshToken = jwtTokenProvider.generateRefreshToken(user.getId());
         String newRefreshJti = jwtTokenProvider.getClaimsFromToken(newRefreshToken).getId();
-        boolean rotated = redisTokenService.compareAndSetRefreshToken(userId, incomingRefreshToken, incomingJti, newRefreshToken, newRefreshJti, refreshTokenTtlMs);
+        boolean rotated = redisTokenService.compareAndSetRefreshToken(userId, incomingRefreshToken, incomingJti,
+                newRefreshToken, newRefreshJti, refreshTokenTtlMs);
         if (!rotated) {
             throw new IllegalArgumentException("Refresh Token이 일치하지 않거나 로그아웃 되었습니다.");
         }
@@ -311,6 +317,9 @@ public class UserService {
             throw new IllegalArgumentException("현재 비밀번호가 일치하지 않습니다.");
         }
 
+        // 새로운 비밀번호 유효성 검사
+        validatePassword(request.getNewPassword());
+
         user.updatePassword(passwordEncoder.encode(request.getNewPassword()));
         log.info("비밀번호 변경 완료 - userId: {}", userId);
     }
@@ -325,5 +334,15 @@ public class UserService {
 
         user.updateEmailEnabled(dto.getEmailEnabled());
         log.info("이메일 수신 설정 변경 - userId: {}, emailEnabled: {}", userId, dto.getEmailEnabled());
+    }
+
+    /**
+     * 비밀번호 유효성 검사 (대문자, 소문자, 숫자, 특수문자 포함 8자 이상)
+     */
+    private void validatePassword(String password) {
+        String regex = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*#?&])[A-Za-z\\d@$!%*#?&]{8,}$";
+        if (password == null || !password.matches(regex)) {
+            throw new IllegalArgumentException("비밀번호는 대문자, 소문자, 숫자, 특수문자를 포함하여 8자 이상이어야 합니다.");
+        }
     }
 }
