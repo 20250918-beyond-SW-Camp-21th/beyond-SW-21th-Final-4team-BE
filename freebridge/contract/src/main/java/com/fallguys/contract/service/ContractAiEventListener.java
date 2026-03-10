@@ -8,9 +8,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.event.TransactionalEventListener;
+import org.springframework.transaction.event.TransactionPhase;
 
 @Slf4j
 @Component
@@ -22,7 +23,7 @@ public class ContractAiEventListener {
     private final ContractRepository contractRepository;
 
     @Async
-    @EventListener
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleContractAIAnalysisRequestedEvent(ContractAIAnalysisRequestedEvent event) {
         log.info("비동기 AI 계약서 분석 시작 - contractId: {}", event.contractId());
         try {
