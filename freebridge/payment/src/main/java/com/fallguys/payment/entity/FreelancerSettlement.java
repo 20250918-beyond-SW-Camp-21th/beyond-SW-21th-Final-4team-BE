@@ -74,9 +74,9 @@ public class FreelancerSettlement {
         this.paidDate = LocalDate.now();
     }
 
-    public void cancel() {
-        this.status = FreelancerSettlementStatus.CANCELLED;
-    }
+    // public void cancel() {
+    //     this.status = FreelancerSettlementStatus.CANCELLED;
+    // }
 
     public boolean isPending() {
         return this.status == FreelancerSettlementStatus.PENDING;

@@ -4,5 +4,6 @@ public enum EmployerSettlementStatus {
     ISSUED,
     PAID,
     DISBURSED,
+    CANCEL_PENDING,
     CANCELLED
 }

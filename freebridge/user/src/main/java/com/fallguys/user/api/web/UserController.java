@@ -131,8 +131,12 @@ public class UserController {
         boolean exists = userService.checkEmailDuplicate(email);
         Map<String, Object> response = new HashMap<>();
         response.put("success", true);
-        response.put("exists", exists);
-        response.put("available", !exists);
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("exists", exists);
+        data.put("available", !exists);
+        response.put("data", data);
+
         return ResponseEntity.ok(response);
     }
 

@@ -2,6 +2,7 @@ package com.fallguys.review.service;
 
 import com.fallguys.common.exception.BusinessException;
 import com.fallguys.common.exception.ErrorCode;
+import com.fallguys.common.port.ProjectExternalApi;
 import com.fallguys.review.api.dto.request.EmployerReviewCreateRequest;
 import com.fallguys.review.api.dto.request.EmployerReviewUpdateRequest;
 import com.fallguys.review.api.dto.request.FreelancerReviewCreateRequest;
@@ -38,6 +39,9 @@ class ReviewServiceImplTest {
 
     @Mock
     private FreelancerReviewRepository freelancerReviewRepository;
+
+    @Mock
+    private ProjectExternalApi projectExternalApi;
 
     @InjectMocks
     private ReviewServiceImpl reviewService;
@@ -79,6 +83,7 @@ class ReviewServiceImplTest {
         verify(employerReviewRepository, times(1)).save(captor.capture());
         assertEquals(employerId, captor.getValue().getEmployerId());
         assertEquals(request.freelancerId(), captor.getValue().getFreelancerId());
+        verify(projectExternalApi, times(1)).completeProjectWithReview(any());
     }
 
     @Test
@@ -141,6 +146,7 @@ class ReviewServiceImplTest {
 
         // then
         assertEquals(ReviewStatus.DELETED, review.getStatus());
+        assertEquals(true, review.getDeleted());
     }
 
     @Test
@@ -204,5 +210,6 @@ class ReviewServiceImplTest {
 
         // then
         assertEquals(ReviewStatus.DELETED, review.getStatus());
+        assertEquals(true, review.getDeleted());
     }
 }
