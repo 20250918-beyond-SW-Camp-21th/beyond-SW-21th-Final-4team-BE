@@ -185,6 +185,7 @@ public class EmployerSettlementService {
 
         // 포트원에 저장된 customData(contractId/employerId)와 요청값 교차 검증 (위변조 방지)
         PortOnePaymentInfo.CustomDataInfo customData = payment.getCustomData();
+
         if (customData == null
                 || !contractId.equals(customData.getContractId())
                 || !employerId.equals(customData.getEmployerId())) {
@@ -281,7 +282,8 @@ public class EmployerSettlementService {
         LocalDate startDate = contract.startDate();
         LocalDate endDate = contract.endDate();
         long budget = contract.budget();
-        double commissionRate = contract.commissionRate() != null ? contract.commissionRate() : 0.0;
+        // 프론트엔드 기본값(0.05)과 일치 — commissionRate 미설정 계약도 동일하게 처리
+        double commissionRate = contract.commissionRate() != null ? contract.commissionRate() : 0.05;
         int paymentDay = contract.paymentDay() != null ? contract.paymentDay() : startDate.getDayOfMonth();
 
         int totalMonths = (int) ChronoUnit.MONTHS.between(
@@ -290,9 +292,17 @@ public class EmployerSettlementService {
             totalMonths = 1;
 
         long baseInstallment = budget / totalMonths;
-        // BigDecimal constants for exact monetary arithmetic (avoids floating-point rounding errors)
         BigDecimal commissionRateBD = BigDecimal.valueOf(commissionRate);
         BigDecimal taxRateBD = new BigDecimal("0.033");
+
+        // 총 결제금액을 한 번에 계산 — 프론트엔드 Math.round(budget*(1+rate)) 와 동일
+        // 회차별 각각 반올림하면 합산 시 오차가 생겨 포트원 금액 검증이 실패함
+        long grandTotal = BigDecimal.valueOf(budget)
+                .multiply(BigDecimal.ONE.add(commissionRateBD))
+                .setScale(0, RoundingMode.HALF_UP)
+                .longValue();
+        long baseInstallmentTotal = grandTotal / totalMonths;
+
         List<EmployerSettlement> result = new ArrayList<>();
 
         for (int i = 1; i <= totalMonths; i++) {
@@ -300,10 +310,11 @@ public class EmployerSettlementService {
                     ? baseInstallment
                     : budget - baseInstallment * (totalMonths - 1);
 
-            BigDecimal billingBD = BigDecimal.valueOf(billingAmount);
-            long platformFee = billingBD.multiply(commissionRateBD)
-                    .setScale(0, RoundingMode.HALF_UP).longValue();
-            long totalPayment = billingAmount + platformFee;
+            // 회차별 총납부액: 마지막 회차가 반올림 잔액을 흡수 → sum == grandTotal 보장
+            long totalPayment = (i < totalMonths)
+                    ? baseInstallmentTotal
+                    : grandTotal - baseInstallmentTotal * (totalMonths - 1);
+            long platformFee = totalPayment - billingAmount;
             LocalDate dueDate = buildDueDate(startDate, i - 1, paymentDay);
 
             EmployerSettlement es = new EmployerSettlement();
@@ -321,8 +332,7 @@ public class EmployerSettlementService {
             employerSettlementRepository.save(es);
 
             // 대응하는 FreelancerSettlement 생성
-            long fsPlatformFee = billingBD.multiply(commissionRateBD)
-                    .setScale(0, RoundingMode.HALF_UP).longValue();
+            long fsPlatformFee = platformFee;
             long tax = BigDecimal.valueOf(billingAmount - fsPlatformFee)
                     .multiply(taxRateBD)
                     .setScale(0, RoundingMode.HALF_UP).longValue();

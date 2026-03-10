@@ -3,6 +3,7 @@ package com.fallguys.payment.portone;
 import com.fallguys.common.exception.BusinessException;
 import com.fallguys.common.exception.ErrorCode;
 import com.fallguys.payment.config.PortOneProperties;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -32,26 +33,43 @@ public class PortOneApiClient {
 
     private final PortOneProperties portOneProperties;
 
+    private final ObjectMapper objectMapper;
+
     /**
      * 결제 정보 단건 조회
      * GET /payments/{paymentId}
      */
     public PortOnePaymentInfo getPayment(String paymentId) {
         try {
-            return webClient.get()
+            // 먼저 raw String으로 받아 응답 본문을 로그에 찍은 뒤 수동 파싱
+            String rawBody = webClient.get()
                     .uri("/payments/{paymentId}", paymentId)
                     .retrieve()
                     .onStatus(HttpStatus.NOT_FOUND::equals,
                             response -> response.bodyToMono(String.class)
                                     .map(body -> new BusinessException(ErrorCode.PAYMENT_NOT_FOUND)))
-                    .bodyToMono(PortOnePaymentInfo.class)
+                    .bodyToMono(String.class)
                     .block();
+
+            if (rawBody == null || rawBody.isBlank()) {
+                log.error("PortOne getPayment 빈 응답: paymentId={}", paymentId);
+                throw new BusinessException(ErrorCode.PAYMENT_FAILED);
+            }
+
+            return objectMapper.readValue(rawBody, PortOnePaymentInfo.class);
+
+        } catch (BusinessException e) {
+            throw e;
         } catch (WebClientResponseException e) {
-            log.error("PortOne getPayment 오류: paymentId={}, status={}, body={}",
+            log.error("PortOne getPayment HTTP 오류: paymentId={}, status={}, body={}",
                     paymentId, e.getStatusCode(), e.getResponseBodyAsString());
             if (e.getStatusCode() == HttpStatus.NOT_FOUND) {
                 throw new BusinessException(ErrorCode.PAYMENT_NOT_FOUND);
             }
+            throw new BusinessException(ErrorCode.PAYMENT_FAILED);
+        } catch (Exception e) {
+            log.error("PortOne getPayment 처리 오류: paymentId={}, exceptionType={}, message={}",
+                    paymentId, e.getClass().getName(), e.getMessage());
             throw new BusinessException(ErrorCode.PAYMENT_FAILED);
         }
     }
