@@ -68,6 +68,13 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
 
     @Override
     public String analyzeContract(byte[] pdfBytes, String filename) {
+        if (pdfBytes == null || pdfBytes.length == 0) {
+            throw new IllegalArgumentException("pdfBytes must not be null or empty");
+        }
+        if (filename == null || filename.trim().isEmpty()) {
+            throw new IllegalArgumentException("filename must not be null or blank");
+        }
+        
         MultipartBodyBuilder builder = new MultipartBodyBuilder();
         builder.part("file", new ByteArrayResource(pdfBytes) {
             @Override
@@ -82,7 +89,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                 .body(builder.build())
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, (request, response) -> {
-                    throw new RuntimeException("AI 계약서 분석 파싱 오류");
+                    throw new RuntimeException("AI 계약서 분석 서비스 응답 오류: " + response.getStatusCode());
                 })
                 .body(String.class);
     }

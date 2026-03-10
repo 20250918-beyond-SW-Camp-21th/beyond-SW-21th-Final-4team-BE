@@ -28,9 +28,14 @@ public class ContractAiEventListener {
         log.info("비동기 AI 계약서 분석 시작 - contractId: {}", event.contractId());
         try {
             Contract contract = contractRepository.findById(event.contractId())
-                    .orElseThrow(() -> new IllegalArgumentException("Contract not found"));
+                    .orElseThrow(() -> new IllegalArgumentException("Contract not found for id: " + event.contractId()));
 
-            String aiResultJson = contractEngine.analyzeContract(event.pdfBytes(), "contract_" + contract.getContractId() + ".pdf");
+            byte[] pdfBytes = event.pdfBytes();
+            if (pdfBytes == null || pdfBytes.length == 0) {
+                throw new IllegalArgumentException("Missing PDF bytes for contractId: " + event.contractId());
+            }
+
+            String aiResultJson = contractEngine.analyzeContract(pdfBytes, "contract_" + contract.getContractId() + ".pdf");
             
             JsonNode root = objectMapper.readTree(aiResultJson);
             StringBuilder adviceBuilder = new StringBuilder();
@@ -51,8 +56,12 @@ public class ContractAiEventListener {
                     adviceBuilder.append("- ").append(rec.asText()).append("\n");
                 }
             }
+            String finalAdvice = adviceBuilder.toString().trim();
+            if (finalAdvice.isEmpty()) {
+                finalAdvice = "AI 분석 내용이 없습니다.";
+            }
             
-            contract.setAiLegalAdvice(adviceBuilder.toString().trim());
+            contract.setAiLegalAdvice(finalAdvice);
             contractRepository.save(contract);
             log.info("비동기 AI 계약서 분석 완료 및 저장 - contractId: {}", event.contractId());
         } catch (Exception e) {
