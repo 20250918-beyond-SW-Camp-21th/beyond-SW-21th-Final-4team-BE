@@ -37,13 +37,22 @@ public class EmployerProfileService {
         Employer employer = employerRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 유저의 고용주 프로필을 찾을 수 없습니다."));
 
+        String companyName = hasText(request.companyName()) ? request.companyName() : employer.getCompanyName();
+        String industry = request.industry() != null ? request.industry() : employer.getIndustry();
+        Scale scale = (request.scale() != null && !request.scale().isBlank())
+                ? parseScale(request.scale())
+                : employer.getScale();
+        String location = request.location() != null ? request.location() : employer.getLocation();
+        String websiteUrl = request.websiteUrl() != null ? request.websiteUrl() : employer.getWebsiteUrl();
+        String description = request.description() != null ? request.description() : employer.getDescription();
+
         employer.updateProfile(
-                request.companyName(),
-                request.industry(),
-                parseScale(request.scale()),
-                request.location(),
-                request.websiteUrl(),
-                request.description(),
+                companyName,
+                industry,
+                scale,
+                location,
+                websiteUrl,
+                description,
                 employer.getLogoUrl() // 기존 로고는 유지 (로고 수정 API 분리됨)
         );
     }
@@ -57,6 +66,10 @@ public class EmployerProfileService {
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("유효하지 않은 기업 규모(Scale) 값입니다: " + scaleStr);
         }
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
     @Transactional
