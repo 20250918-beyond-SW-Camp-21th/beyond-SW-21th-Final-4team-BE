@@ -1,4 +1,4 @@
-package com.fallguys.contract.api.shared;
+package com.fallguys.common.api.contract;
 
 public interface ContractQuery {
 

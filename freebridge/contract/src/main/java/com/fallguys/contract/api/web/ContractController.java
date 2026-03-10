@@ -18,7 +18,7 @@ import java.util.List;
 
 @Tag(name = "Contract", description = "계약 관련 API")
 @RestController
-@RequestMapping("/api/v1/contracts")
+@RequestMapping("/api/contracts")
 @RequiredArgsConstructor
 public class ContractController {
 
@@ -39,7 +39,6 @@ public class ContractController {
         }
 
         ContractResponse response = contractService.createContract(request, userId);
-        response = contractService.sign(response.getContractId(), request.getEmployerSignature(), role, userId);
         ApiResponse<ContractResponse> apiResponse = ApiResponse.created(response);
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
@@ -85,7 +84,7 @@ public class ContractController {
         Long userId = principal.getId();
         String userRole = principal.getRole();
 
-        ContractResponse response = contractService.sign(contractId, request.getSignature(), userRole, userId);
+        ContractResponse response = contractService.sign(contractId, request, userRole, userId);
         ApiResponse<ContractResponse> apiResponse = ApiResponse.ok(response);
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
