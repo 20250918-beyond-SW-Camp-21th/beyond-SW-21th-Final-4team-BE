@@ -17,7 +17,10 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -38,6 +41,7 @@ public class EmployerSettlementService {
     private final WalletTransactionRepository walletTransactionRepository;
     private final ContractQuery contractQuery;
     private final PortOneApiClient portOneApiClient;
+    private final PlatformTransactionManager transactionManager;
 
     @Transactional(readOnly = true)
     public PageResponse<EmployerSettlementItem> listSettlements(
@@ -204,13 +208,17 @@ public class EmployerSettlementService {
             try {
                 settlements = createSettlementRecords(contract, paymentId, employerId);
             } catch (DataIntegrityViolationException e) {
-                // 동시 요청이 이미 정산 레코드를 생성한 경우.
-                // DIVE 발생 후 트랜잭션이 중단(aborted) 상태이므로 DB 조회를 시도하면 PostgreSQL이
-                // "current transaction is aborted" 오류를 반환합니다.
-                // ConcurrentSettlementException을 전파하여 outer catch의 전용 핸들러로 처리합니다
-                // (보상 취소를 호출하지 않음 — 다른 요청이 이미 결제를 정상 처리했음).
-                log.info("동시 정산 생성 감지 — outer catch로 전파 (보상 취소 불필요): paymentId={}", paymentId);
-                throw new ConcurrentSettlementException(e);
+                if (isUniqueConstraintViolation(e)) {
+                    // 동시 요청이 이미 정산 레코드를 생성한 경우 (유니크 제약 위반).
+                    // DIVE 발생 후 트랜잭션이 중단(aborted) 상태이므로 outer catch 전용 핸들러로 처리합니다
+                    // (보상 취소를 호출하지 않음 — 다른 요청이 이미 결제를 정상 처리했음).
+                    log.info("동시 정산 생성 감지 (유니크 제약 위반) — outer catch로 전파: paymentId={}", paymentId);
+                    throw new ConcurrentSettlementException(e);
+                }
+                // FK, NOT NULL 등 다른 무결성 위반은 보상 취소가 필요한 실제 오류
+                log.error("정산 레코드 생성 중 무결성 위반 (유니크 제약 위반 아님) — 보상 취소 필요: paymentId={}, error={}",
+                        paymentId, e.getMessage());
+                throw e;
             }
 
             // 금액 검증: PortOne 결제 금액 == 전체 회차 totalPayment 합산
@@ -222,10 +230,27 @@ public class EmployerSettlementService {
                 throw new BusinessException(ErrorCode.PAYMENT_AMOUNT_MISMATCH);
             }
 
-            // PLATFORM_ESCROW 지갑 크레딧
+            // 서비스 수수료(platformFee 합산)는 PLATFORM_REVENUE, 나머지(프리랜서 지급액)는 PLATFORM_ESCROW
+            long totalPlatformFees = settlements.stream().mapToLong(EmployerSettlement::getPlatformFee).sum();
+            long totalEscrowAmount = totalExpected - totalPlatformFees;
+
+            // PLATFORM_ESCROW 지갑 크레딧 (프리랜서 지급 예정액)
             Wallet escrowWallet = getOrCreatePlatformWallet(WalletType.PLATFORM_ESCROW);
-            escrowWallet.credit(totalExpected);
+            escrowWallet.credit(totalEscrowAmount);
             walletRepository.save(escrowWallet);
+            walletTransactionRepository.save(new WalletTransaction(
+                    escrowWallet.getId(), TransactionType.CREDIT, totalEscrowAmount,
+                    TransactionReferenceType.CONTRACT_PAYMENT, contractId,
+                    "계약 에스크로 입금 (계약 #" + contractId + ")", escrowWallet.getBalance()));
+
+            // PLATFORM_REVENUE 지갑 크레딧 (서비스 수수료)
+            Wallet revenueWallet = getOrCreatePlatformWallet(WalletType.PLATFORM_REVENUE);
+            revenueWallet.credit(totalPlatformFees);
+            walletRepository.save(revenueWallet);
+            walletTransactionRepository.save(new WalletTransaction(
+                    revenueWallet.getId(), TransactionType.CREDIT, totalPlatformFees,
+                    TransactionReferenceType.CONTRACT_PAYMENT, contractId,
+                    "서비스 수수료 수익 (계약 #" + contractId + ")", revenueWallet.getBalance()));
 
             // 고용주 지갑 데빗: balance 차감 후 저장해야 balanceAfter 스냅샷도 정확해짐
             Wallet employerWallet = getOrCreateUserWallet(employerId, WalletType.EMPLOYER);
@@ -241,22 +266,38 @@ public class EmployerSettlementService {
                     TransactionReferenceType.CONTRACT_PAYMENT, contractId,
                     "계약금 결제 (계약 #" + contractId + ")", employerWallet.getBalance()));
 
-            // ESCROW 크레딧 트랜잭션 기록
-            walletTransactionRepository.save(new WalletTransaction(
-                    escrowWallet.getId(), TransactionType.CREDIT, totalExpected,
-                    TransactionReferenceType.CONTRACT_PAYMENT, contractId,
-                    "계약 에스크로 입금 (계약 #" + contractId + ")", escrowWallet.getBalance()));
-
             log.info("계약 결제 검증 완료: paymentId={}, contractId={}, installments={}, total={}",
                     paymentId, contractId, settlements.size(), totalExpected);
 
             return new VerifyPaymentResponse(true, contractId, totalExpected, settlements.size());
 
         } catch (ConcurrentSettlementException e) {
-            // 동시 처리로 인한 정산 레코드 중복 — 다른 요청이 이미 결제를 정상 처리했습니다.
-            // 포트원 결제를 취소하면 안 됩니다. 클라이언트가 재시도하면 상단 멱등성 체크에서
-            // 기존 정산 레코드를 조회하여 성공 응답을 반환합니다.
-            log.info("동시 처리 감지 — 보상 취소 스킵: paymentId={}, contractId={}", paymentId, contractId);
+            // 동시 처리로 인한 정산 레코드 중복 — 포트원 결제를 취소하면 안 됩니다.
+            // 현재 트랜잭션은 aborted 상태이므로 별도 트랜잭션에서 기존 정산을 재조회하여 멱등 응답을 반환합니다.
+            log.info("동시 처리 감지 — 기존 정산 재조회 시도: paymentId={}, contractId={}", paymentId, contractId);
+            try {
+                TransactionTemplate newTx = new TransactionTemplate(transactionManager);
+                newTx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+                VerifyPaymentResponse idempotentResponse = newTx.execute(status -> {
+                    Optional<EmployerSettlement> byTxn =
+                            employerSettlementRepository.findByTransactionId(paymentId);
+                    if (byTxn.isEmpty()) return null;
+                    EmployerSettlement existing = byTxn.get();
+                    if (!existing.getContractId().equals(contractId)) return null;
+                    List<EmployerSettlement> allSettlements =
+                            employerSettlementRepository.findByContractId(contractId);
+                    long total = allSettlements.stream()
+                            .mapToLong(EmployerSettlement::getTotalPayment).sum();
+                    return new VerifyPaymentResponse(true, contractId, total, allSettlements.size());
+                });
+                if (idempotentResponse != null) {
+                    log.info("동시 처리 — 기존 정산 재조회 성공, 멱등 응답 반환: paymentId={}", paymentId);
+                    return idempotentResponse;
+                }
+            } catch (Exception retryEx) {
+                log.warn("동시 처리 — 재조회 실패: paymentId={}, error={}", paymentId, retryEx.getMessage());
+            }
+            log.warn("동시 처리 — 재조회로 기존 정산 미발견, 예외 전파: paymentId={}", paymentId);
             throw e;
         } catch (Exception e) {
             // 외부 결제가 PAID이지만 내부 처리 실패 — 포트원 결제 취소로 보상 (자금 미포착 상태 유지)
@@ -560,6 +601,22 @@ public class EmployerSettlementService {
             case "LAST_1_YEAR" -> new LocalDate[] { now.minusYears(1), now };
             default -> new LocalDate[] { LocalDate.of(2000, 1, 1), now };
         };
+    }
+
+    /**
+     * DataIntegrityViolationException이 PostgreSQL 유니크 제약 위반(SQLState 23505)인지 확인.
+     * FK·NOT NULL 등 다른 무결성 위반과 구분하여 동시 결제 감지에만 사용.
+     */
+    private static boolean isUniqueConstraintViolation(DataIntegrityViolationException ex) {
+        Throwable cause = ex.getCause();
+        while (cause != null) {
+            if (cause instanceof org.hibernate.exception.ConstraintViolationException cve
+                    && "23505".equals(cve.getSQLState())) {
+                return true;
+            }
+            cause = cause.getCause();
+        }
+        return false;
     }
 
     /**

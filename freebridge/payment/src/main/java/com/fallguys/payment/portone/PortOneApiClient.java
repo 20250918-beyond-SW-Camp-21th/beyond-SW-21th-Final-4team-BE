@@ -14,7 +14,6 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 /**
  * PortOne V2 REST API 클라이언트
@@ -135,15 +134,27 @@ public class PortOneApiClient {
         log.info("PortOne 결제 취소 요청: paymentId={}, amount={}, reason={}", paymentId, amount, reason);
 
         try {
-            return webClient.post()
+            String rawBody = webClient.post()
                     .uri("/payments/{paymentId}/cancel", paymentId)
                     .bodyValue(body)
                     .retrieve()
-                    .bodyToMono(PortOnePaymentInfo.class)
+                    .bodyToMono(String.class)
                     .block();
+
+            if (rawBody == null || rawBody.isBlank()) {
+                log.warn("PortOne cancelPayment 빈 응답: paymentId={}", paymentId);
+                return null;
+            }
+
+            return objectMapper.readValue(rawBody, PortOnePaymentInfo.class);
+
         } catch (WebClientResponseException e) {
             log.error("PortOne cancelPayment 오류: paymentId={}, status={}, body={}",
                     paymentId, e.getStatusCode(), e.getResponseBodyAsString());
+            throw new BusinessException(ErrorCode.PAYMENT_FAILED);
+        } catch (Exception e) {
+            log.error("PortOne cancelPayment 처리 오류: paymentId={}, exceptionType={}, message={}",
+                    paymentId, e.getClass().getName(), e.getMessage());
             throw new BusinessException(ErrorCode.PAYMENT_FAILED);
         }
     }
