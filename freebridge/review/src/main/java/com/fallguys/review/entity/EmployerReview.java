@@ -71,6 +71,10 @@ public class EmployerReview {
     @Column(name = "status", nullable = false, length = 20)
     private ReviewStatus status = ReviewStatus.ACTIVE;
 
+    @Builder.Default
+    @Column(name = "deleted", nullable = false)
+    private Boolean deleted = false;
+
     @PrePersist
     protected void onCreate() {
         LocalDateTime now = LocalDateTime.now();
@@ -103,5 +107,6 @@ public class EmployerReview {
 
     public void softDelete() {
         this.status = ReviewStatus.DELETED;
+        this.deleted = true;
     }
 }
