@@ -1,11 +1,16 @@
 package com.fallguys.mypage.service.freelancer;
 
+import com.fallguys.common.exception.BusinessException;
+import com.fallguys.common.exception.ErrorCode;
 import com.fallguys.common.port.FileStorage;
+import com.fallguys.mypage.api.shared.SharedMypageApi;
 import com.fallguys.mypage.api.web.dto.freelancer.request.FreelancerProfileUpdateRequestDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerProfileResponseDto;
 import com.fallguys.mypage.entity.freelancer.Freelancer;
 import com.fallguys.mypage.entity.freelancer.FreelancerGrade;
+import com.fallguys.mypage.entity.freelancer.WorkConditions;
 import com.fallguys.mypage.repository.freelancer.FreelancerRepository;
+import com.fallguys.user.api.shared.response.ExternalUserResponse;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -14,9 +19,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -38,6 +44,9 @@ class FreelancerProfileServiceTest {
     @Mock
     private FileStorage fileStorage;
 
+    @Mock
+    private SharedMypageApi sharedMypageApi;
+
     @BeforeEach
     void setUp() {
         TransactionSynchronizationManager.initSynchronization();
@@ -48,15 +57,27 @@ class FreelancerProfileServiceTest {
         TransactionSynchronizationManager.clear();
     }
 
-    // ─── getProfile ───────────────────────────────────────────────
-
     @Test
-    @DisplayName("[TDD] 1. 프리랜서 프로필 조회: FreelancerRepository를 통해 정상적으로 조회된다")
+    @DisplayName("[TDD] 1. 프로필 조회: FreelancerRepository를 통해 정상 조회된다")
     void getProfile_Success() {
         // given
         Long userId = 100L;
+        LocalDate futureStartDate = LocalDate.now().plusDays(30);
         Freelancer mockFreelancer = Freelancer.create(userId, "백엔드 개발자", FreelancerGrade.JUNIOR);
+        mockFreelancer.updateWorkConditions(new WorkConditions(
+                "개인",
+                futureStartDate,
+                "원격",
+                "서울"
+        ));
+        ExternalUserResponse userResponse = ExternalUserResponse.builder()
+                .id(userId)
+                .email("gdragon@gmail.com")
+                .name("지드래곤")
+                .build();
+
         given(freelancerRepository.findByUserId(userId)).willReturn(Optional.of(mockFreelancer));
+        given(sharedMypageApi.getUserById(userId)).willReturn(userResponse);
 
         // when
         FreelancerProfileResponseDto result = freelancerProfileService.getProfile(userId);
@@ -68,15 +89,28 @@ class FreelancerProfileServiceTest {
         assertThat(result.basicProfile().job()).isEqualTo("백엔드 개발자");
         assertThat(result.basicProfile().grade()).isEqualTo("JUNIOR");
         assertThat(result.basicProfile().status()).isEqualTo("POTENTIAL");
+        assertThat(result.basicProfile().name()).isEqualTo("지드래곤");
+        assertThat(result.basicProfile().email()).isEqualTo("gdragon@gmail.com");
+        assertThat(result.basicProfile().workConditions()).isNotNull();
+        assertThat(result.basicProfile().workConditions().workType()).isEqualTo("개인");
+        assertThat(result.basicProfile().workConditions().workStyle()).isEqualTo("원격");
+        assertThat(result.basicProfile().workConditions().workLocation()).isEqualTo("서울");
+        assertThat(result.basicProfile().workConditions().availableStartDate())
+                .isEqualTo(futureStartDate);
+        assertThat(result.basicProfile().crmAlerts()).isNotNull();
+        assertThat(result.basicProfile().crmAlerts().rateBumpEligible()).isFalse();
+        assertThat(result.basicProfile().crmAlerts().burnoutRisk()).isFalse();
+        assertThat(result.basicProfile().crmAlerts().churnRisk()).isFalse();
         assertThat(result.stats().statContact()).isEqualTo(0);
         assertThat(result.stats().statChat()).isEqualTo(0);
         assertThat(result.stats().statContract()).isEqualTo(0);
 
         verify(freelancerRepository, times(1)).findByUserId(userId);
+        verify(sharedMypageApi, times(1)).getUserById(userId);
     }
 
     @Test
-    @DisplayName("[TDD] 2. 프리랜서 프로필 조회: 존재하지 않는 userId이면 IllegalArgumentException 예외를 던진다")
+    @DisplayName("[TDD] 2. 프로필 조회: 존재하지 않는 userId면 USER_NOT_FOUND 예외 발생")
     void getProfile_NotFound_ThrowsException() {
         // given
         Long userId = 999L;
@@ -84,14 +118,13 @@ class FreelancerProfileServiceTest {
 
         // when & then
         assertThatThrownBy(() -> freelancerProfileService.getProfile(userId))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("프리랜서 프로필을 찾을 수 없습니다");
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_FOUND);
     }
 
-    // ─── updateProfile ────────────────────────────────────────────
-
     @Test
-    @DisplayName("[TDD] 3. 프리랜서 프로필 수정: 정상 요청 시 Freelancer 엔티티 필드가 업데이트된다")
+    @DisplayName("[TDD] 3. 프로필 수정: 정상 요청 시 기본/근무조건 정보가 업데이트된다")
     void updateProfile_Success() {
         // given
         Long userId = 200L;
@@ -100,10 +133,22 @@ class FreelancerProfileServiceTest {
 
         FreelancerProfileUpdateRequestDto request = new FreelancerProfileUpdateRequestDto(
                 "풀스택 개발자",
-                "안녕하세요, 풀스택 개발자입니다.",
+                "안녕하세요. 풀스택 개발자입니다.",
                 5,
                 50000L,
-                List.of("Java", "React", "Spring")
+                List.of("Java", "React", "Spring"),
+                "팀",
+                LocalDate.now().plusDays(45),
+                "혼합",
+                "부산",
+                "지드래곤",
+                4,
+                5,
+                3,
+                4,
+                4,
+                2,
+                4.5
         );
 
         // when
@@ -111,34 +156,64 @@ class FreelancerProfileServiceTest {
 
         // then
         verify(freelancerRepository, times(1)).findByUserId(userId);
+        verify(sharedMypageApi, times(1)).updateUserName(userId, "지드래곤");
         assertThat(mockFreelancer.getJob()).isEqualTo("풀스택 개발자");
-        assertThat(mockFreelancer.getIntroduction()).isEqualTo("안녕하세요, 풀스택 개발자입니다.");
+        assertThat(mockFreelancer.getIntroduction()).isEqualTo("안녕하세요. 풀스택 개발자입니다.");
         assertThat(mockFreelancer.getCareerYears()).isEqualTo(5);
         assertThat(mockFreelancer.getWage()).isEqualTo(50000L);
         assertThat(mockFreelancer.getSkills()).containsExactlyInAnyOrder("Java", "React", "Spring");
+        assertThat(mockFreelancer.getWorkConditions()).isNotNull();
+        assertThat(mockFreelancer.getExpertise()).isNotNull();
+        assertThat(mockFreelancer.getExpertise().getProgramming()).isEqualTo(4);
+        assertThat(mockFreelancer.getExpertise().getFramework()).isEqualTo(5);
+        assertThat(mockFreelancer.getExpertise().getProblemSolving()).isEqualTo(3);
+        assertThat(mockFreelancer.getCollaboration()).isNotNull();
+        assertThat(mockFreelancer.getCollaboration().getCommunication()).isEqualTo(4);
+        assertThat(mockFreelancer.getCollaboration().getScheduleAdherence()).isEqualTo(4);
+        assertThat(mockFreelancer.getCollaboration().getDispute()).isEqualTo(2);
+        assertThat(mockFreelancer.getAverageRate()).isEqualTo(4.5);
+        assertThat(mockFreelancer.getWorkConditions().getConditionsType()).isEqualTo("팀");
+        assertThat(mockFreelancer.getWorkConditions().getStartDate()).isEqualTo(LocalDate.now().plusDays(45));
+        assertThat(mockFreelancer.getWorkConditions().getWorkStyle()).isEqualTo("혼합");
+        assertThat(mockFreelancer.getWorkConditions().getLocation()).isEqualTo("부산");
     }
 
     @Test
-    @DisplayName("[TDD] 4. 프리랜서 프로필 수정: 존재하지 않는 userId이면 IllegalArgumentException 예외를 던진다")
+    @DisplayName("[TDD] 4. 프로필 수정: 존재하지 않는 userId면 USER_NOT_FOUND 예외 발생")
     void updateProfile_NotFound_ThrowsException() {
         // given
         Long userId = 999L;
         given(freelancerRepository.findByUserId(userId)).willReturn(Optional.empty());
 
         FreelancerProfileUpdateRequestDto request = new FreelancerProfileUpdateRequestDto(
-                "풀스택 개발자", "소개", 3, 40000L, List.of("Java")
+                "풀스택 개발자",
+                "소개",
+                3,
+                40000L,
+                List.of("Java"),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
         );
 
         // when & then
         assertThatThrownBy(() -> freelancerProfileService.updateProfile(userId, request))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("프리랜서 프로필을 찾을 수 없습니다");
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_FOUND);
     }
 
-    // ─── updateAvatarUrl ─────────────────────────────────────────
-
     @Test
-    @DisplayName("[TDD] 5. 프리랜서 아바타 이미지 업로드: 정상 요청 시 S3에 업로드하고 엔티티를 갱신한다")
+    @DisplayName("[TDD] 5. 프로필 이미지 업로드: 정상 요청 시 S3 업로드 및 URL 반영")
     void updateAvatarUrl_Success() throws Exception {
         // given
         Long userId = 300L;
@@ -162,7 +237,7 @@ class FreelancerProfileServiceTest {
     }
 
     @Test
-    @DisplayName("[TDD] 6. 프리랜서 아바타 이미지 업로드: 5MB 초과 파일이면 IllegalArgumentException 예외를 던진다")
+    @DisplayName("[TDD] 6. 프로필 이미지 업로드: 5MB 초과 파일이면 INVALID_INPUT_VALUE")
     void updateAvatarUrl_TooLargeFile_ThrowsException() {
         // given
         Long userId = 300L;
@@ -171,12 +246,13 @@ class FreelancerProfileServiceTest {
 
         // when & then
         assertThatThrownBy(() -> freelancerProfileService.updateAvatarUrl(userId, oversizedFile))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("5MB");
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
     }
 
     @Test
-    @DisplayName("[TDD] 7. 프리랜서 아바타 이미지 업로드: 잘못된 MIME 타입이면 IllegalArgumentException 예외를 던진다")
+    @DisplayName("[TDD] 7. 프로필 이미지 업로드: 잘못된 MIME 타입이면 INVALID_INPUT_VALUE")
     void updateAvatarUrl_InvalidContentType_ThrowsException() {
         // given
         Long userId = 300L;
@@ -184,7 +260,8 @@ class FreelancerProfileServiceTest {
 
         // when & then
         assertThatThrownBy(() -> freelancerProfileService.updateAvatarUrl(userId, invalidFile))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("이미지 파일");
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
     }
 }

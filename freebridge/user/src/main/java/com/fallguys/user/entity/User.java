@@ -41,7 +41,7 @@ public class User extends BaseTimeEntity {
     @Column(nullable = false)
     private Boolean privacyAgreed;
 
-    /* 이메일 인증 값 */
+    /* 이메일 인증 여부 */
     @Column(nullable = false)
     private Boolean emailVerified = false;
 
@@ -59,6 +59,13 @@ public class User extends BaseTimeEntity {
 
     public void updateEmailEnabled(Boolean emailEnabled) {
         this.emailEnabled = emailEnabled;
+    }
+
+    public void updateName(String name) {
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("이름은 필수입니다.");
+        }
+        this.name = name.trim();
     }
 
     @Builder

@@ -60,15 +60,23 @@ public class ExternalUserApiImpl implements ExternalUserApi {
         user.updateEmailEnabled(emailEnabled);
     }
 
+    @Override
+    @Transactional
+    public void updateName(Long userId, String name) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다. ID: " + userId));
+        user.updateName(name);
+    }
+
     /*
-     * 내부 User Entity를 외부용 공유 DTO(ExternalUserResponse)로 변환
+     * 내부 User Entity를 외부 공유 DTO(ExternalUserResponse)로 변환
      */
     private ExternalUserResponse toSharedDto(User user) {
         return ExternalUserResponse.builder()
                 .id(user.getId())
                 .email(user.getEmail())
                 .name(user.getName())
-                // Enum 대신 String으로 전달하여 타 모듈에서의 역직렬화 및 강결합 문제 방지
+                // Enum 타입을 String으로 표현해 외 모듈에서의 직렬화 문제 방지
                 .role(user.getRole() != null ? user.getRole().name() : null)
                 .emailVerified(user.getEmailVerified())
                 .emailEnabled(user.getEmailEnabled())
