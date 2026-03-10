@@ -30,9 +30,10 @@ public class ChatMessageController {
 
         chatMessageService.sendMessage(
                 request.getRoomId(),
-                authenticatedUserId, // Use the authenticated ID instead of request.getSenderId()
+                authenticatedUserId, // Use the authenticated STOMP session user
                 request.getContent(),
                 request.getType(),
                 request.getMetadata());
     }
 }
+
