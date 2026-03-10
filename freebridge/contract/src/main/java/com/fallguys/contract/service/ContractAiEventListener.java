@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.transaction.event.TransactionPhase;
 
@@ -23,6 +24,7 @@ public class ContractAiEventListener {
     private final ContractRepository contractRepository;
 
     @Async
+    @Transactional
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleContractAIAnalysisRequestedEvent(ContractAIAnalysisRequestedEvent event) {
         log.info("비동기 AI 계약서 분석 시작 - contractId: {}", event.contractId());
@@ -46,14 +48,16 @@ public class ContractAiEventListener {
             if (root.has("toxic_clauses") && root.get("toxic_clauses").isArray() && root.get("toxic_clauses").size() > 0) {
                 adviceBuilder.append("### ⚠️ 주의 / 독소 조항\n");
                 for (JsonNode clause : root.get("toxic_clauses")) {
-                    adviceBuilder.append("- ").append(clause.asText()).append("\n");
+                    String text = clause.isTextual() ? clause.asText() : (clause.has("text") ? clause.get("text").asText() : clause.toString());
+                    adviceBuilder.append("- ").append(text).append("\n");
                 }
                 adviceBuilder.append("\n");
             }
             if (root.has("recommendations") && root.get("recommendations").isArray() && root.get("recommendations").size() > 0) {
                 adviceBuilder.append("### 💡 권장 사항\n");
                 for (JsonNode rec : root.get("recommendations")) {
-                    adviceBuilder.append("- ").append(rec.asText()).append("\n");
+                    String text = rec.isTextual() ? rec.asText() : (rec.has("text") ? rec.get("text").asText() : rec.toString());
+                    adviceBuilder.append("- ").append(text).append("\n");
                 }
             }
             String finalAdvice = adviceBuilder.toString().trim();
@@ -66,10 +70,14 @@ public class ContractAiEventListener {
             log.info("비동기 AI 계약서 분석 완료 및 저장 - contractId: {}", event.contractId());
         } catch (Exception e) {
             log.error("AI 계약서 분석 실패 - contractId: {}", event.contractId(), e);
-            contractRepository.findById(event.contractId()).ifPresent(contract -> {
-                contract.setAiLegalAdvice("AI 분석 중 오류가 발생했습니다.");
-                contractRepository.save(contract);
-            });
+            try {
+                contractRepository.findById(event.contractId()).ifPresent(contract -> {
+                    contract.setAiLegalAdvice("AI 분석 중 오류가 발생했습니다.");
+                    contractRepository.save(contract);
+                });
+            } catch (Exception innerE) {
+                log.error("Failed to persist AI error message for contractId: {}", event.contractId(), innerE);
+            }
         }
     }
 }

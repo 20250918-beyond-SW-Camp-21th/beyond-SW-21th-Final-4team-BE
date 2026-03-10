@@ -74,6 +74,9 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
         if (filename == null || filename.trim().isEmpty()) {
             throw new IllegalArgumentException("filename must not be null or blank");
         }
+        if (!filename.toLowerCase().endsWith(".pdf")) {
+            throw new IllegalArgumentException("filename must have .pdf extension");
+        }
         
         MultipartBodyBuilder builder = new MultipartBodyBuilder();
         builder.part("file", new ByteArrayResource(pdfBytes) {
@@ -89,7 +92,8 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                 .body(builder.build())
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, (request, response) -> {
-                    throw new RuntimeException("AI 계약서 분석 서비스 응답 오류: " + response.getStatusCode());
+                    String errorBody = new String(response.getBody().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                    throw new RuntimeException("AI 계약서 분석 서비스 응답 오류: " + response.getStatusCode() + ", detail: " + errorBody);
                 })
                 .body(String.class);
     }
