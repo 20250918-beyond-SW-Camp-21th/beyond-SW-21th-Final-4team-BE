@@ -203,11 +203,13 @@ public class EmployerSettlementService {
             try {
                 settlements = createSettlementRecords(contract, paymentId, employerId);
             } catch (DataIntegrityViolationException e) {
-                // 동시 요청이 이미 정산 레코드를 생성 완료한 경우 — 지갑 이중 처리를 막기 위해 즉시 반환
-                log.info("동시 정산 생성 감지 - 지갑 처리 없이 기존 정산 레코드 반환: paymentId={}", paymentId);
-                List<EmployerSettlement> existing = employerSettlementRepository.findByContractId(contractId);
-                long total = existing.stream().mapToLong(EmployerSettlement::getTotalPayment).sum();
-                return new VerifyPaymentResponse(true, contractId, total, existing.size());
+                // 동시 요청이 이미 정산 레코드를 생성한 경우.
+                // DIVE 발생 후 트랜잭션이 중단(aborted) 상태이므로 DB 조회를 시도하면 PostgreSQL이
+                // "current transaction is aborted" 오류를 반환합니다.
+                // ConcurrentSettlementException을 전파하여 outer catch의 전용 핸들러로 처리합니다
+                // (보상 취소를 호출하지 않음 — 다른 요청이 이미 결제를 정상 처리했음).
+                log.info("동시 정산 생성 감지 — outer catch로 전파 (보상 취소 불필요): paymentId={}", paymentId);
+                throw new ConcurrentSettlementException(e);
             }
 
             // 금액 검증: PortOne 결제 금액 == 전체 회차 totalPayment 합산
@@ -249,6 +251,12 @@ public class EmployerSettlementService {
 
             return new VerifyPaymentResponse(true, contractId, totalExpected, settlements.size());
 
+        } catch (ConcurrentSettlementException e) {
+            // 동시 처리로 인한 정산 레코드 중복 — 다른 요청이 이미 결제를 정상 처리했습니다.
+            // 포트원 결제를 취소하면 안 됩니다. 클라이언트가 재시도하면 상단 멱등성 체크에서
+            // 기존 정산 레코드를 조회하여 성공 응답을 반환합니다.
+            log.info("동시 처리 감지 — 보상 취소 스킵: paymentId={}, contractId={}", paymentId, contractId);
+            throw e;
         } catch (Exception e) {
             // 외부 결제가 PAID이지만 내부 처리 실패 — 포트원 결제 취소로 보상 (자금 미포착 상태 유지)
             log.error("결제 후처리 실패, 포트원 결제 취소 보상 시작: paymentId={}, contractId={}, error={}",
@@ -542,5 +550,17 @@ public class EmployerSettlementService {
             case "LAST_1_YEAR" -> new LocalDate[] { now.minusYears(1), now };
             default -> new LocalDate[] { LocalDate.of(2000, 1, 1), now };
         };
+    }
+
+    /**
+     * 정산 레코드 동시 생성 감지 시 발생시키는 내부 센티넬 예외.
+     * {@code verifyContractPayment}의 inner DIVE catch에서만 생성되며,
+     * outer catch의 전용 핸들러가 이 예외를 포착하여 포트원 보상 취소를 건너뜁니다.
+     * (이미 다른 요청이 결제를 정상 처리했으므로 취소하면 안 됩니다.)
+     */
+    private static class ConcurrentSettlementException extends RuntimeException {
+        ConcurrentSettlementException(DataIntegrityViolationException cause) {
+            super("Concurrent settlement creation detected — payment was already processed", cause);
+        }
     }
 }
