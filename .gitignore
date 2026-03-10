@@ -450,3 +450,5 @@ docker-compose.override.yml
 /ai/**/*.py[cod]
 
 .claude/
+
+freebridge/hide
