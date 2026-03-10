@@ -56,7 +56,7 @@ public class FreelancerGradeCalculatorService {
 
         String basis = String.format("%s + 경력 %d년 -> %s(%s)",
                 degree.getDescription(), years, gradeLabel(grade), grade.name());
-        return GradeCalculationResultDto.of(grade, basis, years, "학경력자");
+        return GradeCalculationResultDto.of(grade, basis, years, "학력");
     }
 
     private GradeCalculationResultDto calculateByLicense(GradeCalculationRequestDto request) {
