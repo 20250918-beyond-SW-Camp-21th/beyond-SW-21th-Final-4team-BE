@@ -30,7 +30,8 @@ public class EmailController {
             emailVerificationService.sendVerificationCode(request.getEmail());
             return ResponseEntity.ok(Map.of(
                     "success", true,
-                    "message", "인증코드가 이메일로 발송되었습니다."));
+                    "message", "인증코드가 이메일로 발송되었습니다.",
+                    "data", Map.of()));
         } catch (Exception e) {
             log.error("이메일 발송 실패: {}", request.getEmail(), e);
             return ResponseEntity.internalServerError().body(Map.of(
@@ -52,7 +53,8 @@ public class EmailController {
         if (verified) {
             return ResponseEntity.ok(Map.of(
                     "success", true,
-                    "message", "이메일 인증이 완료되었습니다."));
+                    "message", "이메일 인증이 완료되었습니다.",
+                    "data", Map.of()));
         } else {
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false,
@@ -71,7 +73,8 @@ public class EmailController {
             emailVerificationService.sendVerificationCode(request.getEmail());
             return ResponseEntity.ok(Map.of(
                     "success", true,
-                    "message", "인증코드가 재발송되었습니다."));
+                    "message", "인증코드가 재발송되었습니다.",
+                    "data", Map.of()));
         } catch (Exception e) {
             log.error("이메일 재발송 실패: {}", request.getEmail(), e);
             return ResponseEntity.internalServerError().body(Map.of(

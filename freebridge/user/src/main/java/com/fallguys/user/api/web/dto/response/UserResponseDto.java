@@ -14,6 +14,7 @@ public class UserResponseDto {
     private Long id;
     private String email;
     private String name;
+    private String phone;
     private Role role;
     private Boolean termsAgreed;
     private Boolean privacyAgreed;
@@ -28,6 +29,7 @@ public class UserResponseDto {
                 .id(user.getId())
                 .email(user.getEmail())
                 .name(user.getName())
+                .phone(user.getPhone())
                 .role(user.getRole())
                 .termsAgreed(user.getTermsAgreed())
                 .privacyAgreed(user.getPrivacyAgreed())
