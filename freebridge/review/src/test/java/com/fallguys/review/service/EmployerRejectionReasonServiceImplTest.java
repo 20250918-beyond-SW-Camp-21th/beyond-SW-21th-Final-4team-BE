@@ -96,4 +96,39 @@ class EmployerRejectionReasonServiceImplTest {
         verify(employerRejectionReasonRepository, times(1))
                 .findAllByEmployerIdAndProjectTitleContainingIgnoreCaseOrderByCreatedAtDesc(employerId, "결제", pageable);
     }
+
+    @Test
+    @DisplayName("[TDD] 프리랜서 거절 사유 조회 시 freelancerId 기준 목록을 반환한다")
+    void getFreelancerRejectionReasons_usesFreelancerQuery() {
+        // given
+        Long freelancerId = 30L;
+        PageRequest pageable = PageRequest.of(0, 10);
+        EmployerRejectionReason rejectionReason = EmployerRejectionReason.builder()
+                .id(2L)
+                .projectId(20L)
+                .projectTitle("플랫폼 구축")
+                .employerId(4L)
+                .freelancerId(freelancerId)
+                .reason("현재 요구 경력과 차이가 있습니다.")
+                .build();
+        ReflectionTestUtils.setField(rejectionReason, "createdAt", java.time.LocalDateTime.of(2026, 3, 11, 12, 0));
+        when(employerRejectionReasonRepository.findAllByFreelancerIdOrderByCreatedAtDesc(
+                freelancerId,
+                pageable
+        )).thenReturn(new PageImpl<>(List.of(rejectionReason), pageable, 1));
+
+        // when
+        Page<EmployerRejectionReasonResponseDTO> result = employerRejectionReasonService.getFreelancerRejectionReasons(
+                freelancerId,
+                null,
+                pageable
+        );
+
+        // then
+        assertEquals(1, result.getTotalElements());
+        assertEquals("플랫폼 구축", result.getContent().get(0).projectTitle());
+        assertEquals("현재 요구 경력과 차이가 있습니다.", result.getContent().get(0).reason());
+        verify(employerRejectionReasonRepository, times(1))
+                .findAllByFreelancerIdOrderByCreatedAtDesc(freelancerId, pageable);
+    }
 }

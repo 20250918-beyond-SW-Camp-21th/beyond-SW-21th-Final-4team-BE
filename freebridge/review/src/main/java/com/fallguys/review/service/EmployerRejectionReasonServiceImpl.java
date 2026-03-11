@@ -45,6 +45,20 @@ public class EmployerRejectionReasonServiceImpl implements EmployerRejectionReas
         return result.map(this::toResponse);
     }
 
+    @Override
+    public Page<EmployerRejectionReasonResponseDTO> getFreelancerRejectionReasons(Long freelancerId, String title, Pageable pageable) {
+        String normalizedTitle = normalizeTitle(title);
+        Page<EmployerRejectionReason> result = StringUtils.hasText(normalizedTitle)
+                ? employerRejectionReasonRepository.findAllByFreelancerIdAndProjectTitleContainingIgnoreCaseOrderByCreatedAtDesc(
+                freelancerId,
+                normalizedTitle,
+                pageable
+        )
+                : employerRejectionReasonRepository.findAllByFreelancerIdOrderByCreatedAtDesc(freelancerId, pageable);
+
+        return result.map(this::toResponse);
+    }
+
     private EmployerRejectionReasonResponseDTO toResponse(EmployerRejectionReason rejectionReason) {
         return new EmployerRejectionReasonResponseDTO(
                 rejectionReason.getId(),

@@ -14,4 +14,12 @@ public interface EmployerRejectionReasonRepository extends JpaRepository<Employe
             String projectTitle,
             Pageable pageable
     );
+
+    Page<EmployerRejectionReason> findAllByFreelancerIdOrderByCreatedAtDesc(Long freelancerId, Pageable pageable);
+
+    Page<EmployerRejectionReason> findAllByFreelancerIdAndProjectTitleContainingIgnoreCaseOrderByCreatedAtDesc(
+            Long freelancerId,
+            String projectTitle,
+            Pageable pageable
+    );
 }

@@ -10,4 +10,6 @@ public interface EmployerRejectionReasonService {
     Long createEmployerRejectionReason(Long employerId, EmployerRejectionReasonCreateRequest request);
 
     Page<EmployerRejectionReasonResponseDTO> getEmployerRejectionReasons(Long employerId, String title, Pageable pageable);
+
+    Page<EmployerRejectionReasonResponseDTO> getFreelancerRejectionReasons(Long freelancerId, String title, Pageable pageable);
 }
