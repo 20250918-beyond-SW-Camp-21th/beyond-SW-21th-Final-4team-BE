@@ -114,7 +114,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
             ));
 
             String rawJson = restClient.post()
-                    .uri(pythonUrl + "/api/v1/employer/recommendations")
+                    .uri(pythonUrl + "/api/v1/employer/recommendations/")
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(requestBody)
                     .retrieve()
@@ -150,7 +150,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
             ));
 
             String rawJson = restClient.post()
-                    .uri(pythonUrl + "/api/v1/freelancer/recommendations")
+                    .uri(pythonUrl + "/api/v1/freelancer/recommendations/")
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(requestBody)
                     .retrieve()
