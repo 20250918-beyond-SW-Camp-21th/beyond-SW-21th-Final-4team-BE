@@ -302,7 +302,7 @@ public class UserService {
             user.updateName(request.getName());
         }
         if (request.getPhone() != null) {
-            user.updatePhone(request.getPhone().orElse(null));
+            user.updatePhone(request.getPhone());
         }
         return UserMyInfoResponseDto.from(user);
     }

@@ -56,9 +56,9 @@ public class EmployerProfileService {
         Scale scale = (request.scale() != null && !request.scale().isBlank())
                 ? parseScale(request.scale())
                 : employer.getScale();
-        String location = request.location() != null ? request.location() : employer.getLocation();
-        String websiteUrl = request.websiteUrl() != null ? request.websiteUrl() : employer.getWebsiteUrl();
-        String description = request.description() != null ? request.description() : employer.getDescription();
+        String location = hasText(request.location()) ? request.location() : employer.getLocation();
+        String websiteUrl = hasText(request.websiteUrl()) ? request.websiteUrl() : employer.getWebsiteUrl();
+        String description = hasText(request.description()) ? request.description() : employer.getDescription();
 
         employer.updateProfile(
                 companyName,
