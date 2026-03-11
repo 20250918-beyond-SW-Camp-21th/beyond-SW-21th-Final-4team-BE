@@ -5,6 +5,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -16,7 +17,13 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "employer_rejection_reasons")
+@Table(
+        name = "employer_rejection_reasons",
+        indexes = {
+                @Index(name = "idx_employer_rejection_reason_employer_id", columnList = "employer_id"),
+                @Index(name = "idx_employer_rejection_reason_freelancer_id", columnList = "freelancer_id")
+        }
+)
 @Getter
 @Builder
 @NoArgsConstructor
