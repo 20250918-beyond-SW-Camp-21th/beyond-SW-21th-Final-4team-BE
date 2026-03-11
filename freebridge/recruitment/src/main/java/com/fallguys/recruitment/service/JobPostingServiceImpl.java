@@ -373,12 +373,39 @@ public class JobPostingServiceImpl implements JobPostingService {
 
         validateOwnership(jobPosting, userId);
 
-        return recommendationEngine.recommendFreelancers(
+        List<AiRecommendationResponseDTO> aiResults = recommendationEngine.recommendFreelancers(
                 jobPosting.getId(),
                 jobPosting.getTitle(),
                 jobPosting.getDescription(),
                 AiRecommendationResponseDTO.class
         );
+
+        List<Long> freelancerIds = aiResults.stream().map(AiRecommendationResponseDTO::id).toList();
+        Map<Long, RecruitmentUser> userMap;
+        try {
+            userMap = recruitmentUserReader.getFreelancersByIdsOrThrow(freelancerIds);
+        } catch (Exception e) {
+            log.warn("AI 추천 결과 보정 실패 - 프리랜서 일괄 조회 실패", e);
+            return aiResults; // 일괄 조회 실패 시 원본 반환 또는 빈 리스트
+        }
+
+        return aiResults.stream().map(dto -> {
+            try {
+                RecruitmentUser f = userMap.get(dto.id());
+                if (f == null) {
+                    log.warn("AI 추천 결과 보정 제외 - 존재하지 않는 프리랜서 ID: {}", dto.id());
+                    return dto; // 맵에 없으면 원본 리턴 (화면에 표시는 되게 하되 빈 정보)
+                }
+
+                List<String> userSkills = (f.skills() != null && !f.skills().trim().isEmpty())
+                        ? java.util.Arrays.asList(f.skills().split(",")) 
+                        : java.util.Collections.emptyList();
+                return dto.withFreelancerInfo(userSkills, f.experience());
+            } catch (Exception e) {
+                log.warn("AI 추천 결과 보정 실패 - 프리랜서 ID: {}", dto.id(), e);
+                return dto;
+            }
+        }).filter(Objects::nonNull).toList();
     }
 
     @Override     // 프리랜서용 추천
@@ -393,12 +420,27 @@ public class JobPostingServiceImpl implements JobPostingService {
                 ? "없음" : freelancer.experience().trim();
 
         // 3. AI 서버 호출
-        return recommendationEngine.recommendJobs(
+        List<AiRecommendationResponseDTO> aiResults = recommendationEngine.recommendJobs(
                 userId,
                 skills,
                 experience,
                 AiRecommendationResponseDTO.class
         );
+
+        return aiResults.stream().map(dto -> {
+            try {
+                JobPosting job = getJobPostingOrThrow(dto.id());
+                // Only allow ACTIVE/OPEN jobs to be recommended
+                if (job.getStatus() != Status.ACTIVE) {
+                    log.warn("AI 추천 결과 보정 제외 - 공고 상태 비활성 ID: {}", dto.id());
+                    return null;
+                }
+                return dto.withJobInfo(job.getTechStack(), job.getDescription(), job.getBudget(), job.getDuration());
+            } catch (Exception e) {
+                log.warn("AI 추천 결과 보정 실패 - 유효하지 않은 공고 ID: {}", dto.id(), e);
+                return null;
+            }
+        }).filter(Objects::nonNull).toList();
     }
 
     @Transactional
