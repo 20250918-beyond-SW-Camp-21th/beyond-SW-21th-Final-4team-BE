@@ -74,6 +74,10 @@ public class JobPostingServiceImpl implements JobPostingService {
     private final RedisTemplate<String, Object> redisTemplate;
     private final ObjectMapper objectMapper;
 
+    @org.springframework.beans.factory.annotation.Autowired
+    @org.springframework.context.annotation.Lazy
+    private JobPostingService self;
+
     @Override
     @Transactional(readOnly = true)
     public List<JobPostingSearchDTO> getJobPostings(Long userId) {
@@ -103,7 +107,7 @@ public class JobPostingServiceImpl implements JobPostingService {
             evictEmployerSideCaches(user.id());
             refreshEmployerProjectStatsForMypage(user.id());
             refreshEmployerProjectListForMypage(user.id());
-            triggerFreelancerRecommendation(jobPosting.getId(), user.id()); // Async trigger AI matching
+            self.triggerFreelancerRecommendation(jobPosting.getId(), user.id()); // Async trigger AI matching
         });
     }
 
@@ -123,7 +127,7 @@ public class JobPostingServiceImpl implements JobPostingService {
             evictEmployerSideCaches(user.id());
             refreshEmployerProjectStatsForMypage(user.id());
             refreshEmployerProjectListForMypage(user.id());
-            triggerFreelancerRecommendation(jobPosting.getId(), user.id()); // Re-trigger AI matching on update
+            self.triggerFreelancerRecommendation(jobPosting.getId(), user.id()); // Re-trigger AI matching on update
         });
     }
 
@@ -380,11 +384,12 @@ public class JobPostingServiceImpl implements JobPostingService {
         }
 
         // 캐시가 비어있으면 즉시 빈 리스트 반환 (프론트 통과를 위해) 및 백그라운드 구동 트리거
-        triggerFreelancerRecommendation(jobPostingId, userId);
+        self.triggerFreelancerRecommendation(jobPostingId, userId);
         return java.util.Collections.emptyList();
     }
 
     @org.springframework.scheduling.annotation.Async
+    @Override
     public void triggerFreelancerRecommendation(Long jobPostingId, Long userId) {
         String lockKey = "ai:lock:freelancers:" + jobPostingId;
         Boolean acquired = redisTemplate.opsForValue().setIfAbsent(lockKey, "LOCKED", Duration.ofMinutes(10));
@@ -395,7 +400,10 @@ public class JobPostingServiceImpl implements JobPostingService {
 
         try {
             JobPosting jobPosting = getJobPostingOrThrow(jobPostingId);
-            if(jobPosting.getStatus() != Status.ACTIVE) return;
+            if(jobPosting.getStatus() != Status.ACTIVE) {
+                try { redisTemplate.delete(lockKey); } catch (Exception ignored) {}
+                return;
+            }
             
             List<AiRecommendationResponseDTO> aiResults = recommendationEngine.recommendFreelancers(
                     jobPosting.getId(),
@@ -449,11 +457,12 @@ public class JobPostingServiceImpl implements JobPostingService {
         }
 
         // 캐시가 비어있으면 백그라운드 트리거 및 빈 배열 반환
-        triggerJobRecommendation(userId);
+        self.triggerJobRecommendation(userId);
         return java.util.Collections.emptyList();
     }
 
     @org.springframework.scheduling.annotation.Async
+    @Override
     public void triggerJobRecommendation(Long userId) {
         String lockKey = "ai:lock:jobs:" + userId;
         Boolean acquired = redisTemplate.opsForValue().setIfAbsent(lockKey, "LOCKED", Duration.ofMinutes(10));
