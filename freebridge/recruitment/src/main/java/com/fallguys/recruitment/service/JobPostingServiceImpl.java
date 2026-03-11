@@ -373,12 +373,25 @@ public class JobPostingServiceImpl implements JobPostingService {
 
         validateOwnership(jobPosting, userId);
 
-        return recommendationEngine.recommendFreelancers(
+        List<AiRecommendationResponseDTO> aiResults = recommendationEngine.recommendFreelancers(
                 jobPosting.getId(),
                 jobPosting.getTitle(),
                 jobPosting.getDescription(),
                 AiRecommendationResponseDTO.class
         );
+
+        return aiResults.stream().map(dto -> {
+            try {
+                RecruitmentUser f = recruitmentUserReader.getFreelancerByIdOrThrow(dto.id());
+                List<String> userSkills = (f.skills() != null && !f.skills().trim().isEmpty())
+                        ? java.util.Arrays.asList(f.skills().split(",")) 
+                        : java.util.Collections.emptyList();
+                return dto.withFreelancerInfo(userSkills, f.experience());
+            } catch (Exception e) {
+                log.warn("AI 추천 결과 보정 실패 - 프리랜서 ID: {}", dto.id(), e);
+                return dto;
+            }
+        }).toList();
     }
 
     @Override     // 프리랜서용 추천
@@ -393,12 +406,22 @@ public class JobPostingServiceImpl implements JobPostingService {
                 ? "없음" : freelancer.experience().trim();
 
         // 3. AI 서버 호출
-        return recommendationEngine.recommendJobs(
+        List<AiRecommendationResponseDTO> aiResults = recommendationEngine.recommendJobs(
                 userId,
                 skills,
                 experience,
                 AiRecommendationResponseDTO.class
         );
+
+        return aiResults.stream().map(dto -> {
+            try {
+                JobPosting job = getJobPostingOrThrow(dto.id());
+                return dto.withJobInfo(job.getTechStack(), job.getDescription(), job.getBudget(), job.getDuration());
+            } catch (Exception e) {
+                log.warn("AI 추천 결과 보정 실패 - 공고 ID: {}", dto.id(), e);
+                return dto;
+            }
+        }).toList();
     }
 
     @Transactional

@@ -63,7 +63,7 @@ class JobPostingFreelancerControllerTest {
         String authorization = "Bearer token";
         when(tokenUserIdResolver.resolveUserId(authorization)).thenReturn(21L);
         when(jobPostingService.getRecommendedJobsForFreelancer(21L)).thenReturn(List.of(
-                new AiRecommendationResponseDTO(1L, "추천공고", 0.93)
+                new AiRecommendationResponseDTO(1L, "추천공고", 0.93, null, null, null, null)
         ));
 
         // when
