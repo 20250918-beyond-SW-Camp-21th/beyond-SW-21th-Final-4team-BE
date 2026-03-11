@@ -127,6 +127,10 @@ public class JobPostingServiceImpl implements JobPostingService {
             evictEmployerSideCaches(user.id());
             refreshEmployerProjectStatsForMypage(user.id());
             refreshEmployerProjectListForMypage(user.id());
+
+            redisTemplate.delete("ai:reco:freelancers:" + jobPosting.getId());
+            redisTemplate.delete("ai:lock:freelancers:" + jobPosting.getId());
+
             self.triggerFreelancerRecommendation(jobPosting.getId(), user.id()); // Re-trigger AI matching on update
         });
     }
@@ -392,7 +396,8 @@ public class JobPostingServiceImpl implements JobPostingService {
     @Override
     public void triggerFreelancerRecommendation(Long jobPostingId, Long userId) {
         String lockKey = "ai:lock:freelancers:" + jobPostingId;
-        Boolean acquired = redisTemplate.opsForValue().setIfAbsent(lockKey, "LOCKED", Duration.ofMinutes(10));
+        String lockToken = java.util.UUID.randomUUID().toString();
+        Boolean acquired = redisTemplate.opsForValue().setIfAbsent(lockKey, lockToken, Duration.ofMinutes(10));
         if (Boolean.FALSE.equals(acquired)) {
             log.info("AI 추천 처리 중복 트리거 방지 (Job ID: {})", jobPostingId);
             return; // 이미 10분 내에 누군가 동작시켰다면 무시
@@ -401,7 +406,7 @@ public class JobPostingServiceImpl implements JobPostingService {
         try {
             JobPosting jobPosting = getJobPostingOrThrow(jobPostingId);
             if(jobPosting.getStatus() != Status.ACTIVE) {
-                try { redisTemplate.delete(lockKey); } catch (Exception ignored) {}
+                releaseLockIfOwned(lockKey, lockToken);
                 return;
             }
             
@@ -441,7 +446,7 @@ public class JobPostingServiceImpl implements JobPostingService {
             writeCacheWithTtl(cacheKey, result, Duration.ofHours(24));
         } catch (Exception e) {
             log.error("Async Freelancer Recommendation failed for Job: {}", jobPostingId, e);
-            try { redisTemplate.delete(lockKey); } catch (Exception ignored) {}
+            releaseLockIfOwned(lockKey, lockToken);
         }
     }
 
@@ -465,7 +470,8 @@ public class JobPostingServiceImpl implements JobPostingService {
     @Override
     public void triggerJobRecommendation(Long userId) {
         String lockKey = "ai:lock:jobs:" + userId;
-        Boolean acquired = redisTemplate.opsForValue().setIfAbsent(lockKey, "LOCKED", Duration.ofMinutes(10));
+        String lockToken = java.util.UUID.randomUUID().toString();
+        Boolean acquired = redisTemplate.opsForValue().setIfAbsent(lockKey, lockToken, Duration.ofMinutes(10));
         if (Boolean.FALSE.equals(acquired)) {
             log.info("AI 추천 처리 중복 트리거 방지 (User ID: {})", userId);
             return;
@@ -485,7 +491,6 @@ public class JobPostingServiceImpl implements JobPostingService {
                     AiRecommendationResponseDTO.class
             );
 
-            // Fetch all jobs in bulk to prevent N+1 queries
             List<Long> jobIds = aiResults.stream().map(AiRecommendationResponseDTO::id).toList();
             Map<Long, JobPosting> jobsMap = jobPostingRepo.findAllById(jobIds).stream()
                     .collect(java.util.stream.Collectors.toMap(JobPosting::getId, j -> j));
@@ -494,6 +499,9 @@ public class JobPostingServiceImpl implements JobPostingService {
                 try {
                     JobPosting job = jobsMap.get(dto.id());
                     if (job == null || job.getStatus() != Status.ACTIVE) {
+                        return null;
+                    }
+                    if (!EnumSet.of(JobPostingStatus.OPEN, JobPostingStatus.IN_PROGRESS).contains(job.getPostingStatus())) {
                         return null;
                     }
                     return dto.withJobInfo(job.getTechStack(), job.getDescription(), job.getBudget(), job.getDuration());
@@ -506,13 +514,24 @@ public class JobPostingServiceImpl implements JobPostingService {
             writeCacheWithTtl(cacheKey, result, Duration.ofHours(24));
         } catch (Exception e) {
             log.error("Async Job Recommendation failed for Freelancer: {}", userId, e);
-            try { redisTemplate.delete(lockKey); } catch (Exception ignored) {}
+            releaseLockIfOwned(lockKey, lockToken);
+        }
+    }
+
+    private void releaseLockIfOwned(String lockKey, String lockToken) {
+        try {
+            String script = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
+            redisTemplate.execute(
+                    new org.springframework.data.redis.core.script.DefaultRedisScript<>(script, Long.class),
+                    java.util.Collections.singletonList(lockKey),
+                    lockToken
+            );
+        } catch (Exception ignored) {
         }
     }
 
     private void writeCacheWithTtl(String key, Object value, Duration ttl) {
         try {
-            // Directly store object via redisTemplate so readCache (which uses convertValue/serializer) can deserialize properly
             redisTemplate.opsForValue().set(key, value, ttl);
         } catch (Exception e) {
             log.warn("레디스 쓰기 실패: {}", key, e);
