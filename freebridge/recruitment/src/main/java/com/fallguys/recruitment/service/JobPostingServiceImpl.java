@@ -704,6 +704,8 @@ public class JobPostingServiceImpl implements JobPostingService {
         item.put("title", posting.getTitle());
         item.put("status", toEmployerProjectStatus(posting.getPostingStatus()));
         item.put("applicantCount", cachedApplicantCount != null ? cachedApplicantCount : posting.getMatchedHeadcount());
+        item.put("description", posting.getDescription());
+        item.put("monthlySalary", posting.getBudget());
 
         LocalDateTime createdAt = posting.getCreatedAt();
         item.put("createdAt", createdAt != null ? createdAt.format(ISO_SECONDS_FORMATTER) : null);
