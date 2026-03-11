@@ -16,6 +16,7 @@ public class ChatRoomResponse {
     private Map<String, String> participantNames;
     private ChatMessageResponse lastMessage;
     private Map<String, Integer> unreadCount;
+    private Map<String, Boolean> participantPresence;
 
     private String relatedJobId;
     private String relatedApplicationId;
@@ -27,12 +28,17 @@ public class ChatRoomResponse {
     private LocalDateTime updatedAt;
 
     public static ChatRoomResponse from(ChatRoom room) {
+        return from(room, Map.of());
+    }
+
+    public static ChatRoomResponse from(ChatRoom room, Map<String, Boolean> participantPresence) {
         return ChatRoomResponse.builder()
                 .roomId(room.getId())
                 .participants(room.getParticipants())
                 .participantNames(room.getParticipantNames())
                 .lastMessage(room.getLastMessage() != null ? ChatMessageResponse.from(room.getLastMessage()) : null)
                 .unreadCount(room.getUnreadCount())
+                .participantPresence(participantPresence)
                 .relatedJobId(room.getRelatedJobId())
                 .relatedApplicationId(room.getRelatedApplicationId())
                 .relatedProposalId(room.getRelatedProposalId())
