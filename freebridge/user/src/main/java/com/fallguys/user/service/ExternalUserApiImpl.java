@@ -3,6 +3,7 @@ package com.fallguys.user.service;
 import com.fallguys.common.exception.BusinessException;
 import com.fallguys.common.exception.ErrorCode;
 import com.fallguys.user.api.shared.ExternalUserApi;
+import com.fallguys.user.api.shared.response.ExternalUserMyInfoResponse;
 import com.fallguys.user.api.shared.response.ExternalUserResponse;
 import com.fallguys.user.entity.User;
 import com.fallguys.user.repository.UserRepository;
@@ -31,6 +32,13 @@ public class ExternalUserApiImpl implements ExternalUserApi {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다. Email: " + email));
         return toSharedDto(user);
+    }
+
+    @Override
+    public ExternalUserMyInfoResponse getMyInfo(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        return toMyInfoDto(user);
     }
 
     @Override
@@ -70,6 +78,14 @@ public class ExternalUserApiImpl implements ExternalUserApi {
         user.updateName(name);
     }
 
+    @Override
+    @Transactional
+    public void updatePhone(Long userId, String phone) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        user.updatePhone(phone);
+    }
+
     /*
      * 내부 User Entity를 외부 공유 DTO(ExternalUserResponse)로 변환
      */
@@ -83,6 +99,19 @@ public class ExternalUserApiImpl implements ExternalUserApi {
                 .emailVerified(user.getEmailVerified())
                 .emailEnabled(user.getEmailEnabled())
                 .createdAt(user.getCreatedAt())
+                .build();
+    }
+
+    private ExternalUserMyInfoResponse toMyInfoDto(User user) {
+        return ExternalUserMyInfoResponse.builder()
+                .id(user.getId())
+                .email(user.getEmail())
+                .name(user.getName())
+                .phone(user.getPhone())
+                .createdAt(user.getCreatedAt())
+                .emailVerified(user.getEmailVerified())
+                .termsAgreed(user.getTermsAgreed())
+                .privacyAgreed(user.getPrivacyAgreed())
                 .build();
     }
 

@@ -6,6 +6,7 @@ import com.fallguys.user.api.web.dto.request.PasswordUpdateRequest;
 import com.fallguys.user.api.web.dto.request.EmailNotificationSettingDto;
 import com.fallguys.user.api.web.dto.request.SignupRequestDto;
 import com.fallguys.user.api.web.dto.response.LoginResponseDto;
+import com.fallguys.user.api.web.dto.response.UserMyInfoResponseDto;
 import com.fallguys.user.api.web.dto.response.UserResponseDto;
 import com.fallguys.user.entity.Role;
 import com.fallguys.user.entity.User;
@@ -280,6 +281,15 @@ public class UserService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다."));
         return UserResponseDto.from(user);
+    }
+
+    /**
+     * 마이페이지용 내 계정 정보 조회 (role 제외)
+     */
+    public UserMyInfoResponseDto getMyInfo(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다."));
+        return UserMyInfoResponseDto.from(user);
     }
 
     /*

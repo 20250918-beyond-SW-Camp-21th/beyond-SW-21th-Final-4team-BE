@@ -68,6 +68,15 @@ public class User extends BaseTimeEntity {
         this.name = name.trim();
     }
 
+    public void updatePhone(String phone) {
+        if (phone == null) {
+            this.phone = null;
+            return;
+        }
+        String trimmed = phone.trim();
+        this.phone = trimmed.isEmpty() ? null : trimmed;
+    }
+
     @Builder
     public User(String email, String password, String name, String phone, Role role,
             Boolean termsAgreed, Boolean privacyAgreed) {

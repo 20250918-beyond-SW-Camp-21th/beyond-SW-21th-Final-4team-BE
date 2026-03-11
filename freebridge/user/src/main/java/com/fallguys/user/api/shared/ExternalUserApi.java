@@ -1,5 +1,6 @@
 package com.fallguys.user.api.shared;
 
+import com.fallguys.user.api.shared.response.ExternalUserMyInfoResponse;
 import com.fallguys.user.api.shared.response.ExternalUserResponse;
 
 /**
@@ -23,6 +24,14 @@ public interface ExternalUserApi {
      * @return 회원 정보 DTO (존재하지 않으면 예외 발생)
      */
     ExternalUserResponse getUserByEmail(String email);
+
+    /**
+     * 마이페이지용 사용자 계정 정보를 조회합니다. (role 제외)
+     *
+     * @param userId 조회할 사용자의 고유 ID
+     * @return 사용자 계정 정보 DTO
+     */
+    ExternalUserMyInfoResponse getMyInfo(Long userId);
 
     /**
      * 사용자 ID 존재 여부를 확인합니다.
@@ -56,4 +65,12 @@ public interface ExternalUserApi {
      * @param name 변경할 이름
      */
     void updateName(Long userId, String name);
+
+    /**
+     * 사용자 연락처를 변경합니다.
+     *
+     * @param userId 변경할 사용자 고유 ID
+     * @param phone 변경할 연락처
+     */
+    void updatePhone(Long userId, String phone);
 }

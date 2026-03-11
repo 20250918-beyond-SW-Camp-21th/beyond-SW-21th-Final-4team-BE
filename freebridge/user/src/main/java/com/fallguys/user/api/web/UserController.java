@@ -5,6 +5,7 @@ import com.fallguys.user.api.web.dto.response.LoginResponseDto;
 import com.fallguys.user.api.web.dto.request.PasswordUpdateRequest;
 import com.fallguys.user.api.web.dto.request.EmailNotificationSettingDto;
 import com.fallguys.user.api.web.dto.request.SignupRequestDto;
+import com.fallguys.user.api.web.dto.response.UserMyInfoResponseDto;
 import com.fallguys.user.api.web.dto.response.UserResponseDto;
 import com.fallguys.user.api.web.dto.request.RefreshTokenRequestDto;
 import com.fallguys.user.service.UserService;
@@ -208,6 +209,26 @@ public class UserController {
 
         response.put("data", userData);
 
+        return ResponseEntity.ok(response);
+    }
+
+    /*
+     * 마이페이지용 내 계정 정보 조회
+     * GET /api/users/getmyinfo
+     */
+    @GetMapping("/getmyinfo")
+    public ResponseEntity<Map<String, Object>> getMyInfo(
+            @org.springframework.security.core.annotation.AuthenticationPrincipal com.fallguys.common.security.CustomUserDetails user) {
+        Map<String, Object> response = new HashMap<>();
+        if (user == null) {
+            response.put("success", false);
+            response.put("message", "인증 정보가 없습니다.");
+            return ResponseEntity.status(401).body(response);
+        }
+
+        UserMyInfoResponseDto data = userService.getMyInfo(user.getId());
+        response.put("success", true);
+        response.put("data", data);
         return ResponseEntity.ok(response);
     }
 
