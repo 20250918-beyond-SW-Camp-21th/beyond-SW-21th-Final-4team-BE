@@ -38,7 +38,8 @@ async def get_job_recommendations(req: RecommendationRequest):
         llm = get_llm()
         structured_llm = llm.with_structured_output(FreelancerMatchList)
         
-        search_query = f"{req.title} {req.description}"
+        description = req.description.strip() if req.description and req.description.strip() else "(상세 내용 없음)"
+        search_query = f"{req.title} {description}"
 
 
         experienced_docs = await vs.as_retriever(search_kwargs={
@@ -126,7 +127,8 @@ async def get_freelancer_recommendations(req: FreelancerRecommendRequest):
         <context>{context}</context>
         """)
 
-        search_query = f"{req.skills} {req.experience}"
+        experience = req.experience.strip() if req.experience and req.experience.strip() else "(경력 및 소개 없음)"
+        search_query = f"{req.skills} {experience}"
         retriever = vs.as_retriever(search_kwargs={
             "k": 15,
             "filter": {"type": "job_posting"}
@@ -138,7 +140,7 @@ async def get_freelancer_recommendations(req: FreelancerRecommendRequest):
             for d in docs
         )
         
-        formatted_prompt = prompt.format(skills=req.skills, experience=req.experience, context=context)
+        formatted_prompt = prompt.format(skills=req.skills, experience=experience, context=context)
         result = await structured_llm.ainvoke(formatted_prompt)
 
         return {"success": True, "data": result.matches[:5]}
