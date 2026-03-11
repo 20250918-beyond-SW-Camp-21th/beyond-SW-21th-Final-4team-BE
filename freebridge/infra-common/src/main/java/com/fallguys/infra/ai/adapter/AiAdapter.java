@@ -107,14 +107,16 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
     @Override
     public <T> List<T> recommendFreelancers(Long jobId, String title, String description, Class<T> responseType) {
         try {
+            String requestBody = objectMapper.writeValueAsString(Map.of(
+                    "jobId", jobId,
+                    "title", title,
+                    "description", description
+            ));
+
             String rawJson = restClient.post()
                     .uri(pythonUrl + "/api/v1/employer/recommendations")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of(
-                            "jobId", jobId,
-                            "title", title,
-                            "description", description
-                    ))
+                    .body(requestBody)
                     .retrieve()
                     .onStatus(HttpStatusCode::isError, (request, response) -> {
                         String errorBody = new String(response.getBody().readAllBytes());
@@ -141,14 +143,16 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
     @Override
     public <T> List<T> recommendJobs(Long freelancerId, String skills, String experience, Class<T> responseType) {
         try {
+            String requestBody = objectMapper.writeValueAsString(Map.of(
+                    "freelancerId", freelancerId,
+                    "skills", skills,
+                    "experience", experience
+            ));
+
             String rawJson = restClient.post()
                     .uri(pythonUrl + "/api/v1/freelancer/recommendations")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of(
-                            "freelancerId", freelancerId,
-                            "skills", skills,
-                            "experience", experience
-                    ))
+                    .body(requestBody)
                     .retrieve()
                     .onStatus(HttpStatusCode::isError, (request, response) -> {
                         throw new RuntimeException("AI 프리랜서 맞춤 추천 서비스 응답 오류");
