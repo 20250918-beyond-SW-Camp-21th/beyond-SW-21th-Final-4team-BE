@@ -299,10 +299,12 @@ public class UserService {
                 .orElseThrow(() -> new IllegalArgumentException("User not found."));
 
         if (request.getName() != null) {
-            user.updateName(request.getName());
+            String trimmedName = request.getName().trim();
+            user.updateName(trimmedName);
         }
         if (request.getPhone() != null) {
-            user.updatePhone(request.getPhone());
+            String trimmedPhone = request.getPhone().trim();
+            user.updatePhone(trimmedPhone);
         }
         return UserMyInfoResponseDto.from(user);
     }
