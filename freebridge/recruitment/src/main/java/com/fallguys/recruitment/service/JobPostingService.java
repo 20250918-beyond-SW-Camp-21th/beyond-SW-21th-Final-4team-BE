@@ -44,8 +44,4 @@ public interface JobPostingService {
     void completeProject(Long projectId, Long userId);
 
     void refreshEmployerProjectStatsCache(Long employerId);
-
-    void triggerFreelancerRecommendation(Long jobPostingId, Long userId);
-
-    void triggerJobRecommendation(Long userId);
 }
