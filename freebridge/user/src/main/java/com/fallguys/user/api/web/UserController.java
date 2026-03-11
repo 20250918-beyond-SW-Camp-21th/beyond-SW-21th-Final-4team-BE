@@ -233,6 +233,32 @@ public class UserController {
     }
 
     /*
+     * Update my account info
+     * PUT /api/users/me/info
+     */
+    @PutMapping("/me/info")
+    public ResponseEntity<Map<String, Object>> updateMyInfo(
+            @org.springframework.security.core.annotation.AuthenticationPrincipal com.fallguys.common.security.CustomUserDetails user,
+            @RequestBody com.fallguys.user.api.web.dto.request.AccountInfoUpdateRequest request) {
+        Map<String, Object> response = new HashMap<>();
+        if (user == null) {
+            response.put("success", false);
+            response.put("message", "Unauthorized.");
+            return ResponseEntity.status(401).body(response);
+        }
+        try {
+            UserMyInfoResponseDto data = userService.updateAccountInfo(user.getId(), request);
+            response.put("success", true);
+            response.put("data", data);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    /*
      * 비밀번호 변경
      * PUT /api/users/me/password
      */

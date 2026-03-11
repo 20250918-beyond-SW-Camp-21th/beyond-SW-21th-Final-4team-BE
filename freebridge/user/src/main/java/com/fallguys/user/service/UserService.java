@@ -4,6 +4,7 @@ import com.fallguys.common.event.EmailVerifiedEvent;
 import com.fallguys.user.api.web.dto.request.LoginRequestDto;
 import com.fallguys.user.api.web.dto.request.PasswordUpdateRequest;
 import com.fallguys.user.api.web.dto.request.EmailNotificationSettingDto;
+import com.fallguys.user.api.web.dto.request.AccountInfoUpdateRequest;
 import com.fallguys.user.api.web.dto.request.SignupRequestDto;
 import com.fallguys.user.api.web.dto.response.LoginResponseDto;
 import com.fallguys.user.api.web.dto.response.UserMyInfoResponseDto;
@@ -289,6 +290,20 @@ public class UserService {
     public UserMyInfoResponseDto getMyInfo(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다."));
+        return UserMyInfoResponseDto.from(user);
+    }
+
+    @Transactional
+    public UserMyInfoResponseDto updateAccountInfo(Long userId, AccountInfoUpdateRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found."));
+
+        if (request.getName() != null) {
+            user.updateName(request.getName());
+        }
+        if (request.getPhone() != null) {
+            user.updatePhone(request.getPhone());
+        }
         return UserMyInfoResponseDto.from(user);
     }
 
