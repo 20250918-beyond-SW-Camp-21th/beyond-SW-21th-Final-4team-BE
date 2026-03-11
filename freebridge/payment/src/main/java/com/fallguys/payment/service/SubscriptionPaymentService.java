@@ -105,6 +105,7 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
             transactionTemplate.executeWithoutResult(status -> {
                 paymentAttemptRepository.findById(paymentId).ifPresent(attempt -> {
                     attempt.setStatus("FAILED");
+                    attempt.setIdempotencyKey(null); // 실패 시 키 해제 — 같은 결제 기간 내 재시도 허용
                     paymentAttemptRepository.save(attempt);
                 });
             });
@@ -134,6 +135,7 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
         transactionTemplate.executeWithoutResult(txStatus -> {
             paymentAttemptRepository.findById(paymentId).ifPresent(attempt -> {
                 attempt.setStatus(paid ? "SUCCESS" : "FAILED");
+                if (!paid) attempt.setIdempotencyKey(null); // 실패 시 키 해제 — 재시도 허용
                 paymentAttemptRepository.save(attempt);
             });
         });
@@ -273,6 +275,7 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
             transactionTemplate.executeWithoutResult(txStatus -> {
                 paymentAttemptRepository.findById(paymentId).ifPresent(attempt -> {
                     attempt.setStatus("FAILED");
+                    attempt.setIdempotencyKey(null); // 실패 시 키 해제 — 다음 스케줄 재시도 허용
                     paymentAttemptRepository.save(attempt);
                 });
                 SubscriptionBilling billing = new SubscriptionBilling();
@@ -293,6 +296,7 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
         transactionTemplate.executeWithoutResult(txStatus -> {
             paymentAttemptRepository.findById(paymentId).ifPresent(attempt -> {
                 attempt.setStatus(finalPaymentInfo.isPaid() ? "SUCCESS" : "FAILED");
+                if (!finalPaymentInfo.isPaid()) attempt.setIdempotencyKey(null); // 실패 시 키 해제 — 재시도 허용
                 paymentAttemptRepository.save(attempt);
             });
         });

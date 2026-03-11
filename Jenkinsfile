@@ -26,13 +26,6 @@ pipeline {
 
     stages {
         stage('EKS Preflight') {
-            agent {
-                docker {
-                    image "${EKS_TOOL_IMAGE}"
-                    args '-u root:root -v /var/run/docker.sock:/var/run/docker.sock'
-                    reuseNode true
-                }
-            }
             steps {
                 script {
                     withCredentials([[
@@ -44,14 +37,9 @@ pipeline {
                         sh """
                             set -euxo pipefail
                             export AWS_DEFAULT_REGION=${env.AWS_REGION}
-
                             if ! command -v aws > /dev/null 2>&1; then
-                                if command -v apk > /dev/null 2>&1; then
-                                    apk add --no-cache aws-cli bash curl >/dev/null
-                                else
-                                    echo 'aws CLI is not installed and apk is unavailable.'
-                                    exit 1
-                                fi
+                                echo 'aws CLI is not installed.'
+                                exit 1
                             fi
 
                             aws --version
@@ -155,13 +143,6 @@ pipeline {
             }
         }
         stage('Install Ingress Nginx If Missing') {
-            agent {
-                docker {
-                    image "${EKS_TOOL_IMAGE}"
-                    args '-u root:root -v /var/run/docker.sock:/var/run/docker.sock'
-                    reuseNode true
-                }
-            }
             steps {
                 script {
                     withCredentials([[
@@ -173,23 +154,13 @@ pipeline {
                         sh """
                             set -euxo pipefail
                             export AWS_DEFAULT_REGION=${env.AWS_REGION}
-
                             if ! command -v aws > /dev/null 2>&1; then
-                                if command -v apk > /dev/null 2>&1; then
-                                    apk add --no-cache aws-cli bash curl >/dev/null
-                                else
-                                    echo 'aws CLI is not installed and apk is unavailable.'
-                                    exit 1
-                                fi
+                                echo 'aws CLI is not installed.'
+                                exit 1
                             fi
-
                             if ! command -v helm > /dev/null 2>&1; then
-                                if command -v apk > /dev/null 2>&1; then
-                                    apk add --no-cache helm >/dev/null
-                                else
-                                    echo 'helm is not installed and apk is unavailable.'
-                                    exit 1
-                                fi
+                                echo 'helm is not installed.'
+                                exit 1
                             fi
 
                             aws eks update-kubeconfig --region ${env.AWS_REGION} --name ${env.EKS_CLUSTER_NAME}
@@ -220,13 +191,6 @@ pipeline {
         }
 
         stage('Deploy to EKS') {
-            agent {
-                docker {
-                    image "${EKS_TOOL_IMAGE}"
-                    args '-u root:root -v /var/run/docker.sock:/var/run/docker.sock'
-                    reuseNode true
-                }
-            }
             steps {
                 script {
                     withCredentials([[
@@ -238,14 +202,9 @@ pipeline {
                         sh """
                             set -euxo pipefail
                             export AWS_DEFAULT_REGION=${env.AWS_REGION}
-
                             if ! command -v aws > /dev/null 2>&1; then
-                                if command -v apk > /dev/null 2>&1; then
-                                    apk add --no-cache aws-cli bash curl >/dev/null
-                                else
-                                    echo 'aws CLI is not installed and apk is unavailable.'
-                                    exit 1
-                                fi
+                                echo 'aws CLI is not installed.'
+                                exit 1
                             fi
 
                             aws eks update-kubeconfig --region ${env.AWS_REGION} --name ${env.EKS_CLUSTER_NAME}

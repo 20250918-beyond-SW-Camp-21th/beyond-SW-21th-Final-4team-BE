@@ -15,7 +15,7 @@ public interface WalletRepository extends JpaRepository<Wallet, Long> {
     Optional<Wallet> findByWalletType(WalletType walletType);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT w FROM Wallet w WHERE w.walletType = :walletType")
+    @Query("SELECT w FROM Wallet w WHERE w.walletType = :walletType ORDER BY w.id ASC LIMIT 1")
     Optional<Wallet> findByWalletTypeWithLock(@Param("walletType") WalletType walletType);
 
     Optional<Wallet> findByOwnerIdAndWalletType(Long ownerId, WalletType walletType);
