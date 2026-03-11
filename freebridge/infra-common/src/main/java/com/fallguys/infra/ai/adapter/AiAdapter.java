@@ -117,7 +117,8 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                     ))
                     .retrieve()
                     .onStatus(HttpStatusCode::isError, (request, response) -> {
-                        throw new RuntimeException("AI 추천 서버 통신 오류");
+                        String errorBody = new String(response.getBody().readAllBytes());
+                        throw new RuntimeException("AI 추천 서버 통신 오류: " + response.getStatusCode() + " - " + errorBody);
                     })
                     .body(String.class);
 
