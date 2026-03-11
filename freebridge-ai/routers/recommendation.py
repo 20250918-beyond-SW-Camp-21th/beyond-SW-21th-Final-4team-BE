@@ -61,7 +61,10 @@ async def get_job_recommendations(req: RecommendationRequest):
             }
         }).ainvoke(search_query)
 
-        all_context = "\n\n".join([d.page_content for d in (experienced_docs[:5] + newbie_docs[:2])])
+        all_context = "\n\n".join([
+            f"ID: {d.metadata.get('id', 'N/A')}\n{d.page_content}" 
+            for d in (experienced_docs[:5] + newbie_docs[:2])
+        ])
 
         prompt = ChatPromptTemplate.from_template("""
         전문 헤드헌터로서 다음 유저 중 공고에 가장 적합한 7명을 추천하세요.
@@ -130,7 +133,10 @@ async def get_freelancer_recommendations(req: FreelancerRecommendRequest):
         }) 
         
         docs = await retriever.ainvoke(search_query) 
-        context = "\n\n".join(doc.page_content for doc in docs)
+        context = "\n\n".join(
+            f"ID: {d.metadata.get('id', 'N/A')}\n{d.page_content}" 
+            for d in docs
+        )
         
         formatted_prompt = prompt.format(skills=req.skills, experience=req.experience, context=context)
         result = await structured_llm.ainvoke(formatted_prompt)
