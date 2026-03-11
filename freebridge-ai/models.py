@@ -5,7 +5,7 @@ from typing import List
 class RecommendationRequest(BaseModel):
     jobId: int = Field(gt=0, description="공고 ID (양수)")
     title: str = Field(min_length=1, max_length=200, description="공고 제목 (필수)")
-    description: str = Field(min_length=5, description="공고 상세 내용 (최소 5자 이상)")
+    description: str = Field(default="", description="공고 상세 내용")
 
 class FreelancerMatch(BaseModel):
     id: int = Field(gt=0, description="프리랜서 고유 ID (양수)")
@@ -22,7 +22,7 @@ class EmployerRecommendationResponse(BaseModel):
 class FreelancerRecommendRequest(BaseModel):
     freelancerId: int = Field(gt=0, description="프리랜서 ID")
     skills: str = Field(min_length=1, description="보유 기술 스택")
-    experience: str = Field(min_length=5, description="경력 및 자기소개 요약")
+    experience: str = Field(default="", description="경력 및 자기소개 요약")
 
 class JobMatch(BaseModel):
     id: int = Field(gt=0, description="공고 ID")

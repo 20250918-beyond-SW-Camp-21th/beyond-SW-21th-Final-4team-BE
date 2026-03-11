@@ -38,7 +38,8 @@ async def get_job_recommendations(req: RecommendationRequest):
         llm = get_llm()
         structured_llm = llm.with_structured_output(FreelancerMatchList)
         
-        search_query = f"{req.title} {req.description}"
+        description = req.description.strip() if req.description and req.description.strip() else "(상세 내용 없음)"
+        search_query = f"{req.title} {description}"
 
 
         experienced_docs = await vs.as_retriever(search_kwargs={
@@ -61,7 +62,10 @@ async def get_job_recommendations(req: RecommendationRequest):
             }
         }).ainvoke(search_query)
 
-        all_context = "\n\n".join([d.page_content for d in (experienced_docs[:5] + newbie_docs[:2])])
+        all_context = "\n\n".join([
+            f"ID: {d.metadata.get('ref_id', 'N/A')}\n{d.page_content}" 
+            for d in (experienced_docs[:5] + newbie_docs[:2])
+        ])
 
         prompt = ChatPromptTemplate.from_template("""
         전문 헤드헌터로서 다음 유저 중 공고에 가장 적합한 7명을 추천하세요.
@@ -123,16 +127,20 @@ async def get_freelancer_recommendations(req: FreelancerRecommendRequest):
         <context>{context}</context>
         """)
 
-        search_query = f"{req.skills} {req.experience}"
+        experience = req.experience.strip() if req.experience and req.experience.strip() else "(경력 및 소개 없음)"
+        search_query = f"{req.skills} {experience}"
         retriever = vs.as_retriever(search_kwargs={
             "k": 15,
             "filter": {"type": "job_posting"}
         }) 
         
         docs = await retriever.ainvoke(search_query) 
-        context = "\n\n".join(doc.page_content for doc in docs)
+        context = "\n\n".join(
+            f"ID: {d.metadata.get('ref_id', 'N/A')}\n{d.page_content}" 
+            for d in docs
+        )
         
-        formatted_prompt = prompt.format(skills=req.skills, experience=req.experience, context=context)
+        formatted_prompt = prompt.format(skills=req.skills, experience=experience, context=context)
         result = await structured_llm.ainvoke(formatted_prompt)
 
         return {"success": True, "data": result.matches[:5]}
