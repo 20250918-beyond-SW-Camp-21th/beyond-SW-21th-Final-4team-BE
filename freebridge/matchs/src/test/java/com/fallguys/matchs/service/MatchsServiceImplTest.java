@@ -12,6 +12,7 @@ import com.fallguys.matchs.repository.ProposalRepo;
 import com.fallguys.recruitment.api.dto.request.JobPostingCreateDTO;
 import com.fallguys.recruitment.entity.JobPosting;
 import com.fallguys.recruitment.entity.Project;
+import com.fallguys.recruitment.entity.ProjectStatus;
 import com.fallguys.recruitment.entity.Status;
 import com.fallguys.recruitment.repository.JobPostingRepo;
 import com.fallguys.recruitment.repository.ProjectPostingRepo;
@@ -148,6 +149,36 @@ class MatchsServiceImplTest {
     }
 
     @Test
+    @DisplayName("[TDD] 지원 수락 시 기존 취소 프로젝트가 있으면 진행중으로 복구한다")
+    void acceptApplication_cancelledProject_reopensExistingProject() {
+        // given
+        Long employerId = 1L;
+        Long applicationId = 12L;
+        Application application = Application.create(302L, 22L, employerId, "apply");
+        ReflectionTestUtils.setField(application, "id", applicationId, Long.class);
+        JobPosting posting = jobPosting(302L, employerId, Status.ACTIVE, 2, 0);
+
+        Project cancelledProject = Project.create(posting, 22L);
+        cancelledProject.cancel();
+        ReflectionTestUtils.setField(cancelledProject, "id", 778L, Long.class);
+
+        when(userRepository.findById(employerId)).thenReturn(Optional.of(user(Role.EMPLOYER)));
+        when(applicationRepo.findById(applicationId)).thenReturn(Optional.of(application));
+        when(jobPostingRepo.findByIdForUpdate(302L)).thenReturn(Optional.of(posting));
+        when(projectPostingRepo.findByJobPostingIdAndFreelancerId(302L, 22L)).thenReturn(Optional.of(cancelledProject));
+
+        // when
+        Long projectId = matchsService.acceptApplication(employerId, applicationId);
+
+        // then
+        assertEquals(778L, projectId);
+        assertEquals(MatchsStatus.ACCEPTED, application.getStatus());
+        assertEquals(ProjectStatus.IN_PROGRESS, cancelledProject.getStatus());
+        assertEquals(1, posting.getMatchedHeadcount());
+        verify(projectPostingRepo, never()).save(any());
+    }
+
+    @Test
     @DisplayName("[TDD] 지원 수락 시 신규 프로젝트 생성 후 projectId를 반환")
     void acceptApplication_createsProject() {
         // given
@@ -176,6 +207,38 @@ class MatchsServiceImplTest {
     }
 
     @Test
+    @DisplayName("[TDD] 지원 거절 시 취소 상태의 프로젝트 이력을 생성한다")
+    void rejectApplication_createsCancelledProjectHistory() {
+        // given
+        Long employerId = 1L;
+        Long applicationId = 13L;
+        Application application = Application.create(303L, 23L, employerId, "apply");
+        ReflectionTestUtils.setField(application, "id", applicationId, Long.class);
+        JobPosting posting = jobPosting(303L, employerId, Status.ACTIVE, 2, 0);
+
+        when(userRepository.findById(employerId)).thenReturn(Optional.of(user(Role.EMPLOYER)));
+        when(applicationRepo.findById(applicationId)).thenReturn(Optional.of(application));
+        when(jobPostingRepo.findByIdForUpdate(303L)).thenReturn(Optional.of(posting));
+        when(projectPostingRepo.findByJobPostingIdAndFreelancerId(303L, 23L)).thenReturn(Optional.empty());
+        when(projectPostingRepo.save(any())).thenAnswer(invocation -> {
+            Project project = invocation.getArgument(0);
+            ReflectionTestUtils.setField(project, "id", 901L, Long.class);
+            return project;
+        });
+
+        // when
+        Long result = matchsService.rejectApplication(employerId, applicationId);
+
+        // then
+        assertEquals(applicationId, result);
+        assertEquals(MatchsStatus.REJECTED, application.getStatus());
+        ArgumentCaptor<Project> captor = ArgumentCaptor.forClass(Project.class);
+        verify(projectPostingRepo).save(captor.capture());
+        assertEquals(ProjectStatus.CANCELLED, captor.getValue().getStatus());
+        assertEquals(0, posting.getMatchedHeadcount());
+    }
+
+    @Test
     @DisplayName("[TDD] 제안 거절 시 상태가 PENDING이 아니면 INVALID_INPUT_VALUE 예외")
     void rejectProposal_notPending_throws() {
         // given
@@ -192,6 +255,38 @@ class MatchsServiceImplTest {
 
         // then
         assertEquals(ErrorCode.INVALID_INPUT_VALUE, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("[TDD] 제안 거절 시 취소 상태의 프로젝트 이력을 생성한다")
+    void rejectProposal_createsCancelledProjectHistory() {
+        // given
+        Long freelancerId = 33L;
+        Long proposalId = 45L;
+        Proposal proposal = Proposal.create(304L, freelancerId, 77L, "msg");
+        ReflectionTestUtils.setField(proposal, "id", proposalId, Long.class);
+        JobPosting posting = jobPosting(304L, 77L, Status.ACTIVE, 2, 0);
+
+        when(userRepository.findById(freelancerId)).thenReturn(Optional.of(user(Role.FREELANCER)));
+        when(proposalRepo.findById(proposalId)).thenReturn(Optional.of(proposal));
+        when(jobPostingRepo.findByIdForUpdate(304L)).thenReturn(Optional.of(posting));
+        when(projectPostingRepo.findByJobPostingIdAndFreelancerId(304L, freelancerId)).thenReturn(Optional.empty());
+        when(projectPostingRepo.save(any())).thenAnswer(invocation -> {
+            Project project = invocation.getArgument(0);
+            ReflectionTestUtils.setField(project, "id", 902L, Long.class);
+            return project;
+        });
+
+        // when
+        Long result = matchsService.rejectProposal(freelancerId, proposalId);
+
+        // then
+        assertEquals(proposalId, result);
+        assertEquals(MatchsStatus.REJECTED, proposal.getStatus());
+        ArgumentCaptor<Project> captor = ArgumentCaptor.forClass(Project.class);
+        verify(projectPostingRepo).save(captor.capture());
+        assertEquals(ProjectStatus.CANCELLED, captor.getValue().getStatus());
+        assertEquals(0, posting.getMatchedHeadcount());
     }
 
     @Test
