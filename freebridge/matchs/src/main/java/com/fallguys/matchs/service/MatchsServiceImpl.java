@@ -170,6 +170,7 @@ public class MatchsServiceImpl implements MatchsService {
         validatePending(application.getStatus());
 
         application.reject();
+        ensureRejectedProjectHistory(application.getJobPostingId(), application.getFreelancerId());
         runAfterCommitSafely(() -> {
             refreshEmployerProjectStats(application.getEmployerId());
             refreshEmployerProjectList(application.getEmployerId());
@@ -190,6 +191,7 @@ public class MatchsServiceImpl implements MatchsService {
         validatePending(proposal.getStatus());
 
         proposal.reject();
+        ensureRejectedProjectHistory(proposal.getJobPostingId(), freelancerId);
         runAfterCommitSafely(() -> {
             refreshEmployerProjectStats(proposal.getEmployerId());
             refreshEmployerProjectList(proposal.getEmployerId());
@@ -263,6 +265,13 @@ public class MatchsServiceImpl implements MatchsService {
         JobPosting jobPosting = getOpenJobPostingForUpdateOrThrow(jobPostingId);
         Project existing = projectPostingRepo.findByJobPostingIdAndFreelancerId(jobPostingId, freelancerId).orElse(null);
         if (existing != null) {
+            if (existing.getStatus() == ProjectStatus.CANCELLED) {
+                if (jobPosting.isRecruitmentFull()) {
+                    throw new BusinessException(ErrorCode.JOB_POSTING_HEADCOUNT_FULL);
+                }
+                existing.reopen();
+                jobPosting.matchFreelancer();
+            }
             return existing.getId();
         }
 
@@ -274,6 +283,18 @@ public class MatchsServiceImpl implements MatchsService {
         Long projectId = projectPostingRepo.save(project).getId();
         jobPosting.matchFreelancer();
         return projectId;
+    }
+
+    private Long ensureRejectedProjectHistory(Long jobPostingId, Long freelancerId) {
+        JobPosting jobPosting = getJobPostingForProjectHistoryOrThrow(jobPostingId);
+        Project existing = projectPostingRepo.findByJobPostingIdAndFreelancerId(jobPostingId, freelancerId).orElse(null);
+        if (existing != null) {
+            return existing.getId();
+        }
+
+        Project project = Project.create(jobPosting, freelancerId);
+        project.cancel();
+        return projectPostingRepo.save(project).getId();
     }
 
     private Application getApplicationOrThrow(Long applicationId) {
@@ -302,6 +323,11 @@ public class MatchsServiceImpl implements MatchsService {
             throw new BusinessException(ErrorCode.JOB_POSTING_ALREADY_DELETED);
         }
         return jobPosting;
+    }
+
+    private JobPosting getJobPostingForProjectHistoryOrThrow(Long jobPostingId) {
+        return jobPostingRepo.findByIdForUpdate(jobPostingId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.JOB_POSTING_NOT_FOUND));
     }
 
     private User getUserByRoleOrThrow(Long userId, Role role) {

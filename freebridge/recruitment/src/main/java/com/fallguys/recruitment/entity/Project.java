@@ -59,4 +59,18 @@ public class Project extends BaseEntity {
         }
         this.status = ProjectStatus.COMPLETED;
     }
+
+    public void cancel() {
+        if (this.status == ProjectStatus.COMPLETED) {
+            return;
+        }
+        this.status = ProjectStatus.CANCELLED;
+    }
+
+    public void reopen() {
+        if (this.status == ProjectStatus.COMPLETED) {
+            throw new IllegalStateException("완료된 프로젝트는 다시 진행할 수 없습니다.");
+        }
+        this.status = ProjectStatus.IN_PROGRESS;
+    }
 }
