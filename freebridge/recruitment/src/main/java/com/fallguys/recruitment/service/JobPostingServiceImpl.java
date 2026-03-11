@@ -433,14 +433,15 @@ public class JobPostingServiceImpl implements JobPostingService {
             writeCacheWithTtl(cacheKey, result, Duration.ofHours(24));
         } catch (Exception e) {
             log.error("Async Freelancer Recommendation failed for Job: {}", jobPostingId, e);
-        } finally {
-            // 프로세스가 성공/실패 무관하게 끝나면 수 초 뒤 즉시 다시 실행 가능하도록 락 해제 (선택)
             try { redisTemplate.delete(lockKey); } catch (Exception ignored) {}
         }
     }
 
     @Override     // 프리랜서용: 캐싱 조회 전용
     public List<AiRecommendationResponseDTO> getRecommendedJobsForFreelancer(Long userId) {
+        // Validation check to prevent triggering background task for bad userIds
+        recruitmentUserReader.getFreelancerByIdOrThrow(userId);
+
         String cacheKey = "ai:reco:jobs:" + userId;
         List<AiRecommendationResponseDTO> cached = readCache(cacheKey, new TypeReference<>() {});
         if (cached != null) {
@@ -475,10 +476,15 @@ public class JobPostingServiceImpl implements JobPostingService {
                     AiRecommendationResponseDTO.class
             );
 
+            // Fetch all jobs in bulk to prevent N+1 queries
+            List<Long> jobIds = aiResults.stream().map(AiRecommendationResponseDTO::id).toList();
+            Map<Long, JobPosting> jobsMap = jobPostingRepo.findAllById(jobIds).stream()
+                    .collect(java.util.stream.Collectors.toMap(JobPosting::getId, j -> j));
+
             List<AiRecommendationResponseDTO> result = aiResults.stream().map(dto -> {
                 try {
-                    JobPosting job = getJobPostingOrThrow(dto.id());
-                    if (job.getStatus() != Status.ACTIVE) {
+                    JobPosting job = jobsMap.get(dto.id());
+                    if (job == null || job.getStatus() != Status.ACTIVE) {
                         return null;
                     }
                     return dto.withJobInfo(job.getTechStack(), job.getDescription(), job.getBudget(), job.getDuration());
@@ -491,15 +497,14 @@ public class JobPostingServiceImpl implements JobPostingService {
             writeCacheWithTtl(cacheKey, result, Duration.ofHours(24));
         } catch (Exception e) {
             log.error("Async Job Recommendation failed for Freelancer: {}", userId, e);
-        } finally {
             try { redisTemplate.delete(lockKey); } catch (Exception ignored) {}
         }
     }
 
     private void writeCacheWithTtl(String key, Object value, Duration ttl) {
         try {
-            String json = objectMapper.writeValueAsString(value);
-            redisTemplate.opsForValue().set(key, json, ttl);
+            // Directly store object via redisTemplate so readCache (which uses convertValue/serializer) can deserialize properly
+            redisTemplate.opsForValue().set(key, value, ttl);
         } catch (Exception e) {
             log.warn("레디스 쓰기 실패: {}", key, e);
         }
