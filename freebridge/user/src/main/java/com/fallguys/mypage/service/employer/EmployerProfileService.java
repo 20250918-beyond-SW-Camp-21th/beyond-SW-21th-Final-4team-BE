@@ -7,6 +7,8 @@ import com.fallguys.mypage.entity.employer.Employer;
 import com.fallguys.mypage.repository.employer.EmployerRepository;
 import com.fallguys.mypage.api.web.dto.employer.response.CrmAlertsResponseDto;
 import com.fallguys.mypage.entity.employer.Subscription;
+import com.fallguys.user.api.shared.ExternalUserApi;
+import com.fallguys.user.api.shared.response.ExternalUserMyInfoResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,13 +25,16 @@ public class EmployerProfileService {
 
     private final EmployerRepository employerRepository;
     private final FileStorage fileStorage;
+    private final ExternalUserApi externalUserApi;
 
     @Transactional(readOnly = true)
     public EmployerBasicProfileDto getProfile(Long userId) {
         Employer employer = employerRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 유저의 고용주 프로필을 찾을 수 없습니다."));
 
-        return EmployerBasicProfileDto.from(employer);
+        ExternalUserMyInfoResponse userInfo = externalUserApi.getMyInfo(userId);
+        String phone = userInfo != null ? userInfo.getPhone() : null;
+        return EmployerBasicProfileDto.from(employer, phone);
     }
 
     @Transactional
@@ -55,6 +60,10 @@ public class EmployerProfileService {
                 description,
                 employer.getLogoUrl() // 기존 로고는 유지 (로고 수정 API 분리됨)
         );
+
+        if (hasText(request.phone())) {
+            externalUserApi.updatePhone(userId, request.phone());
+        }
     }
 
     private Scale parseScale(String scaleStr) {
