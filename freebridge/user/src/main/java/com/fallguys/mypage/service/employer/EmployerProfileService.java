@@ -10,6 +10,7 @@ import com.fallguys.mypage.entity.employer.Subscription;
 import com.fallguys.user.api.shared.ExternalUserApi;
 import com.fallguys.user.api.shared.response.ExternalUserMyInfoResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -19,6 +20,7 @@ import java.util.Set;
 import com.fallguys.mypage.entity.employer.Scale;
 
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class EmployerProfileService {
@@ -32,7 +34,14 @@ public class EmployerProfileService {
         Employer employer = employerRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 유저의 고용주 프로필을 찾을 수 없습니다."));
 
-        ExternalUserMyInfoResponse userInfo = externalUserApi.getMyInfo(userId);
+        ExternalUserMyInfoResponse userInfo = null;
+        try {
+            userInfo = externalUserApi.getMyInfo(userId);
+        } catch (com.fallguys.common.exception.BusinessException e) {
+            if (e.getErrorCode() != com.fallguys.common.exception.ErrorCode.USER_NOT_FOUND) {
+                throw e;
+            }
+        }
         String phone = userInfo != null ? userInfo.getPhone() : null;
         return EmployerBasicProfileDto.from(employer, phone);
     }
@@ -62,7 +71,17 @@ public class EmployerProfileService {
         );
 
         if (hasText(request.phone())) {
-            externalUserApi.updatePhone(userId, request.phone());
+            try {
+                externalUserApi.updatePhone(userId, request.phone());
+            } catch (com.fallguys.common.exception.BusinessException e) {
+                if (e.getErrorCode() == com.fallguys.common.exception.ErrorCode.USER_NOT_FOUND) {
+                    log.error("Inconsistent employer/user state while updating phone. employerId={}, userId={}", employer.getEmployerId(), userId);
+                    throw new com.fallguys.common.exception.BusinessException(
+                            com.fallguys.common.exception.ErrorCode.INTERNAL_SERVER_ERROR
+                    );
+                }
+                throw e;
+            }
         }
     }
 

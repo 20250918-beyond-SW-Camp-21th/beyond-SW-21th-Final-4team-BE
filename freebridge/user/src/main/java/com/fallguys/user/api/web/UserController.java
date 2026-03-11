@@ -226,10 +226,16 @@ public class UserController {
             return ResponseEntity.status(401).body(response);
         }
 
-        UserMyInfoResponseDto data = userService.getMyInfo(user.getId());
-        response.put("success", true);
-        response.put("data", data);
-        return ResponseEntity.ok(response);
+        try {
+            UserMyInfoResponseDto data = userService.getMyInfo(user.getId());
+            response.put("success", true);
+            response.put("data", data);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.status(org.springframework.http.HttpStatus.NOT_FOUND).body(response);
+        }
     }
 
     /*
