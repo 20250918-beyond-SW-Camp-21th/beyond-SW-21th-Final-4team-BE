@@ -62,7 +62,7 @@ async def get_job_recommendations(req: RecommendationRequest):
         }).ainvoke(search_query)
 
         all_context = "\n\n".join([
-            f"ID: {d.metadata.get('id', 'N/A')}\n{d.page_content}" 
+            f"ID: {d.metadata.get('ref_id', 'N/A')}\n{d.page_content}" 
             for d in (experienced_docs[:5] + newbie_docs[:2])
         ])
 
@@ -134,7 +134,7 @@ async def get_freelancer_recommendations(req: FreelancerRecommendRequest):
         
         docs = await retriever.ainvoke(search_query) 
         context = "\n\n".join(
-            f"ID: {d.metadata.get('id', 'N/A')}\n{d.page_content}" 
+            f"ID: {d.metadata.get('ref_id', 'N/A')}\n{d.page_content}" 
             for d in docs
         )
         
