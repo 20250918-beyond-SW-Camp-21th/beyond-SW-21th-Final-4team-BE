@@ -32,10 +32,14 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
     @Value("${fallguys.ai.python-url}")
     private String pythonUrl;
 
-    public AiAdapter(RestClient restClient,
-                     ObjectMapper objectMapper,
+    public AiAdapter(ObjectMapper objectMapper,
                      @Qualifier("taskExecutor") Executor taskExecutor) {
-        this.restClient = restClient;
+        // Create a dedicated RestClient to avoid JdkHttpClient POST body-drop bugs
+        org.springframework.http.client.SimpleClientHttpRequestFactory factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout((int) java.time.Duration.ofSeconds(5).toMillis());
+        factory.setReadTimeout((int) java.time.Duration.ofSeconds(30).toMillis());
+        this.restClient = RestClient.builder().requestFactory(factory).build();
+        
         this.objectMapper = objectMapper;
         this.taskExecutor = taskExecutor;
     }
@@ -114,7 +118,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
             ));
 
             String rawJson = restClient.post()
-                    .uri(pythonUrl + "/api/v1/employer/recommendations/")
+                    .uri(pythonUrl + "/api/v1/employer/recommendations")
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(requestBody)
                     .retrieve()
@@ -123,6 +127,10 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                         throw new RuntimeException("AI 추천 서버 통신 오류: " + response.getStatusCode() + " - " + errorBody);
                     })
                     .body(String.class);
+
+            if (rawJson == null || rawJson.trim().isEmpty()) {
+                throw new RuntimeException("AI 추천 서버로부터 빈 응답(Null)을 수신했습니다.");
+            }
 
             JsonNode root = objectMapper.readTree(rawJson);
 
@@ -150,7 +158,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
             ));
 
             String rawJson = restClient.post()
-                    .uri(pythonUrl + "/api/v1/freelancer/recommendations/")
+                    .uri(pythonUrl + "/api/v1/freelancer/recommendations")
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(requestBody)
                     .retrieve()
@@ -158,6 +166,10 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                         throw new RuntimeException("AI 프리랜서 맞춤 추천 서비스 응답 오류");
                     })
                     .body(String.class);
+
+            if (rawJson == null || rawJson.trim().isEmpty()) {
+                throw new RuntimeException("AI 추천 서버로부터 빈 응답(Null)을 수신했습니다.");
+            }
 
             JsonNode root = objectMapper.readTree(rawJson);
 
