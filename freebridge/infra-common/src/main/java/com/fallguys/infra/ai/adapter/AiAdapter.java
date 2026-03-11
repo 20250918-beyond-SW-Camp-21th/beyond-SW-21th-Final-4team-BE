@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -43,6 +44,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
     public String askChatBot(String question, Map<String, Object> context) {
         return restClient.post()
                 .uri(pythonUrl + "/ai/chat")
+                .contentType(MediaType.APPLICATION_JSON)
                 .body(Map.of("question", question, "context", context))
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, (request, response) -> {
@@ -55,6 +57,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
     public String generateContract(Map<String, Object> agreementData) {
         return restClient.post()
                 .uri(pythonUrl + "/ai/contract")
+                .contentType(MediaType.APPLICATION_JSON)
                 .body(agreementData)
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, (request, response) -> {
@@ -87,6 +90,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
         try {
             String rawJson = restClient.post()
                     .uri(pythonUrl + "/ai/analyze-reputation")
+                    .contentType(MediaType.APPLICATION_JSON)
                     .body(Map.of("scores", scores, "reviews", reviews))
                     .retrieve()
                     .onStatus(HttpStatusCode::isError, (request, response) -> {
@@ -105,6 +109,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
         try {
             String rawJson = restClient.post()
                     .uri(pythonUrl + "/api/v1/employer/recommendations")
+                    .contentType(MediaType.APPLICATION_JSON)
                     .body(Map.of(
                             "jobId", jobId,
                             "title", title,
@@ -137,6 +142,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
         try {
             String rawJson = restClient.post()
                     .uri(pythonUrl + "/api/v1/freelancer/recommendations")
+                    .contentType(MediaType.APPLICATION_JSON)
                     .body(Map.of(
                             "freelancerId", freelancerId,
                             "skills", skills,
@@ -168,6 +174,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
             try {
                 restClient.post()
                         .uri(pythonUrl + "/api/v1/sync/data")
+                        .contentType(MediaType.APPLICATION_JSON)
                         .body(Map.of(
                                 "id", id,
                                 "type", type,
@@ -191,6 +198,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
             try {
                 restClient.post()
                         .uri(pythonUrl + "/api/v1/sync/data")
+                        .contentType(MediaType.APPLICATION_JSON)
                         .body(request)
                         .retrieve()
                         .onStatus(HttpStatusCode::isError, (req, res) -> {
