@@ -114,7 +114,5 @@ public class AdminSettlementDisbursementService {
                 fs.markPaid();
                 freelancerSettlementRepository.save(fs);
 
-                log.debug("정산 지급 완료: freelancerId={}, installment={}, netAmount={}",
-                                fs.getFreelancerId(), fs.getInstallmentNumber(), fs.getNetAmount());
         }
 }
