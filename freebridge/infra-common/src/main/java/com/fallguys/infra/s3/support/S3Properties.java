@@ -11,6 +11,7 @@ public class S3Properties {
     private String bucket;
     private String region;
     private Credentials credentials = new Credentials();
+    private long presignedUrlExpirationMinutes = 60;
 
     @Getter @Setter
     public static class Credentials {

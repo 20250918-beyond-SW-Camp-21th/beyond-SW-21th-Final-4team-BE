@@ -119,7 +119,6 @@ public class ContractController {
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 
-    // TODO: AWS에 올리면 E3에서 제대로 된 주소로 반환하게 수정
     @Operation(summary = "계약서 PDF URL 조회", description = "계약서의 PDF 파일 URL을 반환합니다. 서명 완료 전에는 미리보기 PDF URL, 서명 완료 후에는 서명본 PDF URL이 반환됩니다.")
     @GetMapping("/{contractId}/pdf")
     public ResponseEntity<ApiResponse<String>> getPdf(
@@ -128,8 +127,8 @@ public class ContractController {
 
         Long userId = principal.getId();
 
-        String pdfUrl = contractService.getContract(contractId, userId).getContractPdfUrl();
-        ApiResponse<String> apiResponse = ApiResponse.ok(pdfUrl);
+        String downloadUrl = contractService.getPdfDownloadUrl(contractId, userId);
+        ApiResponse<String> apiResponse = ApiResponse.ok(downloadUrl);
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 }

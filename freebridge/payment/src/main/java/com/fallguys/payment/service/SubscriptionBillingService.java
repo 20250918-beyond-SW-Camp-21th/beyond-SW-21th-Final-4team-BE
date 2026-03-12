@@ -47,10 +47,23 @@ public class SubscriptionBillingService {
                 List<SubscriptionBillingItem> items = pageResult.getContent().stream()
                                 .map(b -> new SubscriptionBillingItem(
                                                 b.getId(), b.getPlanType().name(), b.getAmount(),
-                                                b.getStatus().name(), b.getBillingDate(), b.getPaidDate()))
+                                                b.getStatus().name(), b.getBillingDate(), b.getPaidDate(),
+                                                b.getInvoicePdfUrl()))
                                 .toList();
 
                 return new PageResponse<>(items, pageResult.getTotalElements(),
                                 pageResult.getTotalPages(), page);
+        }
+
+        @Transactional(readOnly = true)
+        public String getInvoicePdfUrl(Long employerId, Long billingId) {
+                var billing = subscriptionBillingRepository.findById(billingId)
+                                .orElseThrow(() -> new BusinessException(ErrorCode.SETTLEMENT_NOT_FOUND));
+
+                if (!billing.getEmployerId().equals(employerId)) {
+                        throw new BusinessException(ErrorCode.SETTLEMENT_FORBIDDEN);
+                }
+
+                return billing.getInvoicePdfUrl();
         }
 }

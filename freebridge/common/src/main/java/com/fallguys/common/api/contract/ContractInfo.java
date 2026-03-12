@@ -12,5 +12,6 @@ public record ContractInfo(
         Integer paymentDay,
         LocalDate startDate,
         LocalDate endDate,
-        Long budget) {
+        Long budget,
+        String employerBusinessName) {
 }

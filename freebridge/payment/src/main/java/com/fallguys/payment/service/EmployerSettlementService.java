@@ -42,6 +42,7 @@ public class EmployerSettlementService {
     private final ContractQuery contractQuery;
     private final PortOneApiClient portOneApiClient;
     private final PlatformTransactionManager transactionManager;
+    private final PaymentInvoicePdfService paymentInvoicePdfService;
 
     @Transactional(readOnly = true)
     public PageResponse<EmployerSettlementItem> listSettlements(
@@ -140,7 +141,7 @@ public class EmployerSettlementService {
                 e.getInvoicePdfUrl(), e.getDueDate(), e.getPaidDate());
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public String getInvoicePdfUrl(Long employerId, Long settlementId) {
         EmployerSettlement e = employerSettlementRepository.findById(settlementId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.SETTLEMENT_NOT_FOUND));
@@ -148,7 +149,29 @@ public class EmployerSettlementService {
         if (!e.getEmployerId().equals(employerId)) {
             throw new BusinessException(ErrorCode.SETTLEMENT_FORBIDDEN);
         }
-        return e.getInvoicePdfUrl();
+        if (e.getInvoicePdfUrl() == null) {
+            ContractInfo contract = contractQuery.getContractInfo(e.getContractId());
+            String key = paymentInvoicePdfService.generateServiceFeeInvoice(e, contract);
+            e.setInvoicePdfUrl(key);
+            employerSettlementRepository.save(e);
+        }
+        return paymentInvoicePdfService.generatePresignedUrl(e.getInvoicePdfUrl());
+    }
+
+    @Transactional
+    public String regenerateInvoicePdf(Long employerId, Long settlementId) {
+        EmployerSettlement e = employerSettlementRepository.findById(settlementId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.SETTLEMENT_NOT_FOUND));
+
+        if (!e.getEmployerId().equals(employerId)) {
+            throw new BusinessException(ErrorCode.SETTLEMENT_FORBIDDEN);
+        }
+
+        ContractInfo contract = contractQuery.getContractInfo(e.getContractId());
+        String invoiceUrl = paymentInvoicePdfService.generateServiceFeeInvoice(e, contract);
+        e.setInvoicePdfUrl(invoiceUrl);
+        employerSettlementRepository.save(e);
+        return invoiceUrl;
     }
 
     /**
@@ -371,6 +394,16 @@ public class EmployerSettlementService {
             es.setPaidDate(LocalDate.now());
             es.setDueDate(dueDate);
             employerSettlementRepository.save(es);
+
+            // 서비스 수수료 인보이스 생성 (실패해도 정산 로직은 계속 진행)
+            try {
+                String invoiceUrl = paymentInvoicePdfService.generateServiceFeeInvoice(es, contract);
+                es.setInvoicePdfUrl(invoiceUrl);
+                employerSettlementRepository.save(es);
+            } catch (Exception e) {
+                log.error("서비스 수수료 인보이스 생성 실패: contractId={}, installment={}, error={}",
+                        contract.id(), i, e.getMessage());
+            }
 
             // 대응하는 FreelancerSettlement 생성
             long fsPlatformFee = platformFee;
