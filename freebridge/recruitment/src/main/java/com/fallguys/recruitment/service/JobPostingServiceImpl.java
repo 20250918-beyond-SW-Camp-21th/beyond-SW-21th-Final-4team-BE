@@ -416,7 +416,9 @@ public class JobPostingServiceImpl implements JobPostingService {
 
         try {
             JobPosting jobPosting = getJobPostingOrThrow(jobPostingId);
-            if (jobPosting.getStatus() != Status.ACTIVE) {
+            if (jobPosting.getStatus() != Status.ACTIVE
+                    || !EnumSet.of(JobPostingStatus.OPEN, JobPostingStatus.IN_PROGRESS)
+                    .contains(jobPosting.getPostingStatus())) {
                 return;
             }
 
