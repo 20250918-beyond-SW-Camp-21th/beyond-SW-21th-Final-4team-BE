@@ -52,6 +52,9 @@ public class SubscriptionBilling {
     @Column(updatable = false)
     private LocalDateTime createdAt;
 
+    @Column(columnDefinition = "TEXT")
+    private String invoicePdfUrl;
+
     public void markPaid(String transactionId) {
         this.status = SubscriptionBillingStatus.PAID;
         this.paidDate = LocalDate.now();

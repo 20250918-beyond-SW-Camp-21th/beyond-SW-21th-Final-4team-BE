@@ -59,4 +59,6 @@ public interface EmployerSettlementRepository extends JpaRepository<EmployerSett
         Page<EmployerSettlement> findAll(Pageable pageable);
 
         Page<EmployerSettlement> findByStatus(EmployerSettlementStatus status, Pageable pageable);
+
+        List<EmployerSettlement> findByInvoicePdfUrlIsNull();
 }

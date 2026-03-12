@@ -181,6 +181,19 @@ public class ContractService {
         return toResponse(contractRepository.save(contract));
     }
 
+    @Transactional(readOnly = true)
+    public String getPdfDownloadUrl(Long contractId, Long userId) {
+        Contract contract = findByContractId(contractId);
+        validateOwnership(contract, userId);
+        String key = contract.getSignedPdfUrl() != null
+                ? contract.getSignedPdfUrl()
+                : contract.getContractPdfUrl();
+        if (key == null) {
+            throw new BusinessException(ErrorCode.CONTRACT_NOT_FOUND);
+        }
+        return contractPdfService.generatePresignedUrl(key);
+    }
+
     private Contract findByContractId(Long contractId) {
         return contractRepository.findByContractId(contractId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.CONTRACT_NOT_FOUND));
