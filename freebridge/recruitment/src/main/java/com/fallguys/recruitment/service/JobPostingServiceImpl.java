@@ -69,6 +69,7 @@ public class JobPostingServiceImpl implements JobPostingService {
     private static final Duration AI_RECOMMENDATION_LOCK_TTL = Duration.ofMinutes(10);
     private static final Duration AI_RECOMMENDATION_WAIT_TIMEOUT = Duration.ofSeconds(3);
     private static final Duration AI_RECOMMENDATION_WAIT_INTERVAL = Duration.ofMillis(200);
+    private static final int AI_RECOMMENDATION_WARM_UP_LIMIT = 3;
 
     private final JobPostingRepo jobPostingRepo;
     private final JobPostingFavoriteRepo jobPostingFavoriteRepo;
@@ -90,7 +91,7 @@ public class JobPostingServiceImpl implements JobPostingService {
 
         List<JobPostingSearchDTO> cached = readCache(cacheKey, new TypeReference<>() {});
         if (cached != null) {
-            warmUpFreelancerRecommendationCaches(user.id(), cached);
+            warmUpFreelancerRecommendationCaches(user.id(), cached, AI_RECOMMENDATION_WARM_UP_LIMIT);
             return cached;
         }
 
@@ -99,7 +100,7 @@ public class JobPostingServiceImpl implements JobPostingService {
                 .map(this::toJobPostingSearchDto)
                 .toList();
         writeCache(cacheKey, loaded);
-        warmUpFreelancerRecommendationCaches(user.id(), loaded);
+        warmUpFreelancerRecommendationCaches(user.id(), loaded, AI_RECOMMENDATION_WARM_UP_LIMIT);
         return loaded;
     }
 
@@ -537,8 +538,13 @@ public class JobPostingServiceImpl implements JobPostingService {
         }
     }
 
-    private void warmUpFreelancerRecommendationCaches(Long employerId, List<JobPostingSearchDTO> jobPostings) {
+    private void warmUpFreelancerRecommendationCaches(Long employerId, List<JobPostingSearchDTO> jobPostings, int maxWarmUps) {
+        int triggered = 0;
         for (JobPostingSearchDTO jobPosting : orEmpty(jobPostings)) {
+            if (triggered >= maxWarmUps) {
+                break;
+            }
+
             if (jobPosting == null || !EnumSet.of(JobPostingStatus.OPEN, JobPostingStatus.IN_PROGRESS).contains(jobPosting.status())) {
                 continue;
             }
@@ -550,6 +556,7 @@ public class JobPostingServiceImpl implements JobPostingService {
             }
 
             self.triggerFreelancerRecommendation(jobPosting.jobPostingId(), employerId);
+            triggered++;
         }
     }
 
