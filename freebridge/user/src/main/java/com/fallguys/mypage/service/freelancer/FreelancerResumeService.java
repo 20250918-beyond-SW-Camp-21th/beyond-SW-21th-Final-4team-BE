@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.stream.IntStream;
 
@@ -112,7 +113,7 @@ public class FreelancerResumeService {
         EduStatus status = null;
         if (e.eduStatus() != null && !e.eduStatus().isBlank()) {
             try {
-                status = EduStatus.valueOf(e.eduStatus().toUpperCase());
+                status = EduStatus.valueOf(e.eduStatus().toUpperCase(Locale.ROOT));
             } catch (IllegalArgumentException ex) {
                 throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
             }
