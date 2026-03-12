@@ -6,7 +6,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.CredentialsProvider;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
@@ -36,7 +36,7 @@ public class S3Config {
                 .build();
     }
 
-    private CredentialsProvider credentialsProvider() {
+    private AwsCredentialsProvider credentialsProvider() {
         String accessKey = properties.getCredentials().getAccessKey();
         String secretKey = properties.getCredentials().getSecretKey();
 
