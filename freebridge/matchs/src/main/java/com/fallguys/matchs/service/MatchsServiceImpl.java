@@ -433,11 +433,8 @@ public class MatchsServiceImpl implements MatchsService {
             item.put("applicantCount", applicantCountsByPostingId.getOrDefault(posting.getId(), 0));
             item.put("createdAt", formatIsoSeconds(posting.getCreatedAt()));
 
-            LocalDateTime deadline = posting.getCreatedAt();
-            if (posting.getDuration() != null && posting.getDuration() > 0) {
-                deadline = deadline.plusDays(posting.getDuration());
-            }
-            item.put("deadline", formatIsoSeconds(deadline));
+            // Job posting duration is an estimated project period in months, not a recruitment deadline.
+            item.put("deadline", null);
             payload.add(item);
         }
 
