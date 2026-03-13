@@ -45,27 +45,31 @@ class FreelancerReviewServiceTest {
         String redisKey = "freelancer:review:rates:" + userId;
         Integer topPercentile = 15;
 
-        List<Map<String, Object>> mockReviews = List.of(
-                Map.of("expertiseRate", 4.0, "communicationRate", 5.0, "scheduleRate", 3.0),
-                Map.of("expertiseRate", 5, "communicationRate", 4, "scheduleRate", 4)  // 정수도 처리 가능 검증
+        Map<String, Object> mockAverages = Map.of(
+                "programming", 4.0,
+                "framework", 5.0,
+                "debugging", 3.0,
+                "communication", 5.0,
+                "schedule", 4.0,
+                "dispute", 2.0
         );
 
         Freelancer mockFreelancer = mock(Freelancer.class);
         given(mockFreelancer.getTopPercentile()).willReturn(topPercentile);
         given(freelancerRepository.findByUserId(userId)).willReturn(Optional.of(mockFreelancer));
         given(redisTemplate.opsForValue()).willReturn(valueOperations);
-        given(valueOperations.get(redisKey)).willReturn(mockReviews);
+        given(valueOperations.get(redisKey)).willReturn(mockAverages);
 
         // when
         FreelancerEvaluationSummaryDto result = freelancerReviewService.getReviewSummary(userId);
 
         // then
         assertThat(result.topPercentile()).isEqualTo(15);
-        assertThat(result.expertiseRate()).isEqualTo(4.5);
-        assertThat(result.communicationRate()).isEqualTo(4.5);
-        assertThat(result.scheduleRate()).isEqualTo(3.5);
-        // averageRate = (4.5+4.5+3.5)/3 = 4.2
-        assertThat(result.averageRate()).isEqualTo(4.2);
+        assertThat(result.expertiseRate()).isEqualTo(4.0);
+        assertThat(result.communicationRate()).isEqualTo(5.0);
+        assertThat(result.scheduleRate()).isEqualTo(4.0);
+        // averageRate = (4.0+5.0+4.0)/3 = 4.3
+        assertThat(result.averageRate()).isEqualTo(4.3);
 
         verify(redisTemplate, times(1)).opsForValue();
         verify(valueOperations, times(1)).get(redisKey);
@@ -94,10 +98,37 @@ class FreelancerReviewServiceTest {
     }
 
     @Test
-    @DisplayName("[TDD] 3. 평판/등급 요약 조회: Freelancer가 없으면 topPercentile은 null, 나머지는 0인 DTO를 반환한다")
-    void getReviewSummary_FreelancerNotFound_ReturnsFallback() {
+    @DisplayName("[TDD] 3. 평판/등급 요약 조회: 레거시 List 포맷도 계속 읽을 수 있다")
+    void getReviewSummary_LegacyListFormat_Success() {
         // given
         Long userId = 3L;
+        String redisKey = "freelancer:review:rates:" + userId;
+
+        Freelancer mockFreelancer = mock(Freelancer.class);
+        given(mockFreelancer.getTopPercentile()).willReturn(20);
+        given(freelancerRepository.findByUserId(userId)).willReturn(Optional.of(mockFreelancer));
+        given(redisTemplate.opsForValue()).willReturn(valueOperations);
+        given(valueOperations.get(redisKey)).willReturn(List.of(
+                Map.of("expertiseRate", 4.0, "communicationRate", 5.0, "scheduleRate", 3.0),
+                Map.of("expertiseRate", 5, "communicationRate", 4, "scheduleRate", 4)
+        ));
+
+        // when
+        FreelancerEvaluationSummaryDto result = freelancerReviewService.getReviewSummary(userId);
+
+        // then
+        assertThat(result.topPercentile()).isEqualTo(20);
+        assertThat(result.expertiseRate()).isEqualTo(4.5);
+        assertThat(result.communicationRate()).isEqualTo(4.5);
+        assertThat(result.scheduleRate()).isEqualTo(3.5);
+        assertThat(result.averageRate()).isEqualTo(4.2);
+    }
+
+    @Test
+    @DisplayName("[TDD] 4. 평판/등급 요약 조회: Freelancer가 없으면 topPercentile은 null, 나머지는 0인 DTO를 반환한다")
+    void getReviewSummary_FreelancerNotFound_ReturnsFallback() {
+        // given
+        Long userId = 4L;
         String redisKey = "freelancer:review:rates:" + userId;
 
         given(freelancerRepository.findByUserId(userId)).willReturn(Optional.empty());

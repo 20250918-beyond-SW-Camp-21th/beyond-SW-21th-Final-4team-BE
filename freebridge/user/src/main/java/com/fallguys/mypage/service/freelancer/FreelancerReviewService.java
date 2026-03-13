@@ -33,7 +33,8 @@ public class FreelancerReviewService {
     /**
      * 내 평판/등급 요약 조회
      * Redis Key: freelancer:review:rates:{freelancerId}
-     * Expected value: List<Map<String, Double>> { expertiseRate, communicationRate, scheduleRate }
+     * Expected value:
+     * { programming, framework, debugging, communication, schedule, dispute }
      * topPercentile은 Freelancer 엔티티에서 조회합니다.
      */
     @Transactional(readOnly = true)
@@ -46,9 +47,17 @@ public class FreelancerReviewService {
             if (rawData == null) {
                 return FreelancerEvaluationSummaryDto.empty(topPercentile);
             }
-            @SuppressWarnings("unchecked")
-            List<Map<String, Object>> reviews = (List<Map<String, Object>>) rawData;
-            return FreelancerEvaluationSummaryDto.from(reviews, topPercentile);
+            if (rawData instanceof Map<?, ?> rawMap) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> averages = (Map<String, Object>) rawMap;
+                return FreelancerEvaluationSummaryDto.fromAverageMap(averages, topPercentile);
+            }
+            if (rawData instanceof List<?> rawList) {
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> reviews = (List<Map<String, Object>>) rawList;
+                return FreelancerEvaluationSummaryDto.from(reviews, topPercentile);
+            }
+            return FreelancerEvaluationSummaryDto.empty(topPercentile);
 
         } catch (Exception e) {
             log.error("Failed to parse freelancer review summary from Redis for userId: {}", userId, e);
@@ -67,6 +76,15 @@ public class FreelancerReviewService {
             Object ratesData = redisTemplate.opsForValue().get(ratesRedisKey);
             // 등록된 리뷰가 명시적으로 비어있을 경우에만 AI 서버 호출 생략
             if (ratesData instanceof List<?> list && list.isEmpty()) {
+                return new FreelancerAiReputationReportDto(
+                        "아직 충분한 리뷰가 등록되지 않았습니다.",
+                        Collections.emptyList(),
+                        Collections.emptyList(),
+                        Collections.emptyList(),
+                        Collections.emptyList()
+                );
+            }
+            if (ratesData instanceof Map<?, ?> map && map.isEmpty()) {
                 return new FreelancerAiReputationReportDto(
                         "아직 충분한 리뷰가 등록되지 않았습니다.",
                         Collections.emptyList(),
