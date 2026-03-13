@@ -22,6 +22,7 @@ import com.fallguys.recruitment.service.JobPostingService;
 import com.fallguys.user.entity.Role;
 import com.fallguys.user.entity.User;
 import com.fallguys.user.repository.UserRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -72,6 +73,7 @@ public class MatchsServiceImpl implements MatchsService {
     public Long createApplication(Long freelancerId, ApplicationCreateRequest request) {
         getUserByRoleOrThrow(freelancerId, Role.FREELANCER);
         JobPosting jobPosting = getOpenJobPostingOrThrow(request.jobPostingId());
+        validateNoDuplicateApplication(request.jobPostingId(), freelancerId);
 
         Application application = Application.create(
                 jobPosting.getId(),
@@ -80,7 +82,7 @@ public class MatchsServiceImpl implements MatchsService {
                 request.message()
         );
 
-        Long applicationId = applicationRepo.save(application).getId();
+        Long applicationId = saveApplication(application).getId();
         runAfterCommitSafely(() -> {
             refreshEmployerProjectStats(jobPosting.getEmployerId());
             refreshEmployerProjectList(jobPosting.getEmployerId());
@@ -101,6 +103,7 @@ public class MatchsServiceImpl implements MatchsService {
         if (!jobPosting.getEmployerId().equals(employerId)) {
             throw new BusinessException(ErrorCode.JOB_POSTING_FORBIDDEN);
         }
+        validateNoDuplicateProposal(request.jobPostingId(), request.freelancerId());
 
         Proposal proposal = Proposal.create(
                 request.jobPostingId(),
@@ -109,7 +112,7 @@ public class MatchsServiceImpl implements MatchsService {
                 request.message()
         );
 
-        Long proposalId = proposalRepo.save(proposal).getId();
+        Long proposalId = saveProposal(proposal).getId();
         runAfterCommitSafely(() -> {
             refreshEmployerProjectStats(employerId);
             refreshEmployerProjectList(employerId);
@@ -328,6 +331,38 @@ public class MatchsServiceImpl implements MatchsService {
     private JobPosting getJobPostingForProjectHistoryOrThrow(Long jobPostingId) {
         return jobPostingRepo.findByIdForUpdate(jobPostingId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.JOB_POSTING_NOT_FOUND));
+    }
+
+    private void validateNoDuplicateApplication(Long jobPostingId, Long freelancerId) {
+        if (applicationRepo.existsByJobPostingIdAndFreelancerId(jobPostingId, freelancerId)) {
+            throw duplicateMatchRequest();
+        }
+    }
+
+    private void validateNoDuplicateProposal(Long jobPostingId, Long freelancerId) {
+        if (proposalRepo.existsByJobPostingIdAndFreelancerId(jobPostingId, freelancerId)) {
+            throw duplicateMatchRequest();
+        }
+    }
+
+    private Application saveApplication(Application application) {
+        try {
+            return applicationRepo.save(application);
+        } catch (DataIntegrityViolationException e) {
+            throw duplicateMatchRequest();
+        }
+    }
+
+    private Proposal saveProposal(Proposal proposal) {
+        try {
+            return proposalRepo.save(proposal);
+        } catch (DataIntegrityViolationException e) {
+            throw duplicateMatchRequest();
+        }
+    }
+
+    private BusinessException duplicateMatchRequest() {
+        return new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
     }
 
     private User getUserByRoleOrThrow(Long userId, Role role) {
