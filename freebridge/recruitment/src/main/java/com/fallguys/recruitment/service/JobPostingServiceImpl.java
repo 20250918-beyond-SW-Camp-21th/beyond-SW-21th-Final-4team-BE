@@ -449,7 +449,7 @@ public class JobPostingServiceImpl implements JobPostingService {
                     List<String> userSkills = (f.skills() != null && !f.skills().trim().isEmpty())
                             ? java.util.Arrays.asList(f.skills().split(",")) 
                             : java.util.Collections.emptyList();
-                    return dto.withFreelancerInfo(userSkills, f.experience());
+                    return dto.withFreelancerInfo(f.name(), userSkills, f.experience());
                 } catch (Exception e) {
                     return dto;
                 }
