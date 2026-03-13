@@ -25,7 +25,7 @@ public class ContractPdfService {
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy년 MM월 dd일");
     private static final DateTimeFormatter DT_FMT   = DateTimeFormatter.ofPattern("yyyy년 MM월 dd일 HH:mm");
 
-    private static final String CLASSPATH_FONT = "fonts/korean.ttf";
+    private static final String CLASSPATH_FONT = "fonts/NanumGothic.ttf";
     private static final String[] SYSTEM_FONT_PATHS = {
             // Windows fonts
             "C:\\Windows\\Fonts\\malgun.ttf",              // 맑은 고딕 (Malgun Gothic)
