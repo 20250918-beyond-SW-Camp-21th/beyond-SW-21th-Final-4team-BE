@@ -61,3 +61,30 @@ security:
     refresh-expiration-ms: ${REFRESH_TOKEN_EXPIRATION_MS:604800000}
   refresh-token:
     hmac-secret: ${REFRESH_TOKEN_HMAC_SECRET:${JWT_SECRET:}}
+
+server:
+  tomcat:
+    mbeanregistry:
+      enabled: true
+
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      slo:
+        http.server.requests: 100ms,300ms,500ms,1s,3s
