@@ -65,6 +65,11 @@ public class JobPostingServiceImpl implements JobPostingService {
     private static final String EMPLOYER_PROJECT_LIST_KEY_PREFIX = "employer:project:list:";
     private static final String FREELANCER_PROJECT_STATS_KEY_PREFIX = "freelancer:project:stats:";
     private static final DateTimeFormatter ISO_SECONDS_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+    private static final Duration AI_RECOMMENDATION_CACHE_TTL = Duration.ofHours(24);
+    private static final Duration AI_RECOMMENDATION_LOCK_TTL = Duration.ofMinutes(10);
+    private static final Duration AI_RECOMMENDATION_WAIT_TIMEOUT = Duration.ofSeconds(3);
+    private static final Duration AI_RECOMMENDATION_WAIT_INTERVAL = Duration.ofMillis(200);
+    private static final int AI_RECOMMENDATION_WARM_UP_LIMIT = 3;
 
     private final JobPostingRepo jobPostingRepo;
     private final JobPostingFavoriteRepo jobPostingFavoriteRepo;
@@ -86,6 +91,7 @@ public class JobPostingServiceImpl implements JobPostingService {
 
         List<JobPostingSearchDTO> cached = readCache(cacheKey, new TypeReference<>() {});
         if (cached != null) {
+            warmUpFreelancerRecommendationCaches(user.id(), cached, AI_RECOMMENDATION_WARM_UP_LIMIT);
             return cached;
         }
 
@@ -94,6 +100,7 @@ public class JobPostingServiceImpl implements JobPostingService {
                 .map(this::toJobPostingSearchDto)
                 .toList();
         writeCache(cacheKey, loaded);
+        warmUpFreelancerRecommendationCaches(user.id(), loaded, AI_RECOMMENDATION_WARM_UP_LIMIT);
         return loaded;
     }
 
@@ -387,9 +394,14 @@ public class JobPostingServiceImpl implements JobPostingService {
             return cached;
         }
 
-        // 캐시가 비어있으면 즉시 빈 리스트 반환 (프론트 통과를 위해) 및 백그라운드 구동 트리거
         self.triggerFreelancerRecommendation(jobPostingId, userId);
-        return java.util.Collections.emptyList();
+
+        List<AiRecommendationResponseDTO> warmedUp = awaitRecommendationCache(
+                cacheKey,
+                new TypeReference<>() {},
+                AI_RECOMMENDATION_WAIT_TIMEOUT
+        );
+        return warmedUp != null ? warmedUp : java.util.Collections.emptyList();
     }
 
     @org.springframework.scheduling.annotation.Async
@@ -397,7 +409,7 @@ public class JobPostingServiceImpl implements JobPostingService {
     public void triggerFreelancerRecommendation(Long jobPostingId, Long userId) {
         String lockKey = "ai:lock:freelancers:" + jobPostingId;
         String lockToken = java.util.UUID.randomUUID().toString();
-        Boolean acquired = redisTemplate.opsForValue().setIfAbsent(lockKey, lockToken, Duration.ofMinutes(10));
+        Boolean acquired = redisTemplate.opsForValue().setIfAbsent(lockKey, lockToken, AI_RECOMMENDATION_LOCK_TTL);
         if (Boolean.FALSE.equals(acquired)) {
             log.info("AI 추천 처리 중복 트리거 방지 (Job ID: {})", jobPostingId);
             return; // 이미 10분 내에 누군가 동작시켰다면 무시
@@ -405,11 +417,12 @@ public class JobPostingServiceImpl implements JobPostingService {
 
         try {
             JobPosting jobPosting = getJobPostingOrThrow(jobPostingId);
-            if(jobPosting.getStatus() != Status.ACTIVE) {
-                releaseLockIfOwned(lockKey, lockToken);
+            if (jobPosting.getStatus() != Status.ACTIVE
+                    || !EnumSet.of(JobPostingStatus.OPEN, JobPostingStatus.IN_PROGRESS)
+                    .contains(jobPosting.getPostingStatus())) {
                 return;
             }
-            
+
             List<AiRecommendationResponseDTO> aiResults = recommendationEngine.recommendFreelancers(
                     jobPosting.getId(),
                     jobPosting.getTitle(),
@@ -436,16 +449,17 @@ public class JobPostingServiceImpl implements JobPostingService {
                     List<String> userSkills = (f.skills() != null && !f.skills().trim().isEmpty())
                             ? java.util.Arrays.asList(f.skills().split(",")) 
                             : java.util.Collections.emptyList();
-                    return dto.withFreelancerInfo(userSkills, f.experience());
+                    return dto.withFreelancerInfo(f.name(), userSkills, f.experience());
                 } catch (Exception e) {
                     return dto;
                 }
             }).filter(Objects::nonNull).toList();
 
             String cacheKey = "ai:reco:freelancers:" + jobPostingId;
-            writeCacheWithTtl(cacheKey, result, Duration.ofHours(24));
+            writeCacheWithTtl(cacheKey, result, AI_RECOMMENDATION_CACHE_TTL);
         } catch (Exception e) {
             log.error("Async Freelancer Recommendation failed for Job: {}", jobPostingId, e);
+        } finally {
             releaseLockIfOwned(lockKey, lockToken);
         }
     }
@@ -461,9 +475,14 @@ public class JobPostingServiceImpl implements JobPostingService {
             return cached;
         }
 
-        // 캐시가 비어있으면 백그라운드 트리거 및 빈 배열 반환
         self.triggerJobRecommendation(userId);
-        return java.util.Collections.emptyList();
+
+        List<AiRecommendationResponseDTO> warmedUp = awaitRecommendationCache(
+                cacheKey,
+                new TypeReference<>() {},
+                AI_RECOMMENDATION_WAIT_TIMEOUT
+        );
+        return warmedUp != null ? warmedUp : java.util.Collections.emptyList();
     }
 
     @org.springframework.scheduling.annotation.Async
@@ -471,7 +490,7 @@ public class JobPostingServiceImpl implements JobPostingService {
     public void triggerJobRecommendation(Long userId) {
         String lockKey = "ai:lock:jobs:" + userId;
         String lockToken = java.util.UUID.randomUUID().toString();
-        Boolean acquired = redisTemplate.opsForValue().setIfAbsent(lockKey, lockToken, Duration.ofMinutes(10));
+        Boolean acquired = redisTemplate.opsForValue().setIfAbsent(lockKey, lockToken, AI_RECOMMENDATION_LOCK_TTL);
         if (Boolean.FALSE.equals(acquired)) {
             log.info("AI 추천 처리 중복 트리거 방지 (User ID: {})", userId);
             return;
@@ -511,11 +530,52 @@ public class JobPostingServiceImpl implements JobPostingService {
             }).filter(Objects::nonNull).toList();
 
             String cacheKey = "ai:reco:jobs:" + userId;
-            writeCacheWithTtl(cacheKey, result, Duration.ofHours(24));
+            writeCacheWithTtl(cacheKey, result, AI_RECOMMENDATION_CACHE_TTL);
         } catch (Exception e) {
             log.error("Async Job Recommendation failed for Freelancer: {}", userId, e);
+        } finally {
             releaseLockIfOwned(lockKey, lockToken);
         }
+    }
+
+    private void warmUpFreelancerRecommendationCaches(Long employerId, List<JobPostingSearchDTO> jobPostings, int maxWarmUps) {
+        int triggered = 0;
+        for (JobPostingSearchDTO jobPosting : orEmpty(jobPostings)) {
+            if (triggered >= maxWarmUps) {
+                break;
+            }
+
+            if (jobPosting == null || !EnumSet.of(JobPostingStatus.OPEN, JobPostingStatus.IN_PROGRESS).contains(jobPosting.status())) {
+                continue;
+            }
+
+            String cacheKey = "ai:reco:freelancers:" + jobPosting.jobPostingId();
+            String lockKey = "ai:lock:freelancers:" + jobPosting.jobPostingId();
+            if (Boolean.TRUE.equals(redisTemplate.hasKey(cacheKey)) || Boolean.TRUE.equals(redisTemplate.hasKey(lockKey))) {
+                continue;
+            }
+
+            self.triggerFreelancerRecommendation(jobPosting.jobPostingId(), employerId);
+            triggered++;
+        }
+    }
+
+    private <T> T awaitRecommendationCache(String key, TypeReference<T> typeReference, Duration timeout) {
+        long deadline = System.currentTimeMillis() + timeout.toMillis();
+        while (System.currentTimeMillis() < deadline) {
+            T cached = readCache(key, typeReference);
+            if (cached != null) {
+                return cached;
+            }
+
+            try {
+                Thread.sleep(AI_RECOMMENDATION_WAIT_INTERVAL.toMillis());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return null;
+            }
+        }
+        return readCache(key, typeReference);
     }
 
     private void releaseLockIfOwned(String lockKey, String lockToken) {

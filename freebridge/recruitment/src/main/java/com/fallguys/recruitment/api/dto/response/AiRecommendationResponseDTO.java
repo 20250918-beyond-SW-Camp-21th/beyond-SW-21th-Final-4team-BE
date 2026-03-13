@@ -19,7 +19,7 @@ public record AiRecommendationResponseDTO(
         skills = skills == null ? java.util.List.of() : java.util.List.copyOf(skills);
     }
 
-    public AiRecommendationResponseDTO withFreelancerInfo(List<String> skills, String description) {
+    public AiRecommendationResponseDTO withFreelancerInfo(String nameOrTitle, List<String> skills, String description) {
         return new AiRecommendationResponseDTO(id, nameOrTitle, matchScore, skills, description, budget, duration);
     }
 
