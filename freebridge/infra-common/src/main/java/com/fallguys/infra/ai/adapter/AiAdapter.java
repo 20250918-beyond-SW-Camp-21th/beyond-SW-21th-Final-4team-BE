@@ -28,14 +28,13 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
-    private final Executor taskExecutor; // [肄붾뱶?섎퉿 ?쇰뱶諛? AsyncConfig??taskExecutor 二쇱엯
+    private final Executor taskExecutor;
 
     @Value("${fallguys.ai.python-url}")
     private String pythonUrl;
 
     public AiAdapter(ObjectMapper objectMapper,
                      @Qualifier("taskExecutor") Executor taskExecutor) {
-        // Create a dedicated RestClient to avoid JdkHttpClient POST body-drop bugs
         org.springframework.http.client.SimpleClientHttpRequestFactory factory =
                 new org.springframework.http.client.SimpleClientHttpRequestFactory();
         factory.setConnectTimeout((int) java.time.Duration.ofSeconds(5).toMillis());
@@ -54,7 +53,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                 .body(Map.of("question", question, "context", context))
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, (request, response) -> {
-                    throw new RuntimeException("AI Chat ?쒕퉬???묐떟 ?ㅻ쪟");
+                    throw new RuntimeException("AI 채팅 서비스가 오류 응답을 반환했습니다.");
                 })
                 .body(String.class);
     }
@@ -67,7 +66,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                 .body(agreementData)
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, (request, response) -> {
-                    throw new RuntimeException("AI 怨꾩빟???앹꽦 ?쒕퉬???묐떟 ?ㅻ쪟");
+                    throw new RuntimeException("AI 계약 서비스가 오류 응답을 반환했습니다.");
                 })
                 .body(String.class);
     }
@@ -79,7 +78,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                     .uri(pythonUrl + "/ai/recommend/{type}/{id}", type, id)
                     .retrieve()
                     .onStatus(HttpStatusCode::isError, (request, response) -> {
-                        throw new RuntimeException("AI 異붿쿇 ?쒕퉬???곌껐 ?ㅽ뙣");
+                        throw new RuntimeException("AI 추천 서비스가 오류 응답을 반환했습니다.");
                     })
                     .body(String.class);
 
@@ -88,7 +87,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                     objectMapper.getTypeFactory().constructCollectionType(List.class, responseType)
             );
         } catch (JsonProcessingException e) {
-            throw new RuntimeException("AI ?묐떟 ?곗씠???뚯떛 ?ㅽ뙣", e);
+            throw new RuntimeException("AI 응답 파싱에 실패했습니다.", e);
         }
     }
 
@@ -101,7 +100,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                     .body(Map.of("scores", scores, "reviews", reviews))
                     .retrieve()
                     .onStatus(HttpStatusCode::isError, (request, response) -> {
-                        throw new RuntimeException("AI 由щ럭 遺꾩꽍 ?쒕퉬???묐떟 ?ㅻ쪟");
+                        throw new RuntimeException("AI 평판 분석 서비스가 오류 응답을 반환했습니다.");
                     })
                     .body(String.class);
 
@@ -110,7 +109,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                     new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {}
             );
         } catch (JsonProcessingException e) {
-            throw new RuntimeException("AI 遺꾩꽍 ?곗씠???뚯떛 ?ㅽ뙣", e);
+            throw new RuntimeException("AI 분석 응답 파싱에 실패했습니다.", e);
         }
     }
 
@@ -131,18 +130,18 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                     .onStatus(HttpStatusCode::isError, (request, response) -> {
                         String errorBody = new String(response.getBody().readAllBytes());
                         throw new RuntimeException(
-                                "AI 異붿쿇 ?쒕쾭 ?듭떊 ?ㅻ쪟: " + response.getStatusCode() + " - " + errorBody
+                                "AI 추천 요청에 실패했습니다: " + response.getStatusCode() + " - " + errorBody
                         );
                     })
                     .body(String.class);
 
             if (rawJson == null || rawJson.trim().isEmpty()) {
-                throw new RuntimeException("AI 異붿쿇 ?쒕쾭濡쒕???鍮??묐떟(Null)???섏떊?덉뒿?덈떎.");
+                throw new RuntimeException("AI 추천 서비스가 빈 응답을 반환했습니다.");
             }
 
             JsonNode root = objectMapper.readTree(rawJson);
             if (root == null || !root.has("data") || !root.get("data").isArray()) {
-                throw new RuntimeException("AI ?쒕쾭濡쒕????섎せ???묐떟 ?뺤떇???섏떊?덉뒿?덈떎. ?섏떊 ?곗씠?? " + rawJson);
+                throw new RuntimeException("AI 추천 서비스가 올바르지 않은 응답 형식을 반환했습니다: " + rawJson);
             }
 
             JsonNode dataNode = root.get("data");
@@ -151,7 +150,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                     objectMapper.getTypeFactory().constructCollectionType(List.class, responseType)
             );
         } catch (JsonProcessingException e) {
-            throw new RuntimeException("AI ?묐떟 ?곗씠???뚯떛 ?ㅽ뙣", e);
+            throw new RuntimeException("AI 추천 응답 파싱에 실패했습니다.", e);
         }
     }
 
@@ -170,17 +169,17 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                     .body(requestBody)
                     .retrieve()
                     .onStatus(HttpStatusCode::isError, (request, response) -> {
-                        throw new RuntimeException("AI ?꾨━?쒖꽌 留욎땄 異붿쿇 ?쒕퉬???묐떟 ?ㅻ쪟");
+                        throw new RuntimeException("AI 프리랜서 추천 서비스가 오류 응답을 반환했습니다.");
                     })
                     .body(String.class);
 
             if (rawJson == null || rawJson.trim().isEmpty()) {
-                throw new RuntimeException("AI 異붿쿇 ?쒕쾭濡쒕???鍮??묐떟(Null)???섏떊?덉뒿?덈떎.");
+                throw new RuntimeException("AI 추천 서비스가 빈 응답을 반환했습니다.");
             }
 
             JsonNode root = objectMapper.readTree(rawJson);
             if (root == null || !root.has("data") || !root.get("data").isArray()) {
-                throw new RuntimeException("AI ?쒕쾭濡쒕????섎せ???묐떟 ?뺤떇???섏떊?덉뒿?덈떎.");
+                throw new RuntimeException("AI 추천 서비스가 올바르지 않은 응답 형식을 반환했습니다.");
             }
 
             return objectMapper.readValue(
@@ -188,7 +187,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                     objectMapper.getTypeFactory().constructCollectionType(List.class, responseType)
             );
         } catch (JsonProcessingException e) {
-            throw new RuntimeException("AI ?묐떟 ?곗씠???뚯떛 ?ㅽ뙣", e);
+            throw new RuntimeException("AI 추천 응답 파싱에 실패했습니다.", e);
         }
     }
 
@@ -207,12 +206,12 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                         ))
                         .retrieve()
                         .onStatus(HttpStatusCode::isError, (request, response) -> {
-                            throw new RuntimeException("AI ?쒕쾭 ?묐떟 ?ㅻ쪟: " + response.getStatusCode());
+                            throw new RuntimeException("AI 동기화 서비스가 오류 응답을 반환했습니다: " + response.getStatusCode());
                         })
                         .toBodilessEntity();
-                log.info("AI ?쒕쾭 ?ㅼ떆媛??숆린???깃났: id={}, type={}", id, type);
+                log.info("AI 동기화 성공: id={}, type={}", id, type);
             } catch (Exception e) {
-                log.error("AI ?쒕쾭 ?ㅼ떆媛??숆린???ㅽ뙣: id={}, type={}", id, type, e);
+                log.error("AI 동기화 실패: id={}, type={}", id, type, e);
             }
         }, taskExecutor);
     }
@@ -226,12 +225,12 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                         .body(request)
                         .retrieve()
                         .onStatus(HttpStatusCode::isError, (req, res) -> {
-                            throw new RuntimeException("AI ?숆린???ㅽ뙣");
+                            throw new RuntimeException("AI 리뷰 동기화 서비스가 오류 응답을 반환했습니다.");
                         })
                         .toBodilessEntity();
-                log.info("AI 由щ럭 ?곗씠???숆린???깃났: id={}", request.id());
+                log.info("AI 리뷰 동기화 성공: id={}", request.id());
             } catch (Exception e) {
-                log.error("AI 由щ럭 ?곗씠???숆린???ㅽ뙣", e);
+                log.error("AI 리뷰 동기화 실패", e);
             }
         }, taskExecutor);
     }
@@ -243,19 +242,19 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                     .uri(pythonUrl + "/api/v1/analysis/freelancer/{id}", freelancerId)
                     .retrieve()
                     .onStatus(HttpStatusCode::isError, (req, res) -> {
-                        throw new RuntimeException("AI analysis service returned an error response");
+                        throw new RuntimeException("AI 분석 서비스가 오류 응답을 반환했습니다.");
                     })
                     .body(String.class);
 
             return objectMapper.readValue(rawJson, FreelancerAiReputationReportDto.class);
         } catch (RestClientException e) {
-            log.error("AI analysis service call failed: freelancerId={}", freelancerId, e);
+            log.error("AI 분석 서비스 호출 실패: freelancerId={}", freelancerId, e);
             return emptyFreelancerAnalysisReport();
         } catch (JsonProcessingException e) {
-            log.error("AI analysis response parsing failed: freelancerId={}", freelancerId, e);
+            log.error("AI 분석 응답 파싱 실패: freelancerId={}", freelancerId, e);
             return emptyFreelancerAnalysisReport();
         } catch (RuntimeException e) {
-            log.error("Unexpected AI analysis failure: freelancerId={}", freelancerId, e);
+            log.error("예상치 못한 AI 분석 오류: freelancerId={}", freelancerId, e);
             return emptyFreelancerAnalysisReport();
         }
     }
