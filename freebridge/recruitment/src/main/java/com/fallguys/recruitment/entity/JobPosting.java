@@ -35,6 +35,7 @@ public class JobPosting extends BaseEntity {
     private Long budget;
 
     @Column(nullable = false)
+    // Expected project duration in months entered while creating the job posting.
     private Integer duration;
 
     @Column(name = "headcount", nullable = false)
