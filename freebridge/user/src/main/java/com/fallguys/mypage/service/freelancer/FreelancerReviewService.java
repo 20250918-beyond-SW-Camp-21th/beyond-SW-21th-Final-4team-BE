@@ -79,6 +79,12 @@ public class FreelancerReviewService {
             log.warn("Failed to check review existence in Redis for userId: {}", userId, e);
         }
 
+        Long freelancerId = resolveFreelancerId(userId);
+        if (freelancerId == null) {
+            log.warn("Freelancer entity not found for userId: {}", userId);
+            return emptyAiReport();
+        }
+
         String redisKey = "freelancer:review:ai_report:" + userId;
         try {
             Object cachedData = redisTemplate.opsForValue().get(redisKey);
@@ -91,7 +97,7 @@ public class FreelancerReviewService {
         }
 
         // 캐시가 없거나, null이어서(ratesData가 아예 없거나) 재생성이 필요한 경우 AI 서버로 호출
-        FreelancerAiReputationReportDto report = reviewEngine.getFreelancerAnalysis(userId);
+        FreelancerAiReputationReportDto report = reviewEngine.getFreelancerAnalysis(freelancerId);
 
         try {
             if (report != null) {
@@ -172,5 +178,26 @@ public class FreelancerReviewService {
             log.warn("Failed to get topPercentile for userId: {}", userId, e);
             return null;
         }
+    }
+
+    private Long resolveFreelancerId(Long userId) {
+        try {
+            return freelancerRepository.findByUserId(userId)
+                    .map(Freelancer::getFreelancerId)
+                    .orElse(null);
+        } catch (Exception e) {
+            log.warn("Failed to resolve freelancerId for userId: {}", userId, e);
+            return null;
+        }
+    }
+
+    private FreelancerAiReputationReportDto emptyAiReport() {
+        return new FreelancerAiReputationReportDto(
+                "아직 충분한 리뷰가 등록되지 않았습니다.",
+                Collections.emptyList(),
+                Collections.emptyList(),
+                Collections.emptyList(),
+                Collections.emptyList()
+        );
     }
 }

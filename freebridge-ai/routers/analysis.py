@@ -58,7 +58,24 @@ def get_db_connection():
     db_user = os.getenv("DB_USER")
     db_password = os.getenv("DB_PASSWORD")
     db_name = os.getenv("DB_NAME")
-    
+    ssl_enabled = os.getenv("DB_SSL_ENABLED", "false").lower() in ("true", "1", "yes", "on")
+    ssl_options = None
+
+    if ssl_enabled:
+        ssl_options = {}
+        db_ssl_ca = os.getenv("DB_SSL_CA")
+        db_ssl_cert = os.getenv("DB_SSL_CERT")
+        db_ssl_key = os.getenv("DB_SSL_KEY")
+        db_ssl_verify_cert = os.getenv("DB_SSL_VERIFY_CERT", "true").lower() in ("true", "1", "yes", "on")
+
+        if db_ssl_ca:
+            ssl_options["ca"] = db_ssl_ca
+        if db_ssl_cert:
+            ssl_options["cert"] = db_ssl_cert
+        if db_ssl_key:
+            ssl_options["key"] = db_ssl_key
+        ssl_options["check_hostname"] = db_ssl_verify_cert
+
     return pymysql.connect(
         host=db_host,
         port=db_port,
@@ -66,7 +83,8 @@ def get_db_connection():
         password=db_password,
         db=db_name,
         charset='utf8mb4',
-        cursorclass=pymysql.cursors.DictCursor
+        cursorclass=pymysql.cursors.DictCursor,
+        ssl=ssl_options
     )
 
 def fetch_freelancer_reviews(freelancer_id: int):

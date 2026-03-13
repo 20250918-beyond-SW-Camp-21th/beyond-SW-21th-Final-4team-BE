@@ -444,6 +444,9 @@ public class JobPostingServiceImpl implements JobPostingService {
                 try {
                     RecruitmentUser f = finalUserMap.get(dto.id());
                     if (f == null) {
+                        f = recruitmentUserReader.getFreelancerByIdOrThrow(dto.id());
+                    }
+                    if (f == null) {
                         return dto; 
                     }
                     List<String> userSkills = (f.skills() != null && !f.skills().trim().isEmpty())
