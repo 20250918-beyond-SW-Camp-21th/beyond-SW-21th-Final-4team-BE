@@ -9,4 +9,6 @@ public interface FileStorage {
     String upload(byte[] bytes, String key, String contentType);
 
     void deleteByKey(String key);
+
+    String generatePresignedUrl(String key);
 }

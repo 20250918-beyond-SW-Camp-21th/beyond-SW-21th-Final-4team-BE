@@ -35,6 +35,7 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
     private final PaymentAttemptRepository paymentAttemptRepository;
     private final PortOneApiClient portOneApiClient;
     private final TransactionTemplate transactionTemplate;
+    private final PaymentInvoicePdfService paymentInvoicePdfService;
 
     /**
      * 빌링키로 구독 결제 처리
@@ -169,6 +170,15 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
             billing.markPaid(portonePaymentId);
             subscriptionBillingRepository.save(billing);
             billingIdHolder[0] = billing.getId();
+
+            try {
+                String invoiceUrl = paymentInvoicePdfService.generateSubscriptionInvoice(billing);
+                billing.setInvoicePdfUrl(invoiceUrl);
+                subscriptionBillingRepository.save(billing);
+            } catch (Exception e) {
+                log.error("구독 결제 인보이스 생성 실패: billingId={}, error={}",
+                        billing.getId(), e.getMessage());
+            }
         });
 
         // 4. BillingKey 갱신 및 지갑 크레딧 — 실패 시 billingId로 수동 조정 가능
@@ -326,6 +336,15 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
             billing.markPaid(finalPaymentInfo.getPaymentId());
             subscriptionBillingRepository.save(billing);
             billingIdHolder[0] = billing.getId();
+
+            try {
+                String invoiceUrl = paymentInvoicePdfService.generateSubscriptionInvoice(billing);
+                billing.setInvoicePdfUrl(invoiceUrl);
+                subscriptionBillingRepository.save(billing);
+            } catch (Exception e) {
+                log.error("구독 결제 인보이스 생성 실패(자동결제): billingId={}, error={}",
+                        billing.getId(), e.getMessage());
+            }
         });
 
         // 5. BillingKey 갱신 + 지갑 처리 — 실패 시 billingId로 수동 조정 가능
@@ -380,7 +399,8 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
         return new SubscriptionBillingItem(
                 billing.getId(), billing.getPlanType().name(),
                 billing.getAmount(), billing.getStatus().name(),
-                billing.getBillingDate(), billing.getPaidDate());
+                billing.getBillingDate(), billing.getPaidDate(),
+                billing.getInvoicePdfUrl());
     }
 
     @Override

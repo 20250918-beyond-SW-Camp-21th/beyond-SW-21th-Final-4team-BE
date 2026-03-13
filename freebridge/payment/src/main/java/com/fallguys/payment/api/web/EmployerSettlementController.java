@@ -8,9 +8,12 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import java.net.URI;
 
 @Tag(name = "Employer Settlement", description = "고용주 정산 관련 API")
 @RestController
@@ -75,6 +78,30 @@ public class EmployerSettlementController {
                         @AuthenticationPrincipal CustomUserDetails user) {
 
                 String pdfUrl = employerSettlementService.getInvoicePdfUrl(user.getId(), settlementId);
+                ApiResponse<String> apiResponse = ApiResponse.ok(pdfUrl);
+                return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
+        }
+
+        @Operation(summary = "청구서 PDF 다운로드 (redirect)", description = "저장된 PDF URL로 리다이렉트합니다.")
+        @GetMapping("/{settlementId}/invoice/download")
+        public ResponseEntity<Void> downloadInvoice(
+                        @PathVariable Long settlementId,
+                        @AuthenticationPrincipal CustomUserDetails user) {
+
+                String pdfUrl = employerSettlementService.getInvoicePdfUrl(user.getId(), settlementId);
+                if (pdfUrl == null || pdfUrl.isBlank()) {
+                        return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+                }
+                return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(pdfUrl)).build();
+        }
+
+        @Operation(summary = "청구서 PDF 재생성", description = "정산 ID로 서비스 수수료 인보이스를 재생성합니다.")
+        @PostMapping("/{settlementId}/invoice/regenerate")
+        public ResponseEntity<ApiResponse<String>> regenerateInvoice(
+                        @PathVariable Long settlementId,
+                        @AuthenticationPrincipal CustomUserDetails user) {
+
+                String pdfUrl = employerSettlementService.regenerateInvoicePdf(user.getId(), settlementId);
                 ApiResponse<String> apiResponse = ApiResponse.ok(pdfUrl);
                 return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
         }

@@ -42,13 +42,15 @@ public class EmployerSettlementService {
     private final ContractQuery contractQuery;
     private final PortOneApiClient portOneApiClient;
     private final PlatformTransactionManager transactionManager;
+    private final PaymentInvoicePdfService paymentInvoicePdfService;
 
     @Transactional(readOnly = true)
     public PageResponse<EmployerSettlementItem> listSettlements(
             Long employerId, String status, String dateRange,
             String sort, int page, int size) {
 
-        // Treat null or blank as "ALL" to avoid valueOf("") blowing up with INVALID_INPUT_VALUE
+        // Treat null or blank as "ALL" to avoid valueOf("") blowing up with
+        // INVALID_INPUT_VALUE
         if (status == null || status.isBlank()) {
             status = "ALL";
         }
@@ -140,7 +142,7 @@ public class EmployerSettlementService {
                 e.getInvoicePdfUrl(), e.getDueDate(), e.getPaidDate());
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public String getInvoicePdfUrl(Long employerId, Long settlementId) {
         EmployerSettlement e = employerSettlementRepository.findById(settlementId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.SETTLEMENT_NOT_FOUND));
@@ -148,7 +150,29 @@ public class EmployerSettlementService {
         if (!e.getEmployerId().equals(employerId)) {
             throw new BusinessException(ErrorCode.SETTLEMENT_FORBIDDEN);
         }
-        return e.getInvoicePdfUrl();
+        if (e.getInvoicePdfUrl() == null) {
+            ContractInfo contract = contractQuery.getContractInfo(e.getContractId());
+            String key = paymentInvoicePdfService.generateServiceFeeInvoice(e, contract);
+            e.setInvoicePdfUrl(key);
+            employerSettlementRepository.save(e);
+        }
+        return paymentInvoicePdfService.generatePresignedUrl(e.getInvoicePdfUrl());
+    }
+
+    @Transactional
+    public String regenerateInvoicePdf(Long employerId, Long settlementId) {
+        EmployerSettlement e = employerSettlementRepository.findById(settlementId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.SETTLEMENT_NOT_FOUND));
+
+        if (!e.getEmployerId().equals(employerId)) {
+            throw new BusinessException(ErrorCode.SETTLEMENT_FORBIDDEN);
+        }
+
+        ContractInfo contract = contractQuery.getContractInfo(e.getContractId());
+        String invoiceUrl = paymentInvoicePdfService.generateServiceFeeInvoice(e, contract);
+        e.setInvoicePdfUrl(invoiceUrl);
+        employerSettlementRepository.save(e);
+        return invoiceUrl;
     }
 
     /**
@@ -173,11 +197,13 @@ public class EmployerSettlementService {
                             paymentId, contractId, canonicalContractId);
                     throw new BusinessException(ErrorCode.PAYMENT_FAILED);
                 }
-                List<EmployerSettlement> allSettlements = employerSettlementRepository.findByContractId(canonicalContractId);
+                List<EmployerSettlement> allSettlements = employerSettlementRepository
+                        .findByContractId(canonicalContractId);
                 long totalVerified = allSettlements.stream().mapToLong(EmployerSettlement::getTotalPayment).sum();
                 return new VerifyPaymentResponse(true, canonicalContractId, totalVerified, allSettlements.size());
             }
-            // Race condition: existsByTransactionId returned true but row disappeared — fall through to re-process
+            // Race condition: existsByTransactionId returned true but row disappeared —
+            // fall through to re-process
         }
 
         // 포트원 V2 결제 검증
@@ -252,13 +278,15 @@ public class EmployerSettlementService {
                     TransactionReferenceType.CONTRACT_PAYMENT, contractId,
                     "서비스 수수료 수익 (계약 #" + contractId + ")", revenueWallet.getBalance()));
 
-            // 고용주 지갑 데빗: balance 차감 후 저장해야 balanceAfter 스냅샷도 정확해짐
+            // 고용주 지갑: PortOne 결제금 크레딧 후 계약금 데빗
             Wallet employerWallet = getOrCreateUserWallet(employerId, WalletType.EMPLOYER);
-            if (employerWallet.getBalance() < totalExpected) {
-                log.warn("고용주 지갑 잔액 부족: employerId={}, balance={}, required={}",
-                        employerId, employerWallet.getBalance(), totalExpected);
-                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-            }
+            employerWallet.credit(totalExpected);
+            walletRepository.save(employerWallet);
+            walletTransactionRepository.save(new WalletTransaction(
+                    employerWallet.getId(), TransactionType.CREDIT, totalExpected,
+                    TransactionReferenceType.CONTRACT_PAYMENT, contractId,
+                    "계약금 PortOne 결제 입금 (계약 #" + contractId + ")", employerWallet.getBalance()));
+
             employerWallet.debit(totalExpected);
             walletRepository.save(employerWallet);
             walletTransactionRepository.save(new WalletTransaction(
@@ -279,13 +307,13 @@ public class EmployerSettlementService {
                 TransactionTemplate newTx = new TransactionTemplate(transactionManager);
                 newTx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
                 VerifyPaymentResponse idempotentResponse = newTx.execute(status -> {
-                    Optional<EmployerSettlement> byTxn =
-                            employerSettlementRepository.findByTransactionId(paymentId);
-                    if (byTxn.isEmpty()) return null;
+                    Optional<EmployerSettlement> byTxn = employerSettlementRepository.findByTransactionId(paymentId);
+                    if (byTxn.isEmpty())
+                        return null;
                     EmployerSettlement existing = byTxn.get();
-                    if (!existing.getContractId().equals(contractId)) return null;
-                    List<EmployerSettlement> allSettlements =
-                            employerSettlementRepository.findByContractId(contractId);
+                    if (!existing.getContractId().equals(contractId))
+                        return null;
+                    List<EmployerSettlement> allSettlements = employerSettlementRepository.findByContractId(contractId);
                     long total = allSettlements.stream()
                             .mapToLong(EmployerSettlement::getTotalPayment).sum();
                     return new VerifyPaymentResponse(true, contractId, total, allSettlements.size());
@@ -320,6 +348,21 @@ public class EmployerSettlementService {
      */
     @Transactional
     public List<EmployerSettlement> createSettlementRecords(ContractInfo contract, String paymentId, Long employerId) {
+        // 필수 계약 필드 null 검증 — null이면 NPE 대신 명확한 BusinessException을 던집니다.
+        if (contract.budget() == null) {
+            log.error("계약 budget이 null입니다: contractId={}", contract.id());
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        if (contract.startDate() == null || contract.endDate() == null) {
+            log.error("계약 startDate/endDate가 null입니다: contractId={}, startDate={}, endDate={}",
+                    contract.id(), contract.startDate(), contract.endDate());
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        if (contract.freelancerId() == null) {
+            log.error("계약 freelancerId가 null입니다: contractId={}", contract.id());
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
         LocalDate startDate = contract.startDate();
         LocalDate endDate = contract.endDate();
         long budget = contract.budget();
@@ -371,6 +414,16 @@ public class EmployerSettlementService {
             es.setPaidDate(LocalDate.now());
             es.setDueDate(dueDate);
             employerSettlementRepository.save(es);
+
+            // 서비스 수수료 인보이스 생성 (실패해도 정산 로직은 계속 진행)
+            try {
+                String invoiceUrl = paymentInvoicePdfService.generateServiceFeeInvoice(es, contract);
+                es.setInvoicePdfUrl(invoiceUrl);
+                employerSettlementRepository.save(es);
+            } catch (Exception e) {
+                log.error("서비스 수수료 인보이스 생성 실패: contractId={}, installment={}, error={}",
+                        contract.id(), i, e.getMessage());
+            }
 
             // 대응하는 FreelancerSettlement 생성
             long fsPlatformFee = platformFee;
@@ -604,14 +657,31 @@ public class EmployerSettlementService {
     }
 
     /**
-     * DataIntegrityViolationException이 PostgreSQL 유니크 제약 위반(SQLState 23505)인지 확인.
+     * DataIntegrityViolationException이 유니크 제약 위반인지 확인.
+     * PostgreSQL(23505) 및 MariaDB(1062)를 모두 지원합니다.
      * FK·NOT NULL 등 다른 무결성 위반과 구분하여 동시 결제 감지에만 사용.
      */
     private static boolean isUniqueConstraintViolation(DataIntegrityViolationException ex) {
         Throwable cause = ex.getCause();
         while (cause != null) {
-            if (cause instanceof org.hibernate.exception.ConstraintViolationException cve
-                    && "23505".equals(cve.getSQLState())) {
+            if (cause instanceof java.sql.SQLException sqlException) {
+                String sqlState = sqlException.getSQLState();
+                int errorCode = sqlException.getErrorCode();
+                // PostgreSQL: 23505, MariaDB/MySQL: 1062
+                if ("23505".equals(sqlState) || "23000".equals(sqlState) || errorCode == 1062) {
+                    return true;
+                }
+            }
+            if (cause instanceof org.hibernate.exception.ConstraintViolationException cve) {
+                String sqlState = cve.getSQLState();
+                int errorCode = cve.getErrorCode();
+                if ("23505".equals(sqlState) || "23000".equals(sqlState) || errorCode == 1062) {
+                    return true;
+                }
+            }
+            // 메시지 기반 보조 체크
+            String message = cause.getMessage();
+            if (message != null && message.toLowerCase(java.util.Locale.ROOT).contains("duplicate")) {
                 return true;
             }
             cause = cause.getCause();
