@@ -28,6 +28,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
 
     private static final int SYNC_MAX_ATTEMPTS = 3;
     private static final long SYNC_INITIAL_BACKOFF_MS = 500L;
+    private static final int MAX_LOG_BODY_LENGTH = 300;
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
@@ -55,7 +56,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                 .body(Map.of("question", question, "context", context))
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, (request, response) -> {
-                    throw new AiServiceException("AI chat service returned an error response.");
+                    throw new AiServiceException("AI 채팅 서비스가 오류 응답을 반환했습니다.");
                 })
                 .body(String.class);
     }
@@ -68,7 +69,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                 .body(agreementData)
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, (request, response) -> {
-                    throw new AiServiceException("AI contract service returned an error response.");
+                    throw new AiServiceException("AI 계약 서비스가 오류 응답을 반환했습니다.");
                 })
                 .body(String.class);
     }
@@ -80,7 +81,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                     .uri(pythonUrl + "/ai/recommend/{type}/{id}", type, id)
                     .retrieve()
                     .onStatus(HttpStatusCode::isError, (request, response) -> {
-                        throw new AiServiceException("AI recommendation service returned an error response.");
+                        throw new AiServiceException("AI 추천 서비스가 오류 응답을 반환했습니다.");
                     })
                     .body(String.class);
 
@@ -89,7 +90,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                     objectMapper.getTypeFactory().constructCollectionType(List.class, responseType)
             );
         } catch (JsonProcessingException e) {
-            throw new AiServiceException("Failed to parse AI response.", e);
+            throw new AiServiceException("AI 응답 파싱에 실패했습니다.", e);
         }
     }
 
@@ -102,7 +103,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                     .body(Map.of("scores", scores, "reviews", reviews))
                     .retrieve()
                     .onStatus(HttpStatusCode::isError, (request, response) -> {
-                        throw new AiServiceException("AI reputation analysis service returned an error response.");
+                        throw new AiServiceException("AI 평판 분석 서비스가 오류 응답을 반환했습니다.");
                     })
                     .body(String.class);
 
@@ -111,7 +112,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                     new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {}
             );
         } catch (JsonProcessingException e) {
-            throw new AiServiceException("Failed to parse AI analysis response.", e);
+            throw new AiServiceException("AI 분석 응답 파싱에 실패했습니다.", e);
         }
     }
 
@@ -131,19 +132,25 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                     .retrieve()
                     .onStatus(HttpStatusCode::isError, (request, response) -> {
                         String errorBody = new String(response.getBody().readAllBytes());
+                        log.warn(
+                                "AI 추천 요청이 실패했습니다. status={}, body={}",
+                                response.getStatusCode(),
+                                truncateForLog(errorBody)
+                        );
                         throw new AiServiceException(
-                                "AI recommendation request failed: " + response.getStatusCode() + " - " + errorBody
+                                "AI 추천 요청에 실패했습니다: " + response.getStatusCode()
                         );
                     })
                     .body(String.class);
 
             if (rawJson == null || rawJson.trim().isEmpty()) {
-                throw new AiServiceException("AI recommendation service returned an empty response.");
+                throw new AiServiceException("AI 추천 서비스가 빈 응답을 반환했습니다.");
             }
 
             JsonNode root = objectMapper.readTree(rawJson);
             if (root == null || !root.has("data") || !root.get("data").isArray()) {
-                throw new AiServiceException("AI recommendation service returned an invalid payload: " + rawJson);
+                log.warn("AI recommendation service returned an invalid payload. body={}", truncateForLog(rawJson));
+                throw new AiServiceException("AI 추천 서비스가 올바르지 않은 응답 형식을 반환했습니다.");
             }
 
             return objectMapper.readValue(
@@ -151,7 +158,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                     objectMapper.getTypeFactory().constructCollectionType(List.class, responseType)
             );
         } catch (JsonProcessingException e) {
-            throw new AiServiceException("Failed to parse AI recommendation response.", e);
+            throw new AiServiceException("AI 추천 응답 파싱에 실패했습니다.", e);
         }
     }
 
@@ -170,17 +177,17 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                     .body(requestBody)
                     .retrieve()
                     .onStatus(HttpStatusCode::isError, (request, response) -> {
-                        throw new AiServiceException("AI freelancer recommendation service returned an error response.");
+                        throw new AiServiceException("AI 프리랜서 추천 서비스가 오류 응답을 반환했습니다.");
                     })
                     .body(String.class);
 
             if (rawJson == null || rawJson.trim().isEmpty()) {
-                throw new AiServiceException("AI recommendation service returned an empty response.");
+                throw new AiServiceException("AI 추천 서비스가 빈 응답을 반환했습니다.");
             }
 
             JsonNode root = objectMapper.readTree(rawJson);
             if (root == null || !root.has("data") || !root.get("data").isArray()) {
-                throw new AiServiceException("AI recommendation service returned an invalid payload.");
+                throw new AiServiceException("AI 추천 서비스가 올바르지 않은 응답 형식을 반환했습니다.");
             }
 
             return objectMapper.readValue(
@@ -188,7 +195,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                     objectMapper.getTypeFactory().constructCollectionType(List.class, responseType)
             );
         } catch (JsonProcessingException e) {
-            throw new AiServiceException("Failed to parse AI recommendation response.", e);
+            throw new AiServiceException("AI 추천 응답 파싱에 실패했습니다.", e);
         }
     }
 
@@ -207,7 +214,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                         ))
                         .retrieve()
                         .onStatus(HttpStatusCode::isError, (request, response) -> {
-                            throw new AiServiceException("AI sync service returned an error response: " + response.getStatusCode());
+                            throw new AiServiceException("AI 동기화 서비스가 오류 응답을 반환했습니다: " + response.getStatusCode());
                         })
                         .toBodilessEntity(),
                 Map.of("id", id, "type", type)
@@ -223,7 +230,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                         .body(request)
                         .retrieve()
                         .onStatus(HttpStatusCode::isError, (req, res) -> {
-                            throw new AiServiceException("AI review sync service returned an error response.");
+                            throw new AiServiceException("AI 리뷰 동기화 서비스가 오류 응답을 반환했습니다.");
                         })
                         .toBodilessEntity(),
                 Map.of("id", request.id(), "type", "experience")
@@ -237,23 +244,23 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                     .uri(pythonUrl + "/api/v1/analysis/freelancer/{id}", freelancerId)
                     .retrieve()
                     .onStatus(HttpStatusCode::isError, (req, res) -> {
-                        throw new AiServiceException("AI analysis service returned an error response.");
+                        throw new AiServiceException("AI 분석 서비스가 오류 응답을 반환했습니다.");
                     })
                     .body(String.class);
 
             return objectMapper.readValue(rawJson, FreelancerAiReputationReportDto.class);
         } catch (RestClientException e) {
-            log.error("AI analysis service call failed: freelancerId={}", freelancerId, e);
-            throw new AiServiceException("AI analysis service call failed.", e);
+            log.error("AI 분석 서비스 호출에 실패했습니다. freelancerId={}", freelancerId, e);
+            throw new AiServiceException("AI 분석 서비스 호출에 실패했습니다.", e);
         } catch (JsonProcessingException e) {
-            log.error("AI analysis response parsing failed: freelancerId={}", freelancerId, e);
-            throw new AiServiceException("AI analysis response parsing failed.", e);
+            log.error("AI 분석 응답 파싱에 실패했습니다. freelancerId={}", freelancerId, e);
+            throw new AiServiceException("AI 분석 응답 파싱에 실패했습니다.", e);
         } catch (RuntimeException e) {
-            log.error("Unexpected AI analysis failure: freelancerId={}", freelancerId, e);
+            log.error("예상치 못한 AI 분석 오류가 발생했습니다. freelancerId={}", freelancerId, e);
             if (e instanceof AiServiceException) {
                 throw e;
             }
-            throw new AiServiceException("Unexpected AI analysis failure.", e);
+            throw new AiServiceException("예상치 못한 AI 분석 오류가 발생했습니다.", e);
         }
     }
 
@@ -262,24 +269,34 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
         for (int attempt = 1; attempt <= SYNC_MAX_ATTEMPTS; attempt++) {
             try {
                 action.run();
-                log.info("{} succeeded: {}", operation, metadata);
+                log.info("{} 성공: {}", operation, metadata);
                 return;
             } catch (Exception e) {
                 if (attempt == SYNC_MAX_ATTEMPTS) {
-                    log.error("{} failed after retries: {}", operation, metadata, e);
+                    log.error("{} 재시도 후에도 실패했습니다: {}", operation, metadata, e);
                     return;
                 }
 
-                log.warn("{} failed, retrying (attempt {}/{}): {}", operation, attempt, SYNC_MAX_ATTEMPTS, metadata, e);
+                log.warn("{} 실패, 재시도합니다 (attempt {}/{}): {}", operation, attempt, SYNC_MAX_ATTEMPTS, metadata, e);
                 try {
                     Thread.sleep(backoffMs);
                 } catch (InterruptedException interruptedException) {
                     Thread.currentThread().interrupt();
-                    log.error("{} interrupted during backoff: {}", operation, metadata, interruptedException);
+                    log.error("{} 재시도 대기 중 인터럽트가 발생했습니다: {}", operation, metadata, interruptedException);
                     return;
                 }
                 backoffMs *= 2;
             }
         }
+    }
+
+    private String truncateForLog(String body) {
+        if (body == null) {
+            return "";
+        }
+        if (body.length() <= MAX_LOG_BODY_LENGTH) {
+            return body;
+        }
+        return body.substring(0, MAX_LOG_BODY_LENGTH) + "...";
     }
 }
