@@ -8,5 +8,6 @@ public record SubscriptionBillingItem(
         Long amount,
         String status,
         LocalDate billingDate,
-        LocalDate paidDate
+        LocalDate paidDate,
+        String invoicePdfUrl
 ) {}

@@ -6,7 +6,13 @@ import java.time.LocalDateTime;
 
 //기업->프리랜서
 @Entity
-@Table(name="Proposal")
+@Table(
+        name = "Proposal",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_proposal_job_posting_freelancer",
+                columnNames = {"job_posting_id", "freelancer_id"}
+        )
+)
 @Builder
 @Getter
 @NoArgsConstructor

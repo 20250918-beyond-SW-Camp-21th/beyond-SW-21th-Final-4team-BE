@@ -27,6 +27,7 @@ public class FreelancerSettlementService {
 
     private final FreelancerSettlementRepository freelancerSettlementRepository;
     private final ContractQuery contractQuery;
+    private final PaymentInvoicePdfService paymentInvoicePdfService;
 
     @Transactional(readOnly = true)
     public PageResponse<FreelancerSettlementItem> listSettlements(
@@ -104,7 +105,10 @@ public class FreelancerSettlementService {
         if (!f.getFreelancerId().equals(freelancerId)) {
             throw new BusinessException(ErrorCode.SETTLEMENT_FORBIDDEN);
         }
-        return f.getReceiptPdfUrl();
+        if (f.getReceiptPdfUrl() == null) {
+            return null;
+        }
+        return paymentInvoicePdfService.generatePresignedUrl(f.getReceiptPdfUrl());
     }
 
     @Transactional(readOnly = true)

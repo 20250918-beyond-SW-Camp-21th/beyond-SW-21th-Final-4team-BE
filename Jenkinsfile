@@ -219,11 +219,21 @@ pipeline {
                             kubectl apply -f kube-folder/python-ai-deployment.yml
                             kubectl apply -f kube-folder/python-ai-service.yml
 
-                            kubectl rollout restart deployment/backend
-                            kubectl rollout status deployment/backend --timeout=180s
+                            if ! kubectl rollout status deployment/backend --timeout=600s; then
+                                kubectl get pods -o wide
+                                kubectl get rs -l app=backend
+                                kubectl describe deployment/backend
+                                kubectl describe pods -l app=backend
+                                exit 1
+                            fi
 
-                            kubectl rollout restart deployment/python-ai-service
-                            kubectl rollout status deployment/python-ai-service --timeout=180s
+                            if ! kubectl rollout status deployment/python-ai-service --timeout=600s; then
+                                kubectl get pods -o wide
+                                kubectl get rs -l app=python-ai-service
+                                kubectl describe deployment/python-ai-service
+                                kubectl describe pods -l app=python-ai-service
+                                exit 1
+                            fi
                         """
                     }
                 }
@@ -243,23 +253,37 @@ pipeline {
         }
         success {
             withCredentials([string(credentialsId: 'discord', variable: 'DISCORD')]) {
-                discordSend(
-                    description: "**백엔드 및 AI 배포 성공!** :tada:\n**Tag**: ${env.IMAGE_TAG}\n**Result**: SUCCESS",
-                    result: 'SUCCESS',
-                    title: "${env.JOB_NAME} Build Success",
-                    webhookURL: "$DISCORD"
-                )
+                script {
+                    try {
+                        discordSend(
+                            description: "**백엔드 및 AI 배포 성공!** :tada:\n**Tag**: ${env.IMAGE_TAG}\n**Result**: SUCCESS",
+                            result: 'SUCCESS',
+                            title: "${env.JOB_NAME} Build Success",
+                            webhookURL: "$DISCORD"
+                        )
+                    } catch (err) {
+                        echo "Discord success notification failed: ${err.message}"
+                    }
+                }
             }
         }
         failure {
             withCredentials([string(credentialsId: 'discord', variable: 'DISCORD')]) {
-                discordSend(
-                    description: "**백엔드 및 AI 배포 실패** :x:\n에러 로그를 확인하세요.",
-                    result: 'FAILURE',
-                    title: "${env.JOB_NAME} Build Failed",
-                    webhookURL: "$DISCORD"
-                )
+                script {
+                    try {
+                        discordSend(
+                            description: "**백엔드 및 AI 배포 실패** :x:\n에러 로그를 확인하세요.",
+                            result: 'FAILURE',
+                            title: "${env.JOB_NAME} Build Failed",
+                            webhookURL: "$DISCORD"
+                        )
+                    } catch (err) {
+                        echo "Discord failure notification failed: ${err.message}"
+                    }
+                }
             }
         }
     }
 }
+
+

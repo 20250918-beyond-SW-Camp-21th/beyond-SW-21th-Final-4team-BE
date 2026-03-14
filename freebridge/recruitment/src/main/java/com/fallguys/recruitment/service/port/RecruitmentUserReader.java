@@ -10,4 +10,8 @@ public interface RecruitmentUserReader {
     RecruitmentUser getFreelancerByIdOrThrow(Long userId);
 
     Map<Long, RecruitmentUser> getFreelancersByIdsOrThrow(Collection<Long> userIds);
+
+    RecruitmentUser getFreelancerByFreelancerIdOrThrow(Long freelancerId);
+
+    Map<Long, RecruitmentUser> getFreelancersByFreelancerIdsOrThrow(Collection<Long> freelancerIds);
 }

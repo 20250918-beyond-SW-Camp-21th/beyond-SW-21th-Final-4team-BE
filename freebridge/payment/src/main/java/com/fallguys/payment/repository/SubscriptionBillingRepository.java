@@ -17,4 +17,6 @@ public interface SubscriptionBillingRepository extends JpaRepository<Subscriptio
     boolean existsByTransactionId(String transactionId);
 
     Optional<SubscriptionBilling> findByTransactionId(String transactionId);
+
+    java.util.List<SubscriptionBilling> findByInvoicePdfUrlIsNullAndStatus(SubscriptionBillingStatus status);
 }

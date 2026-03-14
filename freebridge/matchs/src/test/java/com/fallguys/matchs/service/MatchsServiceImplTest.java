@@ -103,6 +103,28 @@ class MatchsServiceImplTest {
     }
 
     @Test
+    @DisplayName("[TDD] 동일한 공고에 중복 지원하면 INVALID_INPUT_VALUE 예외")
+    void createApplication_duplicate_throws() {
+        // given
+        Long freelancerId = 10L;
+        Long jobPostingId = 100L;
+        when(userRepository.findById(freelancerId)).thenReturn(Optional.of(user(Role.FREELANCER)));
+        when(jobPostingRepo.findById(jobPostingId))
+                .thenReturn(Optional.of(jobPosting(jobPostingId, 88L, Status.ACTIVE, 2, 0)));
+        when(applicationRepo.existsByJobPostingIdAndFreelancerId(jobPostingId, freelancerId)).thenReturn(true);
+
+        // when
+        BusinessException ex = assertThrows(
+                BusinessException.class,
+                () -> matchsService.createApplication(freelancerId, new ApplicationCreateRequest(jobPostingId, "hello"))
+        );
+
+        // then
+        assertEquals(ErrorCode.INVALID_INPUT_VALUE, ex.getErrorCode());
+        verify(applicationRepo, never()).save(any());
+    }
+
+    @Test
     @DisplayName("[TDD] 제안 생성 시 고용주가 공고 소유자가 아니면 JOB_POSTING_FORBIDDEN 예외")
     void createProposal_notOwner_throws() {
         // given
@@ -118,6 +140,30 @@ class MatchsServiceImplTest {
 
         // then
         assertEquals(ErrorCode.JOB_POSTING_FORBIDDEN, ex.getErrorCode());
+        verify(proposalRepo, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("[TDD] 동일한 공고에 중복 제안하면 INVALID_INPUT_VALUE 예외")
+    void createProposal_duplicate_throws() {
+        // given
+        Long employerId = 2L;
+        ProposalCreateRequest request = new ProposalCreateRequest(200L, 3L, "msg");
+        when(userRepository.findById(employerId)).thenReturn(Optional.of(user(Role.EMPLOYER)));
+        when(userRepository.findById(request.freelancerId())).thenReturn(Optional.of(user(Role.FREELANCER)));
+        when(jobPostingRepo.findById(request.jobPostingId()))
+                .thenReturn(Optional.of(jobPosting(200L, employerId, Status.ACTIVE, 2, 0)));
+        when(proposalRepo.existsByJobPostingIdAndFreelancerId(request.jobPostingId(), request.freelancerId()))
+                .thenReturn(true);
+
+        // when
+        BusinessException ex = assertThrows(
+                BusinessException.class,
+                () -> matchsService.createProposal(employerId, request)
+        );
+
+        // then
+        assertEquals(ErrorCode.INVALID_INPUT_VALUE, ex.getErrorCode());
         verify(proposalRepo, never()).save(any());
     }
 
