@@ -85,7 +85,7 @@ public class RecruitmentUserReaderImpl implements RecruitmentUserReader {
             if (freelancer == null) {
                 throw new BusinessException(ErrorCode.USER_NOT_FOUND);
             }
-            result.put(userId, toRecruitmentFreelancer(user, freelancer));
+            result.put(userId, toRecruitmentFreelancer(user.getId(), user, freelancer));
         }
         return result;
     }
@@ -126,14 +126,14 @@ public class RecruitmentUserReaderImpl implements RecruitmentUserReader {
             if (user.getRole() != Role.FREELANCER) {
                 throw new BusinessException(ErrorCode.ONLY_FREELANCER_ALLOWED);
             }
-            result.put(freelancerId, toRecruitmentFreelancer(user, freelancer));
+            result.put(freelancerId, toRecruitmentFreelancer(freelancerId, user, freelancer));
         }
         return result;
     }
 
-    private RecruitmentUser toRecruitmentFreelancer(User user, com.fallguys.mypage.entity.freelancer.Freelancer freelancer) {
+    private RecruitmentUser toRecruitmentFreelancer(Long exposedId, User user, com.fallguys.mypage.entity.freelancer.Freelancer freelancer) {
         return new RecruitmentUser(
-                user.getId(),
+                exposedId,
                 user.getName(),
                 Optional.ofNullable(freelancer.getSkills()).map(Object::toString).orElse("[]"),
                 Optional.ofNullable(freelancer.getIntroduction()).orElse("정보 없음"),

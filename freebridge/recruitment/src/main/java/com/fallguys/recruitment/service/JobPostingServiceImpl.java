@@ -650,7 +650,7 @@ public class JobPostingServiceImpl implements JobPostingService {
                         projectId,
                         freelancerId,
                         syncContent,
-                        freelancer.status()
+                        "COMPLETED"
                 );
             } catch (Exception e) {
                 log.error("프로젝트 완료 후 AI 서버 동기화 실패 - 프리랜서 ID: {}, 내용: {}", freelancerId, syncContent, e);

@@ -146,12 +146,14 @@ async def sync_single_data(data: dict):
         else:
             prefix = "user"
 
-        vs.add_documents([doc], ids=[f"{prefix}:{id_val}"])
+        await vs.aadd_documents([doc], ids=[f"{prefix}:{id_val}"])
 
         logger.info("Sync Success: %s:%s | ref_id=%s | Status=%s", prefix, id_val, ref_id, data.get("status"))
         return {"success": True}
     except Exception as e:
         logger.exception("Sync Error")
+        if isinstance(e, HTTPException):
+            raise
         raise HTTPException(status_code=500, detail="Sync failed") from e
 
 
@@ -184,7 +186,7 @@ async def get_freelancer_recommendations(req: FreelancerRecommendRequest):
                 "filter": {
                     "$and": [
                         {"type": "job_posting"},
-                        {"status": {"$ne": "CONTRACTING"}},
+                        {"status": "ACTIVE"},
                     ]
                 },
             }
