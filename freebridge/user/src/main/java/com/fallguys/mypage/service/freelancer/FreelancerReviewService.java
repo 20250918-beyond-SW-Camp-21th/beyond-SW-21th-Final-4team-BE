@@ -1,10 +1,14 @@
 package com.fallguys.mypage.service.freelancer;
 
 import com.fallguys.common.ai.port.ReviewEngine;
+import com.fallguys.common.exception.BusinessException;
+import com.fallguys.common.exception.ErrorCode;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerAiPositivityIndexDto;
 import com.fallguys.common.ai.dto.FreelancerAiReputationReportDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerEvaluationSummaryDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerStrengthWeaknessDto;
+import com.fallguys.mypage.entity.freelancer.Collaboration;
+import com.fallguys.mypage.entity.freelancer.Expertise;
 import com.fallguys.mypage.entity.freelancer.Freelancer;
 import com.fallguys.mypage.repository.freelancer.FreelancerRepository;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +28,9 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 public class FreelancerReviewService {
+    private static final String REVIEW_RATES_KEY_PREFIX = "freelancer:review:rates:";
+    private static final String REVIEW_RATE_KEY_PREFIX = "freelancer:review:rate:";
+    private static final String REVIEW_AI_REPORT_KEY_PREFIX = "freelancer:review:ai_report:";
 
     private final RedisTemplate<String, Object> redisTemplate;
     private final FreelancerRepository freelancerRepository;
@@ -38,16 +45,13 @@ public class FreelancerReviewService {
      */
     @Transactional(readOnly = true)
     public FreelancerEvaluationSummaryDto getReviewSummary(Long userId) {
-        String redisKey = "freelancer:review:rates:" + userId;
         Integer topPercentile = getTopPercentile(userId);
 
         try {
-            Object rawData = redisTemplate.opsForValue().get(redisKey);
-            if (rawData == null) {
+            List<Map<String, Object>> reviews = readRawReviewRates(userId);
+            if (reviews.isEmpty()) {
                 return FreelancerEvaluationSummaryDto.empty(topPercentile);
             }
-            @SuppressWarnings("unchecked")
-            List<Map<String, Object>> reviews = (List<Map<String, Object>>) rawData;
             return FreelancerEvaluationSummaryDto.from(reviews, topPercentile);
 
         } catch (Exception e) {
@@ -56,13 +60,41 @@ public class FreelancerReviewService {
         }
     }
 
+    @Transactional
+    public void syncReviewScoresToFreelancer(Long userId) {
+        List<Map<String, Object>> reviews = readRawReviewRates(userId);
+        if (reviews.isEmpty()) {
+            log.info("No freelancer review rates found in Redis. Skip expertise/collaboration sync. userId={}", userId);
+            return;
+        }
+
+        Freelancer freelancer = freelancerRepository.findByUserId(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        ReviewScoreSnapshot snapshot = ReviewScoreSnapshot.from(reviews);
+
+        freelancer.updateExpertise(new Expertise(
+                toStoredScore(snapshot.programming()),
+                toStoredScore(snapshot.framework()),
+                toStoredScore(snapshot.debugging())
+        ));
+
+        freelancer.updateCollaboration(new Collaboration(
+                toStoredScore(snapshot.communication()),
+                toStoredScore(snapshot.schedule()),
+                toStoredScore(snapshot.dispute())
+        ));
+
+        freelancer.updateAverageRate(snapshot.totalScore());
+    }
+
     /**
      * AI 평판 분석 리포트 조회 (Redis 캐싱 적용)
      * Redis Key: freelancer:review:ai_report:{userId}
      * TTL: 24시간
      */
     public FreelancerAiReputationReportDto getAiReputationReport(Long userId) {
-        String ratesRedisKey = "freelancer:review:rates:" + userId;
+        String ratesRedisKey = REVIEW_RATES_KEY_PREFIX + userId;
         try {
             Object ratesData = redisTemplate.opsForValue().get(ratesRedisKey);
             // 등록된 리뷰가 명시적으로 비어있을 경우에만 AI 서버 호출 생략
@@ -79,7 +111,7 @@ public class FreelancerReviewService {
             log.warn("Failed to check review existence in Redis for userId: {}", userId, e);
         }
 
-        String redisKey = "freelancer:review:ai_report:" + userId;
+        String redisKey = REVIEW_AI_REPORT_KEY_PREFIX + userId;
         try {
             Object cachedData = redisTemplate.opsForValue().get(redisKey);
             if (cachedData != null) {
@@ -171,6 +203,77 @@ public class FreelancerReviewService {
         } catch (Exception e) {
             log.warn("Failed to get topPercentile for userId: {}", userId, e);
             return null;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> readRawReviewRates(Long userId) {
+        Object rawData = redisTemplate.opsForValue().get(REVIEW_RATE_KEY_PREFIX + userId);
+        if (!(rawData instanceof List<?> rawList) || rawList.isEmpty()) {
+            rawData = redisTemplate.opsForValue().get(REVIEW_RATES_KEY_PREFIX + userId);
+        }
+        if (!(rawData instanceof List<?> rawList) || rawList.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return (List<Map<String, Object>>) rawList;
+    }
+
+    private Integer toStoredScore(Double score) {
+        if (score == null) {
+            return 0;
+        }
+        return (int) Math.round(Math.max(0.0, Math.min(5.0, score)));
+    }
+
+    private record ReviewScoreSnapshot(
+            Double programming,
+            Double framework,
+            Double debugging,
+            Double communication,
+            Double schedule,
+            Double dispute
+    ) {
+        private static ReviewScoreSnapshot from(List<Map<String, Object>> reviews) {
+            double sumProgramming = 0.0;
+            double sumFramework = 0.0;
+            double sumDebugging = 0.0;
+            double sumCommunication = 0.0;
+            double sumSchedule = 0.0;
+            double sumDispute = 0.0;
+
+            for (Map<String, Object> review : reviews) {
+                sumProgramming += safeNumber(review.get("programming"));
+                sumFramework += safeNumber(review.get("framework"));
+                sumDebugging += safeNumber(review.get("debugging"));
+                sumCommunication += safeNumber(review.get("communication"));
+                sumSchedule += safeNumber(review.get("schedule"));
+                sumDispute += safeNumber(review.get("dispute"));
+            }
+
+            int reviewCount = reviews.size();
+            if (reviewCount == 0) {
+                return new ReviewScoreSnapshot(0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+            }
+
+            return new ReviewScoreSnapshot(
+                    sumProgramming / reviewCount,
+                    sumFramework / reviewCount,
+                    sumDebugging / reviewCount,
+                    sumCommunication / reviewCount,
+                    sumSchedule / reviewCount,
+                    sumDispute / reviewCount
+            );
+        }
+
+        private static double safeNumber(Object value) {
+            if (value instanceof Number number) {
+                return number.doubleValue();
+            }
+            return 0.0;
+        }
+
+        private double totalScore() {
+            return (programming + framework + debugging + communication + schedule + dispute) / 6.0;
         }
     }
 }
