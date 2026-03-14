@@ -11,7 +11,13 @@ import java.time.LocalDateTime;
 
 //프리랜서->기업
 @Entity
-@Table(name="application")
+@Table(
+        name = "application",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_application_job_posting_freelancer",
+                columnNames = {"job_posting_id", "freelancer_id"}
+        )
+)
 @Getter
 @Builder
 @NoArgsConstructor

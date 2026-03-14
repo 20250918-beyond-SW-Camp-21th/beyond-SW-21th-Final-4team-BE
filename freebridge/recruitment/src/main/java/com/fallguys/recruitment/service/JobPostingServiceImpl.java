@@ -790,11 +790,8 @@ public class JobPostingServiceImpl implements JobPostingService {
         LocalDateTime createdAt = posting.getCreatedAt();
         item.put("createdAt", createdAt != null ? createdAt.format(ISO_SECONDS_FORMATTER) : null);
 
-        LocalDateTime deadline = createdAt;
-        if (createdAt != null && posting.getDuration() != null && posting.getDuration() > 0) {
-            deadline = createdAt.plusDays(posting.getDuration());
-        }
-        item.put("deadline", deadline != null ? deadline.format(ISO_SECONDS_FORMATTER) : null);
+        // Job posting duration is an estimated project period in months, not a recruitment deadline.
+        item.put("deadline", null);
         return item;
     }
 

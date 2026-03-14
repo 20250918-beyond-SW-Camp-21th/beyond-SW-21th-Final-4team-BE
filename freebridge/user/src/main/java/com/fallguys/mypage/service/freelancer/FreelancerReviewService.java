@@ -30,22 +30,48 @@ public class FreelancerReviewService {
     private final ReviewEngine reviewEngine;
     private final ObjectMapper objectMapper;
 
+    /**
+     * 내 평판/등급 요약 조회
+     * Redis Key: freelancer:review:rates:{freelancerId}
+     * Expected value:
+     * { programming, framework, debugging, communication, schedule, dispute }
+     * topPercentile은 Freelancer 엔티티에서 조회합니다.
+     */
     @Transactional(readOnly = true)
     public FreelancerEvaluationSummaryDto getReviewSummary(Long userId) {
-        String redisKey = "freelancer:review:rates:" + userId;
+        Long freelancerId = resolveFreelancerId(userId);
         Integer topPercentile = getTopPercentile(userId);
+
+        if (freelancerId == null) {
+          return FreelancerEvaluationSummaryDto.empty(topPercentile);
+          }
+
+        String redisKey = "freelancer:review:rates:" + freelancerId;
 
         try {
             Object rawData = redisTemplate.opsForValue().get(redisKey);
             if (rawData == null) {
                 return FreelancerEvaluationSummaryDto.empty(topPercentile);
             }
+            if (rawData instanceof Map<?, ?> rawMap) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> averages = (Map<String, Object>) rawMap;
+                return FreelancerEvaluationSummaryDto.fromAverageMap(averages, topPercentile);
+            }
+            if (rawData instanceof List<?> rawList) {
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> reviews = (List<Map<String, Object>>) rawList;
+                return FreelancerEvaluationSummaryDto.from(reviews, topPercentile);
+            }
+            return FreelancerEvaluationSummaryDto.empty(topPercentile);
 
-            @SuppressWarnings("unchecked")
-            List<Map<String, Object>> reviews = (List<Map<String, Object>>) rawData;
-            return FreelancerEvaluationSummaryDto.from(reviews, topPercentile);
         } catch (Exception e) {
-            log.error("Redis에서 프리랜서 리뷰 요약을 파싱하지 못했습니다. userId={}", userId, e);
+            log.error(
+            "Redis에서 프리랜서 리뷰 요약을 파싱하지 못했습니다. userId={}, freelancerId={}",
+             userId,
+              freelancerId,
+              e
+            );
             return FreelancerEvaluationSummaryDto.empty(topPercentile);
         }
     }
@@ -62,6 +88,15 @@ public class FreelancerReviewService {
             Object ratesData = redisTemplate.opsForValue().get(ratesRedisKey);
             if (ratesData instanceof List<?> list && list.isEmpty()) {
                 return emptyAiReport();
+            }
+            if (ratesData instanceof Map<?, ?> map && map.isEmpty()) {
+                return new FreelancerAiReputationReportDto(
+                        "아직 충분한 리뷰가 등록되지 않았습니다.",
+                        Collections.emptyList(),
+                        Collections.emptyList(),
+                        Collections.emptyList(),
+                        Collections.emptyList()
+                );
             }
         } catch (Exception e) {
             log.warn("Redis에서 리뷰 존재 여부를 확인하지 못했습니다. freelancerId={}", freelancerId, e);
