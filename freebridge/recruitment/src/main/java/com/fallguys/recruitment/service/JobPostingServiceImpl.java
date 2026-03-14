@@ -431,7 +431,11 @@ public class JobPostingServiceImpl implements JobPostingService {
                     AiRecommendationResponseDTO.class
             );
 
-            List<Long> freelancerIds = aiResults.stream().map(AiRecommendationResponseDTO::id).toList();
+            List<Long> freelancerIds = aiResults.stream()
+                    .map(AiRecommendationResponseDTO::id)
+                    .filter(java.util.Objects::nonNull)
+                    .distinct()
+                    .toList();
             Map<Long, RecruitmentUser> userMap;
             try {
                 userMap = recruitmentUserReader.getFreelancersByIdsOrThrow(freelancerIds);

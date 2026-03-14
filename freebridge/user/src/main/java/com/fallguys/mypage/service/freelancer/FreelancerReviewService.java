@@ -51,30 +51,30 @@ public class FreelancerReviewService {
     }
 
     public FreelancerAiReputationReportDto getAiReputationReport(Long userId) {
-        String ratesRedisKey = "freelancer:review:rates:" + userId;
+        Long freelancerId = resolveFreelancerId(userId);
+        if (freelancerId == null) {
+            log.warn("해당 userId에 대한 프리랜서 엔티티를 찾지 못했습니다. userId={}", userId);
+            return emptyAiReport();
+        }
+
+        String ratesRedisKey = "freelancer:review:rates:" + freelancerId;
         try {
             Object ratesData = redisTemplate.opsForValue().get(ratesRedisKey);
             if (ratesData instanceof List<?> list && list.isEmpty()) {
                 return emptyAiReport();
             }
         } catch (Exception e) {
-            log.warn("Redis에서 리뷰 존재 여부를 확인하지 못했습니다. userId={}", userId, e);
+            log.warn("Redis에서 리뷰 존재 여부를 확인하지 못했습니다. freelancerId={}", freelancerId, e);
         }
 
-        String redisKey = "freelancer:review:ai_report:" + userId;
+        String redisKey = "freelancer:review:ai_report:" + freelancerId;
         try {
             Object cachedData = redisTemplate.opsForValue().get(redisKey);
             if (cachedData != null) {
                 return objectMapper.convertValue(cachedData, FreelancerAiReputationReportDto.class);
             }
         } catch (Exception e) {
-            log.warn("Redis에서 AI 평판 리포트를 조회하지 못했습니다. userId={}", userId, e);
-        }
-
-        Long freelancerId = resolveFreelancerId(userId);
-        if (freelancerId == null) {
-            log.warn("해당 userId에 대한 프리랜서 엔티티를 찾지 못했습니다. userId={}", userId);
-            return emptyAiReport();
+            log.warn("Redis에서 AI 평판 리포트를 조회하지 못했습니다. freelancerId={}", freelancerId, e);
         }
 
         FreelancerAiReputationReportDto report;
@@ -90,7 +90,7 @@ public class FreelancerReviewService {
                 redisTemplate.opsForValue().set(redisKey, report, Duration.ofHours(24));
             }
         } catch (Exception e) {
-            log.warn("AI 평판 리포트를 Redis에 저장하지 못했습니다. userId={}", userId, e);
+            log.warn("AI 평판 리포트를 Redis에 저장하지 못했습니다. freelancerId={}", freelancerId, e);
         }
 
         return report;
