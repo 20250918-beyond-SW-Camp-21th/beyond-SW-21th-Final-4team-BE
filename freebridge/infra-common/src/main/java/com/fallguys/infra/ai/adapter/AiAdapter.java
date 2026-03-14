@@ -242,30 +242,23 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                     .uri(pythonUrl + "/api/v1/analysis/freelancer/{id}", freelancerId)
                     .retrieve()
                     .onStatus(HttpStatusCode::isError, (req, res) -> {
-                        throw new RuntimeException("AI 분석 서비스가 오류 응답을 반환했습니다.");
+                        throw new AiServiceException("AI 분석 서비스가 오류 응답을 반환했습니다.");
                     })
                     .body(String.class);
 
             return objectMapper.readValue(rawJson, FreelancerAiReputationReportDto.class);
         } catch (RestClientException e) {
             log.error("AI 분석 서비스 호출 실패: freelancerId={}", freelancerId, e);
-            return emptyFreelancerAnalysisReport();
+            throw new AiServiceException("AI 분석 서비스 호출에 실패했습니다.", e);
         } catch (JsonProcessingException e) {
             log.error("AI 분석 응답 파싱 실패: freelancerId={}", freelancerId, e);
-            return emptyFreelancerAnalysisReport();
+            throw new AiServiceException("AI 분석 응답 파싱에 실패했습니다.", e);
         } catch (RuntimeException e) {
             log.error("예상치 못한 AI 분석 오류: freelancerId={}", freelancerId, e);
-            return emptyFreelancerAnalysisReport();
+            if (e instanceof AiServiceException) {
+                throw e;
+            }
+            throw new AiServiceException("예상치 못한 AI 분석 오류가 발생했습니다.", e);
         }
-    }
-
-    private FreelancerAiReputationReportDto emptyFreelancerAnalysisReport() {
-        return new FreelancerAiReputationReportDto(
-                "AI 분석 결과를 아직 불러오지 못했습니다.",
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of()
-        );
     }
 }

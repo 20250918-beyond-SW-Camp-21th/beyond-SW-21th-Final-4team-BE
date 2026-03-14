@@ -1,4 +1,5 @@
 import os
+import ssl
 from typing import List
 from pydantic import BaseModel, Field
 import pymysql
@@ -62,19 +63,20 @@ def get_db_connection():
     ssl_options = None
 
     if ssl_enabled:
-        ssl_options = {}
+        ssl_context = ssl.create_default_context()
         db_ssl_ca = os.getenv("DB_SSL_CA")
         db_ssl_cert = os.getenv("DB_SSL_CERT")
         db_ssl_key = os.getenv("DB_SSL_KEY")
         db_ssl_verify_cert = os.getenv("DB_SSL_VERIFY_CERT", "true").lower() in ("true", "1", "yes", "on")
 
         if db_ssl_ca:
-            ssl_options["ca"] = db_ssl_ca
-        if db_ssl_cert:
-            ssl_options["cert"] = db_ssl_cert
-        if db_ssl_key:
-            ssl_options["key"] = db_ssl_key
-        ssl_options["check_hostname"] = db_ssl_verify_cert
+            ssl_context.load_verify_locations(cafile=db_ssl_ca)
+        if db_ssl_cert and db_ssl_key:
+            ssl_context.load_cert_chain(certfile=db_ssl_cert, keyfile=db_ssl_key)
+
+        ssl_context.check_hostname = db_ssl_verify_cert
+        ssl_context.verify_mode = ssl.CERT_REQUIRED if db_ssl_verify_cert else ssl.CERT_NONE
+        ssl_options = ssl_context
 
     return pymysql.connect(
         host=db_host,
