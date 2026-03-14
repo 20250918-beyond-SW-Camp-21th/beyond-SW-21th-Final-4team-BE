@@ -58,6 +58,15 @@ public class ChatRoomController {
         return ResponseEntity.ok(rooms);
     }
 
+    @PostMapping("/{roomId}/leave")
+    public ResponseEntity<ChatRoomResponse> leaveRoom(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable String roomId) {
+        String userId = extractUserId(authHeader);
+        ChatRoomResponse response = chatRoomService.leaveChatRoom(roomId, userId);
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping("/{roomId}/messages")
     public ResponseEntity<CursorPageResponse<ChatMessageResponse>> getMessages(
             @RequestHeader("Authorization") String authHeader,
