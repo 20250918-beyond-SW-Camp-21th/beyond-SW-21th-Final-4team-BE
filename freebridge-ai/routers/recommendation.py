@@ -1,6 +1,5 @@
 import logging
 import os
-from typing import List
 
 from fastapi import APIRouter, HTTPException
 from langchain_core.documents import Document
@@ -22,6 +21,11 @@ logger = logging.getLogger(__name__)
 
 _vectorstore = None
 _llm = None
+_SYNC_TYPE_PREFIX = {
+    "experience": "exp",
+    "job_posting": "job",
+    "new_profile": "profile",
+}
 
 
 def _parse_ref_id(value):
@@ -89,6 +93,8 @@ async def get_job_recommendations(req: RecommendationRequest):
         ).ainvoke(search_query)
 
         candidate_docs = experienced_docs[:5] + newbie_docs[:2]
+        if not candidate_docs:
+            return {"success": True, "data": []}
         allowed_ids = {
             ref_id
             for ref_id in (_parse_ref_id(doc.metadata.get("ref_id")) for doc in candidate_docs)
@@ -107,11 +113,19 @@ async def get_job_recommendations(req: RecommendationRequest):
             반환하는 id는 반드시 context 안의 CANDIDATE_ID 값 중 하나와 정확히 일치해야 합니다.
             context에 없는 후보자는 절대 반환하지 마세요.
             적합도 순으로 최대 7명을 추천하세요.
+            현재 공고 제목: {job_title}
+            현재 공고 상세 내용: {job_description}
             <context>{context}</context>
             """
         )
 
-        result = await structured_llm.ainvoke(prompt.format(context=all_context))
+        result = await structured_llm.ainvoke(
+            prompt.format(
+                job_title=req.title,
+                job_description=description,
+                context=all_context,
+            )
+        )
         filtered_matches = _filter_matches_by_allowed_ids(result.matches, allowed_ids)
         return {"success": True, "data": filtered_matches[:7]}
     except Exception as e:
@@ -125,11 +139,20 @@ async def sync_single_data(data: dict):
         vs = get_vs()
         id_val = data.get("id")
         if id_val is None:
-            logger.error("Sync skipped because id is missing. type=%s, ref_id=%s", data.get("type"), data.get("refId", data.get("ref_id")))
+            logger.error(
+                "Sync skipped because id is missing. type=%s, ref_id=%s",
+                data.get("type"),
+                data.get("refId", data.get("ref_id")),
+            )
             raise HTTPException(status_code=400, detail="id is required")
+
         ref_id = _parse_ref_id(data.get("refId", data.get("ref_id")))
         if ref_id is None:
-            logger.error("Sync skipped because refId is missing or invalid. type=%s, id=%s", data.get("type"), id_val)
+            logger.error(
+                "Sync skipped because refId is missing or invalid. type=%s, id=%s",
+                data.get("type"),
+                id_val,
+            )
             raise HTTPException(status_code=400, detail="refId is required")
 
         doc = Document(
@@ -142,16 +165,21 @@ async def sync_single_data(data: dict):
             },
         )
 
-        if data.get("type") == "experience":
-            prefix = "exp"
-        elif data.get("type") == "job_posting":
-            prefix = "job"
-        else:
-            prefix = "user"
+        data_type = data.get("type")
+        prefix = _SYNC_TYPE_PREFIX.get(data_type)
+        if prefix is None:
+            logger.error("Sync skipped because type is missing or invalid. type=%s, id=%s", data_type, id_val)
+            raise HTTPException(status_code=400, detail="type is invalid")
 
         await vs.aadd_documents([doc], ids=[f"{prefix}:{id_val}"])
 
-        logger.info("Sync Success: %s:%s | ref_id=%s | Status=%s", prefix, id_val, ref_id, data.get("status"))
+        logger.info(
+            "Sync Success: %s:%s | ref_id=%s | Status=%s",
+            prefix,
+            id_val,
+            ref_id,
+            data.get("status"),
+        )
         return {"success": True}
     except Exception as e:
         logger.exception("Sync Error")
@@ -196,6 +224,8 @@ async def get_freelancer_recommendations(req: FreelancerRecommendRequest):
         )
 
         docs = await retriever.ainvoke(search_query)
+        if not docs:
+            return {"success": True, "data": []}
         allowed_ids = {
             ref_id
             for ref_id in (_parse_ref_id(doc.metadata.get("ref_id")) for doc in docs)
