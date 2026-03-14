@@ -127,7 +127,10 @@ async def sync_single_data(data: dict):
         if id_val is None:
             logger.error("Sync skipped because id is missing. type=%s, ref_id=%s", data.get("type"), data.get("refId", data.get("ref_id")))
             raise HTTPException(status_code=400, detail="id is required")
-        ref_id = data.get("refId", data.get("ref_id", data.get("id")))
+        ref_id = _parse_ref_id(data.get("refId", data.get("ref_id")))
+        if ref_id is None:
+            logger.error("Sync skipped because refId is missing or invalid. type=%s, id=%s", data.get("type"), id_val)
+            raise HTTPException(status_code=400, detail="refId is required")
 
         doc = Document(
             page_content=data.get("content", ""),

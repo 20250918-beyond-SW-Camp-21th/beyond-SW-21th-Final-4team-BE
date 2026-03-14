@@ -46,7 +46,12 @@ public class ProjectExternalApiImpl implements ProjectExternalApi {
 
         project.complete();
 
-        Runnable syncTask = () -> syncToAiServer(data);
+        Long freelancerId = project.getFreelancerId();
+        if (!java.util.Objects.equals(freelancerId, data.freelancerId())) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        Runnable syncTask = () -> syncToAiServer(data, freelancerId);
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
@@ -59,7 +64,7 @@ public class ProjectExternalApiImpl implements ProjectExternalApi {
         }
     }
 
-    private void syncToAiServer(ProjectCompletionData data) {
+    private void syncToAiServer(ProjectCompletionData data, Long freelancerId) {
         try {
             ReviewSyncPayload payload = new ReviewSyncPayload(
                     data.reviewDescription(),
@@ -75,7 +80,7 @@ public class ProjectExternalApiImpl implements ProjectExternalApi {
 
             recommendationEngine.syncProjectExperience(
                     data.projectId(),
-                    data.freelancerId(),
+                    freelancerId,
                     content,
                     "COMPLETED"
             );
