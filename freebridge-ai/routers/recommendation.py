@@ -138,7 +138,7 @@ async def sync_single_data(data: dict):
     try:
         vs = get_vs()
         id_val = data.get("id")
-        if id_val is None:
+        if not id_val or (isinstance(id_val, str) and not id_val.strip()):
             logger.error(
                 "Sync skipped because id is missing. type=%s, ref_id=%s",
                 data.get("type"),

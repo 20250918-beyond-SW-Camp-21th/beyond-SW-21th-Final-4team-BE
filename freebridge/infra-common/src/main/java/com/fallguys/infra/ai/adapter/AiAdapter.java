@@ -200,7 +200,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
     }
 
     @Override
-    public void syncToAiServer(Long id, String type, String content, String status) {
+    public void syncToAiServer(Long id, Long refId, String type, String content, String status) {
         CompletableFuture.runAsync(() -> runWithRetry(
                 "AI sync",
                 () -> restClient.post()
@@ -208,6 +208,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                         .contentType(MediaType.APPLICATION_JSON)
                         .body(Map.of(
                                 "id", id,
+                                "refId", refId,
                                 "type", type,
                                 "content", content,
                                 "status", status
@@ -217,7 +218,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                             throw new AiServiceException("AI 동기화 서비스가 오류 응답을 반환했습니다: " + response.getStatusCode());
                         })
                         .toBodilessEntity(),
-                Map.of("id", id, "type", type)
+                Map.of("id", id, "refId", refId, "type", type)
         ), taskExecutor);
     }
 
