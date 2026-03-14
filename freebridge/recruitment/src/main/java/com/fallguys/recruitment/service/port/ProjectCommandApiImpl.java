@@ -24,9 +24,9 @@ public class ProjectCommandApiImpl implements ProjectCommandApi {
         project.complete();
 
 
-        recommendationEngine.syncToAiServer(
+        recommendationEngine.syncProjectExperience(
+                projectId,
                 project.getFreelancerId(),
-                "experience",
                 reviewDescription,
                 "COMPLETED"
         );

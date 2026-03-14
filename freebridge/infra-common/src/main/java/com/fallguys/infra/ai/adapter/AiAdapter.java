@@ -221,6 +221,29 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
         ), taskExecutor);
     }
 
+    @Override
+    public void syncProjectExperience(Long documentId, Long refId, String content, String status) {
+        CompletableFuture.runAsync(() -> runWithRetry(
+                "AI review sync",
+                () -> restClient.post()
+                        .uri(pythonUrl + "/api/v1/sync/data")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(Map.of(
+                                "id", documentId,
+                                "type", "experience",
+                                "content", content,
+                                "status", status,
+                                "refId", refId
+                        ))
+                        .retrieve()
+                        .onStatus(HttpStatusCode::isError, (req, res) -> {
+                            throw new AiServiceException("AI 리뷰 동기화 서비스가 오류 응답을 반환했습니다.");
+                        })
+                        .toBodilessEntity(),
+                Map.of("id", documentId, "refId", refId, "type", "experience")
+        ), taskExecutor);
+    }
+
     public void syncProjectExperience(AiSyncRequest request) {
         CompletableFuture.runAsync(() -> runWithRetry(
                 "AI review sync",

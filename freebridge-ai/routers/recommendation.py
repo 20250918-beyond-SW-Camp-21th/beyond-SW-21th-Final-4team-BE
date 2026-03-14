@@ -101,12 +101,12 @@ async def get_job_recommendations(req: RecommendationRequest):
 
         prompt = ChatPromptTemplate.from_template(
             """
-            You are a recruiter selecting the best freelancer candidates for a job posting.
-            Use only candidates that appear in the context.
-            Never invent IDs, names, or placeholder people.
-            The returned id must exactly match one of the CANDIDATE_ID values in the context.
-            If a candidate is not in the context, do not return it.
-            Return up to 7 candidates ordered by match quality.
+            당신은 채용 공고에 가장 적합한 프리랜서를 추천하는 전문 헤드헌터입니다.
+            반드시 context에 포함된 후보자만 사용하세요.
+            ID, 이름, 가상의 인물을 새로 만들지 마세요.
+            반환하는 id는 반드시 context 안의 CANDIDATE_ID 값 중 하나와 정확히 일치해야 합니다.
+            context에 없는 후보자는 절대 반환하지 마세요.
+            적합도 순으로 최대 7명을 추천하세요.
             <context>{context}</context>
             """
         )
@@ -114,21 +114,25 @@ async def get_job_recommendations(req: RecommendationRequest):
         result = await structured_llm.ainvoke(prompt.format(context=all_context))
         filtered_matches = _filter_matches_by_allowed_ids(result.matches, allowed_ids)
         return {"success": True, "data": filtered_matches[:7]}
-    except Exception:
+    except Exception as e:
         logger.exception("Employer Recommendation Error")
-        raise HTTPException(status_code=500, detail="Internal error")
+        raise HTTPException(status_code=500, detail="Internal error") from e
 
 
 @router.post("/sync/data")
 async def sync_single_data(data: dict):
     try:
         vs = get_vs()
+        id_val = data.get("id")
+        if id_val is None:
+            logger.error("Sync skipped because id is missing. type=%s, ref_id=%s", data.get("type"), data.get("refId", data.get("ref_id")))
+            raise HTTPException(status_code=400, detail="id is required")
         ref_id = data.get("refId", data.get("ref_id", data.get("id")))
 
         doc = Document(
             page_content=data.get("content", ""),
             metadata={
-                "id": data.get("id"),
+                "id": id_val,
                 "type": data.get("type"),
                 "ref_id": ref_id,
                 "status": data.get("status", "POTENTIAL"),
@@ -142,13 +146,13 @@ async def sync_single_data(data: dict):
         else:
             prefix = "user"
 
-        vs.add_documents([doc], ids=[f"{prefix}:{data['id']}"])
+        vs.add_documents([doc], ids=[f"{prefix}:{id_val}"])
 
-        logger.info("Sync Success: %s:%s | ref_id=%s | Status=%s", prefix, data["id"], ref_id, data.get("status"))
+        logger.info("Sync Success: %s:%s | ref_id=%s | Status=%s", prefix, id_val, ref_id, data.get("status"))
         return {"success": True}
-    except Exception:
+    except Exception as e:
         logger.exception("Sync Error")
-        raise HTTPException(status_code=500, detail="Sync failed")
+        raise HTTPException(status_code=500, detail="Sync failed") from e
 
 
 @router.post("/freelancer/recommendations", response_model=FreelancerRecommendationResponse)
@@ -160,21 +164,31 @@ async def get_freelancer_recommendations(req: FreelancerRecommendRequest):
 
         prompt = ChatPromptTemplate.from_template(
             """
-            You are an IT career coach recommending job postings for a freelancer.
-            Use only job postings that appear in the context.
-            Never invent IDs or titles.
-            The returned id must exactly match one of the JOB_ID values in the context.
-            Return up to 5 jobs ordered by match quality.
+            당신은 프리랜서에게 적합한 공고를 추천하는 IT 커리어 코치입니다.
+            반드시 context에 포함된 공고만 사용하세요.
+            ID나 제목을 새로 만들지 마세요.
+            반환하는 id는 반드시 context 안의 JOB_ID 값 중 하나와 정확히 일치해야 합니다.
+            적합도 순으로 최대 5개의 공고를 추천하세요.
 
-            Freelancer skills: {skills}
-            Freelancer experience: {experience}
+            프리랜서 보유 기술: {skills}
+            프리랜서 경력: {experience}
             <context>{context}</context>
             """
         )
 
         experience = req.experience.strip() if req.experience and req.experience.strip() else "(경력 정보 없음)"
         search_query = f"{req.skills} {experience}"
-        retriever = vs.as_retriever(search_kwargs={"k": 15, "filter": {"type": "job_posting"}})
+        retriever = vs.as_retriever(
+            search_kwargs={
+                "k": 15,
+                "filter": {
+                    "$and": [
+                        {"type": "job_posting"},
+                        {"status": {"$ne": "CONTRACTING"}},
+                    ]
+                },
+            }
+        )
 
         docs = await retriever.ainvoke(search_query)
         allowed_ids = {

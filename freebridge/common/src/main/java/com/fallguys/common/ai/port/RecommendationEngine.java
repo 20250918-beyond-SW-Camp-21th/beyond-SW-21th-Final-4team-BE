@@ -10,4 +10,6 @@ public interface RecommendationEngine {
     <T> List<T> recommendJobs(Long freelancerId, String skills, String experience, Class<T> responseType);
 
     void syncToAiServer(Long id, String type, String content, String status);
+
+    void syncProjectExperience(Long documentId, Long refId, String content, String status);
 }

@@ -76,9 +76,9 @@ public class ProjectExternalApiImpl implements ProjectExternalApi {
                 data.scheduleScore()
             );
 
-            recommendationEngine.syncToAiServer(
+            recommendationEngine.syncProjectExperience(
                 data.projectId(),
-                "PROJECT_REVIEW", 
+                data.freelancerId(),
                 content,
                 "COMPLETED"
             );
