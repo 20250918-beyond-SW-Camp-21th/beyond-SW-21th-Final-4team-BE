@@ -11,7 +11,6 @@ import com.fallguys.mypage.api.web.dto.freelancer.response.ExpertiseDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerBasicProfileDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerProfileResponseDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerStatsDto;
-<<<<<<< Updated upstream
 import com.fallguys.mypage.api.web.dto.freelancer.response.PortfolioInfoDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.WorkConditionsDto;
 import com.fallguys.mypage.entity.freelancer.Collaboration;
@@ -19,11 +18,6 @@ import com.fallguys.mypage.entity.freelancer.Expertise;
 import com.fallguys.mypage.entity.freelancer.Freelancer;
 import com.fallguys.mypage.entity.freelancer.PortfolioInfo;
 import com.fallguys.mypage.entity.freelancer.WorkConditions;
-=======
-import com.fallguys.mypage.api.web.dto.freelancer.response.PortfolioInfoDto;\nimport com.fallguys.mypage.api.web.dto.freelancer.response.WorkConditionsDto;
-import com.fallguys.mypage.entity.freelancer.*;
-\nimport com.fallguys.mypage.entity.freelancer.PortfolioInfo;
->>>>>>> Stashed changes
 import com.fallguys.mypage.repository.freelancer.FreelancerRepository;
 import com.fallguys.user.api.shared.response.ExternalUserResponse;
 import lombok.RequiredArgsConstructor;
@@ -47,8 +41,7 @@ public class FreelancerProfileService {
     private final FileStorage fileStorage;
     private final SharedMypageApi sharedMypageApi;
 
-<<<<<<< Updated upstream
-    private static final long MAX_AVATAR_BYTES = 5 * 1024 * 1024; // 프로필 이미지 최대 5MB
+    private static final long MAX_AVATAR_BYTES = 5 * 1024 * 1024; // ?꾨줈???대?吏 理쒕? 5MB
 
     @Transactional(readOnly = true)
     public FreelancerProfileResponseDto getProfile(Long userId) {
@@ -85,17 +78,6 @@ public class FreelancerProfileService {
         );
 
         CrmAlertsDto crmAlerts = new CrmAlertsDto(null, null, null);
-=======
-    private static final long MAX_AVATAR_BYTES = 5 * 1024 * 1024; // ????? ??
-        PortfolioInfo portfolioInfo = freelancer.getPortfolioInfo();
-        PortfolioInfoDto portfolioInfoDto = portfolioInfo == null ? null : new PortfolioInfoDto(
-                portfolioInfo.getPortfolioFileUrl(),
-                portfolioInfo.getPortfolioFileName(),
-                portfolioInfo.getPortfolioLastUpdated()
-        );
-
-        CrmAlertsDto crmAlerts = new CrmAlertsDto(false, false, false);
->>>>>>> Stashed changes
 
         FreelancerBasicProfileDto basicProfile = new FreelancerBasicProfileDto(
                 freelancer.getAvatarUrl(),
@@ -246,11 +228,7 @@ public class FreelancerProfileService {
             uploadKey = "freelancers/avatar/" + UUID.randomUUID() + extension;
             String uploadedUrl = fileStorage.upload(fileBytes, uploadKey, file.getContentType());
 
-<<<<<<< Updated upstream
-            // DB 롤백 시 이미 업로드된 S3 파일 삭제 (고아 파일 방지)
-=======
-            // DB ?몃옖??뀡 濡ㅻ갚 ???낅줈?쒕맂 S3 ?뚯씪 ??젣 (怨좎븘 ?뚯씪 諛⑹?)
->>>>>>> Stashed changes
+            // DB 濡ㅻ갚 ???대? ?낅줈?쒕맂 S3 ?뚯씪 ??젣 (怨좎븘 ?뚯씪 諛⑹?)
             String finalUploadKey = uploadKey;
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
@@ -259,11 +237,7 @@ public class FreelancerProfileService {
                         try {
                             fileStorage.deleteByKey(finalUploadKey);
                         } catch (Exception ex) {
-<<<<<<< Updated upstream
-                            log.error("S3 롤백 파일 삭제 실패 - key: {}", finalUploadKey, ex);
-=======
-                            log.error("S3 濡ㅻ갚 ??젣 ?ㅽ뙣 - key: {}", finalUploadKey, ex);
->>>>>>> Stashed changes
+                            log.error("S3 濡ㅻ갚 ?뚯씪 ??젣 ?ㅽ뙣 - key: {}", finalUploadKey, ex);
                         }
                     }
                 }
@@ -275,10 +249,10 @@ public class FreelancerProfileService {
         } catch (BusinessException e) {
             throw e;
         } catch (IOException e) {
-            log.error("S3 ?낅줈???ㅽ뙣 - userId: {}, fileName: {}", userId, file.getOriginalFilename(), e);
+            log.error("S3 ??낆쨮????쎈솭 - userId: {}, fileName: {}", userId, file.getOriginalFilename(), e);
             throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
         } catch (RuntimeException e) {
-            log.error("S3 ?낅줈???ㅽ뙣 - userId: {}, key: {}", userId, uploadKey, e);
+            log.error("S3 ??낆쨮????쎈솭 - userId: {}, key: {}", userId, uploadKey, e);
             throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
     }
@@ -363,3 +337,4 @@ public class FreelancerProfileService {
         return total / count;
     }
 }
+
