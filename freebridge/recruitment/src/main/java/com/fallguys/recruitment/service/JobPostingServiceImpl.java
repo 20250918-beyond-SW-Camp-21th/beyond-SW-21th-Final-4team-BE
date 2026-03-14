@@ -51,6 +51,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.LinkedHashMap;
 
 @Slf4j
 @Service
@@ -430,7 +431,11 @@ public class JobPostingServiceImpl implements JobPostingService {
                     AiRecommendationResponseDTO.class
             );
 
-            List<Long> freelancerIds = aiResults.stream().map(AiRecommendationResponseDTO::id).toList();
+            List<Long> freelancerIds = aiResults.stream()
+                    .map(AiRecommendationResponseDTO::id)
+                    .filter(java.util.Objects::nonNull)
+                    .distinct()
+                    .toList();
             Map<Long, RecruitmentUser> userMap;
             try {
                 userMap = recruitmentUserReader.getFreelancersByIdsOrThrow(freelancerIds);
@@ -439,7 +444,29 @@ public class JobPostingServiceImpl implements JobPostingService {
                 userMap = java.util.Collections.emptyMap();
             }
 
-            final Map<Long, RecruitmentUser> finalUserMap = userMap;
+            Map<Long, RecruitmentUser> combinedUserMap = new LinkedHashMap<>(userMap);
+            List<Long> missingIds = aiResults.stream()
+                    .map(AiRecommendationResponseDTO::id)
+                    .filter(java.util.Objects::nonNull)
+                    .filter(id -> !combinedUserMap.containsKey(id))
+                    .distinct()
+                    .toList();
+            if (!missingIds.isEmpty()) {
+                try {
+                    combinedUserMap.putAll(recruitmentUserReader.getFreelancersByIdsOrThrow(missingIds));
+                } catch (Exception e) {
+                    log.warn("AI 추천 결과 보정 실패 - 누락 프리랜서 일괄 조회 실패", e);
+                    for (Long missingId : missingIds) {
+                        try {
+                            combinedUserMap.put(missingId, recruitmentUserReader.getFreelancerByIdOrThrow(missingId));
+                        } catch (Exception singleFetchException) {
+                            log.warn("AI 추천 결과 보정 실패 - 프리랜서 개별 조회 실패. freelancerId={}", missingId, singleFetchException);
+                        }
+                    }
+                }
+            }
+
+            final Map<Long, RecruitmentUser> finalUserMap = combinedUserMap;
             List<AiRecommendationResponseDTO> result = aiResults.stream().map(dto -> {
                 try {
                     RecruitmentUser f = finalUserMap.get(dto.id());

@@ -1,8 +1,10 @@
 package com.fallguys.mypage.service.freelancer;
 
-import com.fallguys.common.ai.port.ReviewEngine;
-import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerAiPositivityIndexDto;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fallguys.common.ai.dto.FreelancerAiReputationReportDto;
+import com.fallguys.common.ai.port.ReviewEngine;
+import com.fallguys.infra.ai.adapter.AiServiceException;
+import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerAiPositivityIndexDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerEvaluationSummaryDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerStrengthWeaknessDto;
 import com.fallguys.mypage.entity.freelancer.Freelancer;
@@ -12,10 +14,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.time.Duration;
-
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -39,8 +39,14 @@ public class FreelancerReviewService {
      */
     @Transactional(readOnly = true)
     public FreelancerEvaluationSummaryDto getReviewSummary(Long userId) {
-        String redisKey = "freelancer:review:rates:" + userId;
+        Long freelancerId = resolveFreelancerId(userId);
         Integer topPercentile = getTopPercentile(userId);
+
+        if (freelancerId == null) {
+          return FreelancerEvaluationSummaryDto.empty(topPercentile);
+          }
+
+        String redisKey = "freelancer:review:rates:" + freelancerId;
 
         try {
             Object rawData = redisTemplate.opsForValue().get(redisKey);
@@ -60,29 +66,28 @@ public class FreelancerReviewService {
             return FreelancerEvaluationSummaryDto.empty(topPercentile);
 
         } catch (Exception e) {
-            log.error("Failed to parse freelancer review summary from Redis for userId: {}", userId, e);
+            log.error(
+            "Redis에서 프리랜서 리뷰 요약을 파싱하지 못했습니다. userId={}, freelancerId={}",
+             userId,
+              freelancerId,
+              e
+            );
             return FreelancerEvaluationSummaryDto.empty(topPercentile);
         }
     }
 
-    /**
-     * AI 평판 분석 리포트 조회 (Redis 캐싱 적용)
-     * Redis Key: freelancer:review:ai_report:{userId}
-     * TTL: 24시간
-     */
     public FreelancerAiReputationReportDto getAiReputationReport(Long userId) {
-        String ratesRedisKey = "freelancer:review:rates:" + userId;
+        Long freelancerId = resolveFreelancerId(userId);
+        if (freelancerId == null) {
+            log.warn("해당 userId에 대한 프리랜서 엔티티를 찾지 못했습니다. userId={}", userId);
+            return emptyAiReport();
+        }
+
+        String ratesRedisKey = "freelancer:review:rates:" + freelancerId;
         try {
             Object ratesData = redisTemplate.opsForValue().get(ratesRedisKey);
-            // 등록된 리뷰가 명시적으로 비어있을 경우에만 AI 서버 호출 생략
             if (ratesData instanceof List<?> list && list.isEmpty()) {
-                return new FreelancerAiReputationReportDto(
-                        "아직 충분한 리뷰가 등록되지 않았습니다.",
-                        Collections.emptyList(),
-                        Collections.emptyList(),
-                        Collections.emptyList(),
-                        Collections.emptyList()
-                );
+                return emptyAiReport();
             }
             if (ratesData instanceof Map<?, ?> map && map.isEmpty()) {
                 return new FreelancerAiReputationReportDto(
@@ -94,37 +99,38 @@ public class FreelancerReviewService {
                 );
             }
         } catch (Exception e) {
-            log.warn("Failed to check review existence in Redis for userId: {}", userId, e);
+            log.warn("Redis에서 리뷰 존재 여부를 확인하지 못했습니다. freelancerId={}", freelancerId, e);
         }
 
-        String redisKey = "freelancer:review:ai_report:" + userId;
+        String redisKey = "freelancer:review:ai_report:" + freelancerId;
         try {
             Object cachedData = redisTemplate.opsForValue().get(redisKey);
             if (cachedData != null) {
-                // 저장된 캐시가 있을 경우 JSON에서 파싱
                 return objectMapper.convertValue(cachedData, FreelancerAiReputationReportDto.class);
             }
         } catch (Exception e) {
-            log.warn("Failed to get AI reputation report from Redis for userId: {}", userId, e);
+            log.warn("Redis에서 AI 평판 리포트를 조회하지 못했습니다. freelancerId={}", freelancerId, e);
         }
 
-        // 캐시가 없거나, null이어서(ratesData가 아예 없거나) 재생성이 필요한 경우 AI 서버로 호출
-        FreelancerAiReputationReportDto report = reviewEngine.getFreelancerAnalysis(userId);
+        FreelancerAiReputationReportDto report;
+        try {
+            report = reviewEngine.getFreelancerAnalysis(freelancerId);
+        } catch (AiServiceException e) {
+            log.warn("AI 평판 분석을 사용할 수 없습니다. userId={}, freelancerId={}", userId, freelancerId, e);
+            return emptyAiReport();
+        }
 
         try {
             if (report != null) {
                 redisTemplate.opsForValue().set(redisKey, report, Duration.ofHours(24));
             }
         } catch (Exception e) {
-            log.warn("Failed to save AI reputation report to Redis for userId: {}", userId, e);
+            log.warn("AI 평판 리포트를 Redis에 저장하지 못했습니다. freelancerId={}", freelancerId, e);
         }
 
-        return report;
+        return report != null ? report : emptyAiReport();
     }
 
-    /**
-     * AI 평판 긍정 지수 조회
-     */
     public FreelancerAiPositivityIndexDto getAiPositivityIndex(Long userId) {
         FreelancerAiReputationReportDto report = getAiReputationReport(userId);
         if (report == null) {
@@ -135,13 +141,13 @@ public class FreelancerReviewService {
         int count = 0;
 
         if (report.technicalScores() != null) {
-            for (com.fallguys.common.ai.dto.FreelancerAiReputationReportDto.ScoreDto score : report.technicalScores()) {
+            for (FreelancerAiReputationReportDto.ScoreDto score : report.technicalScores()) {
                 totalScore += score.score();
                 count++;
             }
         }
         if (report.softSkills() != null) {
-            for (com.fallguys.common.ai.dto.FreelancerAiReputationReportDto.ScoreDto score : report.softSkills()) {
+            for (FreelancerAiReputationReportDto.ScoreDto score : report.softSkills()) {
                 totalScore += score.score();
                 count++;
             }
@@ -151,7 +157,7 @@ public class FreelancerReviewService {
             return new FreelancerAiPositivityIndexDto(0.0, "POOR");
         }
 
-        double posScore = (totalScore / count) * 20.0; // 5점 만점을 100점 만점으로 변환
+        double posScore = (totalScore / count) * 20.0;
         String grade = "POOR";
         if (posScore >= 90) {
             grade = "EXCELLENT";
@@ -164,10 +170,6 @@ public class FreelancerReviewService {
         return new FreelancerAiPositivityIndexDto(posScore, grade);
     }
 
-    /**
-     * 프리랜서 강점/약점 분석 조회
-     * AI가 분석한 강점 3가지, 약점 3가지를 반환합니다.
-     */
     public FreelancerStrengthWeaknessDto getStrengthWeaknessAnalysis(Long userId) {
         FreelancerAiReputationReportDto report = getAiReputationReport(userId);
         if (report == null) {
@@ -179,16 +181,35 @@ public class FreelancerReviewService {
         );
     }
 
-    // ─── 내부 헬퍼 ──────────────────────────────────────────────
-
     private Integer getTopPercentile(Long userId) {
         try {
             return freelancerRepository.findByUserId(userId)
                     .map(Freelancer::getTopPercentile)
                     .orElse(null);
         } catch (Exception e) {
-            log.warn("Failed to get topPercentile for userId: {}", userId, e);
+            log.warn("상위 백분위 값을 조회하지 못했습니다. userId={}", userId, e);
             return null;
         }
+    }
+
+    private Long resolveFreelancerId(Long userId) {
+        try {
+            return freelancerRepository.findByUserId(userId)
+                    .map(Freelancer::getFreelancerId)
+                    .orElse(null);
+        } catch (Exception e) {
+            log.warn("userId로 freelancerId를 찾지 못했습니다. userId={}", userId, e);
+            return null;
+        }
+    }
+
+    private FreelancerAiReputationReportDto emptyAiReport() {
+        return new FreelancerAiReputationReportDto(
+                "아직 충분한 리뷰가 등록되지 않았습니다.",
+                Collections.emptyList(),
+                Collections.emptyList(),
+                Collections.emptyList(),
+                Collections.emptyList()
+        );
     }
 }
