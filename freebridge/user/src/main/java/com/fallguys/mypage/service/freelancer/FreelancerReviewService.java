@@ -128,7 +128,7 @@ public class FreelancerReviewService {
             log.warn("AI 평판 리포트를 Redis에 저장하지 못했습니다. freelancerId={}", freelancerId, e);
         }
 
-        return report;
+        return report != null ? report : emptyAiReport();
     }
 
     public FreelancerAiPositivityIndexDto getAiPositivityIndex(Long userId) {

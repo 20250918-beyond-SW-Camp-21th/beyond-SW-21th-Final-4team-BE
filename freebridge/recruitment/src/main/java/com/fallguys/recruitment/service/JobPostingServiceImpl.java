@@ -456,6 +456,13 @@ public class JobPostingServiceImpl implements JobPostingService {
                     combinedUserMap.putAll(recruitmentUserReader.getFreelancersByIdsOrThrow(missingIds));
                 } catch (Exception e) {
                     log.warn("AI 추천 결과 보정 실패 - 누락 프리랜서 일괄 조회 실패", e);
+                    for (Long missingId : missingIds) {
+                        try {
+                            combinedUserMap.put(missingId, recruitmentUserReader.getFreelancerByIdOrThrow(missingId));
+                        } catch (Exception singleFetchException) {
+                            log.warn("AI 추천 결과 보정 실패 - 프리랜서 개별 조회 실패. freelancerId={}", missingId, singleFetchException);
+                        }
+                    }
                 }
             }
 
