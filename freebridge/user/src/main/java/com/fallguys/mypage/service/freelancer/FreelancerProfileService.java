@@ -1,4 +1,4 @@
-package com.fallguys.mypage.service.freelancer;
+    package com.fallguys.mypage.service.freelancer;
 
 import com.fallguys.common.exception.BusinessException;
 import com.fallguys.common.exception.ErrorCode;
@@ -41,7 +41,7 @@ public class FreelancerProfileService {
     private final FileStorage fileStorage;
     private final SharedMypageApi sharedMypageApi;
 
-    private static final long MAX_AVATAR_BYTES = 5 * 1024 * 1024; // ?꾨줈???대?吏 理쒕? 5MB
+    private static final long MAX_AVATAR_BYTES = 5 * 1024 * 1024; // 프로필 이미지 최대 허용 크기 5MB
 
     @Transactional(readOnly = true)
     public FreelancerProfileResponseDto getProfile(Long userId) {
@@ -228,7 +228,7 @@ public class FreelancerProfileService {
             uploadKey = "freelancers/avatar/" + UUID.randomUUID() + extension;
             String uploadedUrl = fileStorage.upload(fileBytes, uploadKey, file.getContentType());
 
-            // DB 濡ㅻ갚 ???대? ?낅줈?쒕맂 S3 ?뚯씪 ??젣 (怨좎븘 ?뚯씪 諛⑹?)
+            // DB 롤백 시 이미 업로드된 S3 파일 삭제 (고아 파일 방지)
             String finalUploadKey = uploadKey;
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
@@ -237,7 +237,7 @@ public class FreelancerProfileService {
                         try {
                             fileStorage.deleteByKey(finalUploadKey);
                         } catch (Exception ex) {
-                            log.error("S3 濡ㅻ갚 ?뚯씪 ??젣 ?ㅽ뙣 - key: {}", finalUploadKey, ex);
+                            log.error("S3 롤백 파일 삭제 실패 - key: {}", finalUploadKey, ex);
                         }
                     }
                 }
@@ -249,10 +249,10 @@ public class FreelancerProfileService {
         } catch (BusinessException e) {
             throw e;
         } catch (IOException e) {
-            log.error("S3 ??낆쨮????쎈솭 - userId: {}, fileName: {}", userId, file.getOriginalFilename(), e);
+            log.error("S3 업로드 실패 - userId: {}, fileName: {}", userId, file.getOriginalFilename(), e);
             throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
         } catch (RuntimeException e) {
-            log.error("S3 ??낆쨮????쎈솭 - userId: {}, key: {}", userId, uploadKey, e);
+            log.error("S3 업로드 실패 - userId: {}, key: {}", userId, uploadKey, e);
             throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
     }
@@ -297,44 +297,77 @@ public class FreelancerProfileService {
     }
 
     private Double calculateTotalScore(Expertise expertise, Collaboration collaboration, Double fallbackAverageRate) {
+        Double expertiseAverage = calculateExpertiseAverage(expertise);
+        Double collaborationAverage = calculateCollaborationAverage(collaboration);
+
+        if (expertiseAverage == null) {
+            expertiseAverage = fallbackAverageRate;
+        }
+        if (collaborationAverage == null) {
+            collaborationAverage = fallbackAverageRate;
+        }
+
+        if (expertiseAverage == null && collaborationAverage == null) {
+            return null;
+        }
+        if (expertiseAverage == null) {
+            return collaborationAverage;
+        }
+        if (collaborationAverage == null) {
+            return expertiseAverage;
+        }
+
+        return (expertiseAverage + collaborationAverage) / 2.0;
+    }
+
+    private Double calculateExpertiseAverage(Expertise expertise) {
+        if (expertise == null) {
+            return null;
+        }
+
         int count = 0;
         double total = 0.0;
 
-        if (expertise != null) {
-            if (expertise.getProgramming() != null) {
-                total += expertise.getProgramming();
-                count++;
-            }
-            if (expertise.getFramework() != null) {
-                total += expertise.getFramework();
-                count++;
-            }
-            if (expertise.getProblemSolving() != null) {
-                total += expertise.getProblemSolving();
-                count++;
-            }
+        if (expertise.getProgramming() != null) {
+            total += expertise.getProgramming();
+            count++;
+        }
+        if (expertise.getFramework() != null) {
+            total += expertise.getFramework();
+            count++;
+        }
+        if (expertise.getProblemSolving() != null) {
+            total += expertise.getProblemSolving();
+            count++;
         }
 
-        if (collaboration != null) {
-            if (collaboration.getCommunication() != null) {
-                total += collaboration.getCommunication();
-                count++;
-            }
-            if (collaboration.getScheduleAdherence() != null) {
-                total += collaboration.getScheduleAdherence();
-                count++;
-            }
-            if (collaboration.getDispute() != null) {
-                total += collaboration.getDispute();
-                count++;
-            }
+        return count == 0 ? null : total / count;
+    }
+
+    private Double calculateCollaborationAverage(Collaboration collaboration) {
+        if (collaboration == null) {
+            return null;
         }
 
-        if (count == 0) {
-            return fallbackAverageRate;
+        int count = 0;
+        double total = 0.0;
+
+        if (collaboration.getCommunication() != null) {
+            total += collaboration.getCommunication();
+            count++;
+        }
+        if (collaboration.getScheduleAdherence() != null) {
+            total += collaboration.getScheduleAdherence();
+            count++;
+        }
+        if (collaboration.getDispute() != null) {
+            total += collaboration.getDispute();
+            count++;
         }
 
-        return total / count;
+        return count == 0 ? null : total / count;
     }
 }
+
+
 
