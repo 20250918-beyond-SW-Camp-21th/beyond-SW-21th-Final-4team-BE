@@ -438,7 +438,7 @@ public class JobPostingServiceImpl implements JobPostingService {
                     .toList();
             Map<Long, RecruitmentUser> userMap;
             try {
-                userMap = recruitmentUserReader.getFreelancersByIdsOrThrow(freelancerIds);
+                userMap = recruitmentUserReader.getFreelancersByFreelancerIdsOrThrow(freelancerIds);
             } catch (Exception e) {
                 log.warn("AI 추천 결과 보정 실패 - 프리랜서 일괄 조회 실패", e);
                 userMap = java.util.Collections.emptyMap();
@@ -453,12 +453,12 @@ public class JobPostingServiceImpl implements JobPostingService {
                     .toList();
             if (!missingIds.isEmpty()) {
                 try {
-                    combinedUserMap.putAll(recruitmentUserReader.getFreelancersByIdsOrThrow(missingIds));
+                    combinedUserMap.putAll(recruitmentUserReader.getFreelancersByFreelancerIdsOrThrow(missingIds));
                 } catch (Exception e) {
                     log.warn("AI 추천 결과 보정 실패 - 누락 프리랜서 일괄 조회 실패", e);
                     for (Long missingId : missingIds) {
                         try {
-                            combinedUserMap.put(missingId, recruitmentUserReader.getFreelancerByIdOrThrow(missingId));
+                            combinedUserMap.put(missingId, recruitmentUserReader.getFreelancerByFreelancerIdOrThrow(missingId));
                         } catch (Exception singleFetchException) {
                             log.warn("AI 추천 결과 보정 실패 - 프리랜서 개별 조회 실패. freelancerId={}", missingId, singleFetchException);
                         }
@@ -641,19 +641,19 @@ public class JobPostingServiceImpl implements JobPostingService {
         }
 
         Long freelancerId = project.getFreelancerId();
-        RecruitmentUser freelancer = recruitmentUserReader.getFreelancerByIdOrThrow(freelancerId);
+        RecruitmentUser freelancer = recruitmentUserReader.getFreelancerByFreelancerIdOrThrow(freelancerId);
         String syncContent = String.format("프로젝트 완료: %s", project.getProjectName());
 
         Runnable syncTask = () -> {
             try {
-                recommendationEngine.syncToAiServer(
-                        freelancer.id(),
-                        "experience",
+                recommendationEngine.syncProjectExperience(
+                        projectId,
+                        freelancerId,
                         syncContent,
-                        freelancer.status()
+                        "COMPLETED"
                 );
             } catch (Exception e) {
-                log.error("프로젝트 완료 후 AI 서버 동기화 실패 - 프리랜서 ID: {}, 내용: {}", freelancer.id(), syncContent, e);
+                log.error("프로젝트 완료 후 AI 서버 동기화 실패 - 프리랜서 ID: {}, 내용: {}", freelancerId, syncContent, e);
             }
         };
 
