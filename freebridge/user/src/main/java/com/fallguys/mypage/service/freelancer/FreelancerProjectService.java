@@ -1,6 +1,6 @@
 package com.fallguys.mypage.service.freelancer;
 
-import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerAppliedProjectListDto;
+import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerProjectListDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerProjectStatusStatsDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,12 +41,14 @@ public class FreelancerProjectService {
     }
 
     /**
-     * 프리랜서의 지원/진행 프로젝트 목록 조회 (상태 필터링 지원)
-     * Redis Key: freelancer:project:applied:{freelancerId}
-     * Expected value: List<Map<String, Object>> { projectId, title, employerName, applyStatus, appliedAt }
+     * 프리랜서의 프로젝트 목록 조회 (상태 필터링 지원)
+     * Redis Key: freelancer:project:list:{freelancerId}
+     * Expected value: List<Map<String, Object>> {
+     *     projectId, title, employerName, projectStatus, description, budget, techStack, startDate, endDate
+     * }
      */
-    public List<FreelancerAppliedProjectListDto> getMyProjects(Long freelancerId, String statusFilter) {
-        String redisKey = "freelancer:project:applied:" + freelancerId;
+    public List<FreelancerProjectListDto> getMyProjects(Long freelancerId, String statusFilter) {
+        String redisKey = "freelancer:project:list:" + freelancerId;
         try {
             Object rawData = redisTemplate.opsForValue().get(redisKey);
             if (rawData == null) {
@@ -58,7 +60,7 @@ public class FreelancerProjectService {
             return rawList.stream()
                     .map(data -> {
                         try {
-                            return toAppliedProjectDto(data);
+                            return toProjectDto(data);
                         } catch (Exception e) {
                             log.error("Failed to parse individual project item for freelancerId: {}", freelancerId, e);
                             return null;
@@ -66,24 +68,41 @@ public class FreelancerProjectService {
                     })
                     .filter(Objects::nonNull)
                     .filter(dto -> statusFilter == null || statusFilter.isBlank()
-                            || Objects.equals(dto.applyStatus(), statusFilter))
+                            || Objects.equals(dto.projectStatus(), statusFilter))
                     .toList();
         } catch (Exception e) {
-            log.error("Failed to parse freelancer applied project list from Redis for freelancerId: {}", freelancerId, e);
+            log.error("Failed to parse freelancer project list from Redis for freelancerId: {}", freelancerId, e);
             return Collections.emptyList();
         }
     }
 
-    private FreelancerAppliedProjectListDto toAppliedProjectDto(Map<String, Object> data) {
+    private FreelancerProjectListDto toProjectDto(Map<String, Object> data) {
         if (data == null) return null;
         Long projectId = data.get("projectId") != null
                 ? Long.valueOf(data.get("projectId").toString()) : null;
         String title = data.get("title") != null ? data.get("title").toString() : null;
         String employerName = data.get("employerName") != null ? data.get("employerName").toString() : null;
-        String applyStatus = data.get("applyStatus") != null ? data.get("applyStatus").toString() : null;
-        Long appliedAt = data.get("appliedAt") != null
-                ? Long.valueOf(data.get("appliedAt").toString()) : null;
+        String projectStatus = data.get("projectStatus") != null ? data.get("projectStatus").toString() : null;
+        String description = data.get("description") != null ? data.get("description").toString() : null;
+        Long budget = data.get("budget") != null
+                ? Long.valueOf(data.get("budget").toString()) : null;
+        @SuppressWarnings("unchecked")
+        List<String> techStack = data.get("techStack") instanceof List<?> rawList
+                ? rawList.stream().filter(Objects::nonNull).map(Object::toString).toList()
+                : List.of();
+        String startDate = data.get("startDate") != null ? data.get("startDate").toString() : null;
+        String endDate = data.get("endDate") != null ? data.get("endDate").toString() : null;
 
-        return new FreelancerAppliedProjectListDto(projectId, title, employerName, applyStatus, appliedAt);
+        return new FreelancerProjectListDto(
+                projectId,
+                title,
+                employerName,
+                projectStatus,
+                description,
+                budget,
+                techStack,
+                startDate,
+                endDate
+        );
     }
 }
