@@ -1,6 +1,7 @@
 package com.fallguys.chatting.api.web;
 
 import com.fallguys.chatting.api.web.dto.request.ChatRoomCreateRequest;
+import com.fallguys.chatting.api.web.dto.request.ChatRoomContractUpdateRequest;
 import com.fallguys.chatting.api.web.dto.response.ChatRoomResponse;
 import com.fallguys.chatting.api.web.dto.response.CursorPageResponse;
 import com.fallguys.chatting.api.web.dto.response.ChatMessageResponse;
@@ -56,6 +57,25 @@ public class ChatRoomController {
         String userId = extractUserId(authHeader);
         List<ChatRoomResponse> rooms = chatRoomService.getChatRoomsByParticipant(userId);
         return ResponseEntity.ok(rooms);
+    }
+
+    @PostMapping("/{roomId}/leave")
+    public ResponseEntity<ChatRoomResponse> leaveRoom(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable String roomId) {
+        String userId = extractUserId(authHeader);
+        ChatRoomResponse response = chatRoomService.leaveChatRoom(roomId, userId);
+        return ResponseEntity.ok(response);
+    }
+
+    @PatchMapping("/{roomId}/contract")
+    public ResponseEntity<ChatRoomResponse> updateRoomContract(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable String roomId,
+            @RequestBody ChatRoomContractUpdateRequest request) {
+        String userId = extractUserId(authHeader);
+        ChatRoomResponse response = chatRoomService.updateRoomContract(roomId, userId, request.getContractId());
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{roomId}/messages")

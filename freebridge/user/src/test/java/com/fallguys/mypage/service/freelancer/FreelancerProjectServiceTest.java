@@ -1,6 +1,6 @@
 package com.fallguys.mypage.service.freelancer;
 
-import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerAppliedProjectListDto;
+import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerProjectListDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerProjectStatusStatsDto;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -85,25 +85,27 @@ class FreelancerProjectServiceTest {
     void getMyProjects_SuccessAndFiltered() {
         // given
         Long freelancerId = 1L;
-        String redisKey = "freelancer:project:applied:" + freelancerId;
+        String redisKey = "freelancer:project:list:" + freelancerId;
 
         List<Map<String, Object>> mockList = List.of(
                 Map.of("projectId", 201, "title", "Spring 백엔드 개발", "employerName", "ABC Corp",
-                        "applyStatus", "심사중", "appliedAt", 1740000000000L),
+                        "projectStatus", "IN_PROGRESS", "description", "백엔드 API 개발",
+                        "budget", 5000000L, "techStack", List.of("java", "spring"), "startDate", "2026-03-01", "endDate", "2026-06-30"),
                 Map.of("projectId", 202, "title", "React 프론트개발", "employerName", "XYZ Inc",
-                        "applyStatus", "합격", "appliedAt", 1740100000000L)
+                        "projectStatus", "COMPLETED", "description", "프론트엔드 개발",
+                        "budget", 4000000L, "techStack", List.of("react"), "startDate", "2026-01-01", "endDate", "2026-02-28")
         );
 
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(valueOperations.get(redisKey)).thenReturn(mockList);
 
         // when – "심사중" 필터
-        List<FreelancerAppliedProjectListDto> result = freelancerProjectService.getMyProjects(freelancerId, "심사중");
+        List<FreelancerProjectListDto> result = freelancerProjectService.getMyProjects(freelancerId, "IN_PROGRESS");
 
         // then
         assertThat(result).hasSize(1);
         assertThat(result.get(0).projectId()).isEqualTo(201L);
-        assertThat(result.get(0).applyStatus()).isEqualTo("심사중");
+        assertThat(result.get(0).projectStatus()).isEqualTo("IN_PROGRESS");
     }
 
     @Test
@@ -111,18 +113,18 @@ class FreelancerProjectServiceTest {
     void getMyProjects_NoFilter_ReturnsAll() {
         // given
         Long freelancerId = 1L;
-        String redisKey = "freelancer:project:applied:" + freelancerId;
+        String redisKey = "freelancer:project:list:" + freelancerId;
 
         List<Map<String, Object>> mockList = List.of(
-                Map.of("projectId", 201, "title", "프로젝트A", "employerName", "A사", "applyStatus", "심사중", "appliedAt", 1000L),
-                Map.of("projectId", 202, "title", "프로젝트B", "employerName", "B사", "applyStatus", "합격", "appliedAt", 2000L)
+                Map.of("projectId", 201, "title", "프로젝트A", "employerName", "A사", "projectStatus", "IN_PROGRESS"),
+                Map.of("projectId", 202, "title", "프로젝트B", "employerName", "B사", "projectStatus", "COMPLETED")
         );
 
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(valueOperations.get(redisKey)).thenReturn(mockList);
 
         // when
-        List<FreelancerAppliedProjectListDto> result = freelancerProjectService.getMyProjects(freelancerId, null);
+        List<FreelancerProjectListDto> result = freelancerProjectService.getMyProjects(freelancerId, null);
 
         // then
         assertThat(result).hasSize(2);
@@ -133,37 +135,37 @@ class FreelancerProjectServiceTest {
     void getMyProjects_Empty() {
         // given
         Long freelancerId = 3L;
-        String redisKey = "freelancer:project:applied:" + freelancerId;
+        String redisKey = "freelancer:project:list:" + freelancerId;
 
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(valueOperations.get(redisKey)).thenReturn(null);
 
         // when
-        List<FreelancerAppliedProjectListDto> result = freelancerProjectService.getMyProjects(freelancerId, null);
+        List<FreelancerProjectListDto> result = freelancerProjectService.getMyProjects(freelancerId, null);
 
         // then
         assertThat(result).isEmpty();
     }
 
     @Test
-    @DisplayName("[TDD] 6. 프리랜서 지원 프로젝트 목록 조회: Map 내에 applyStatus 키가 없어도 NPE 없이 null로 파싱한다")
-    void getMyProjects_MissingApplyStatusKey_ReturnsGracefully() {
+    @DisplayName("[TDD] 6. 프리랜서 프로젝트 목록 조회: Map 내에 projectStatus 키가 없어도 NPE 없이 null로 파싱한다")
+    void getMyProjects_MissingProjectStatusKey_ReturnsGracefully() {
         // given
         Long freelancerId = 1L;
-        String redisKey = "freelancer:project:applied:" + freelancerId;
+        String redisKey = "freelancer:project:list:" + freelancerId;
 
         List<Map<String, Object>> mockList = List.of(
-                Map.of("projectId", 301, "title", "키 누락 프로젝트", "employerName", "Z사", "appliedAt", 999L)
+                Map.of("projectId", 301, "title", "키 누락 프로젝트", "employerName", "Z사")
         );
 
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(valueOperations.get(redisKey)).thenReturn(mockList);
 
         // when (null 필터 → 전체 조회)
-        List<FreelancerAppliedProjectListDto> result = freelancerProjectService.getMyProjects(freelancerId, null);
+        List<FreelancerProjectListDto> result = freelancerProjectService.getMyProjects(freelancerId, null);
 
         // then
         assertThat(result).hasSize(1);
-        assertThat(result.get(0).applyStatus()).isNull();
+        assertThat(result.get(0).projectStatus()).isNull();
     }
 }

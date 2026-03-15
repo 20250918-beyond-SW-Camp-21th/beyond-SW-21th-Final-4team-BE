@@ -44,9 +44,6 @@ portone:
 
 fallguys:
   redis:
-  rabbitmq:
-    host: ${RABBIT_HOST:localhost}
-    port: ${RABBIT_PORT:5672}
   ai:
     python-url: ${PYTHON_AI_URL:http://localhost:8000}
   s3:
