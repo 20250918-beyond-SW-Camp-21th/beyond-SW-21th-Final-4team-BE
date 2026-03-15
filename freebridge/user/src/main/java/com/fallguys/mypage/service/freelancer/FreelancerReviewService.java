@@ -265,6 +265,8 @@ public class FreelancerReviewService {
 
     private FreelancerAiReputationReportDto emptyAiReport() {
         return new FreelancerAiReputationReportDto(
+                "미정",
+                0,
                 "아직 충분한 리뷰가 등록되지 않았습니다.",
                 Collections.emptyList(),
                 Collections.emptyList(),
