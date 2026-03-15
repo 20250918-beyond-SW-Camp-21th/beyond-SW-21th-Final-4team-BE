@@ -1,20 +1,45 @@
-import os
 import logging
-from typing import List
+import os
+
 from fastapi import APIRouter, HTTPException
+from langchain_core.documents import Document
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_upstage import ChatUpstage
+
 from database import get_vectorstore
 from models import (
-    EmployerRecommendationResponse, FreelancerMatch, FreelancerMatchList, RecommendationRequest,
-    FreelancerRecommendRequest, JobMatch, JobMatchList, FreelancerRecommendationResponse
+    EmployerRecommendationResponse,
+    FreelancerMatchList,
+    FreelancerRecommendationResponse,
+    FreelancerRecommendRequest,
+    JobMatchList,
+    RecommendationRequest,
 )
-from langchain_upstage import ChatUpstage
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.documents import Document 
-router = APIRouter(prefix="/api/v1", tags=["Recommendation"]) 
+
+router = APIRouter(prefix="/api/v1", tags=["Recommendation"])
 logger = logging.getLogger(__name__)
 
 _vectorstore = None
 _llm = None
+_SYNC_TYPE_PREFIX = {
+    "experience": "exp",
+    "job_posting": "job",
+    "new_profile": "profile",
+}
+
+
+def _parse_ref_id(value):
+    try:
+        if value is None:
+            return None
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _filter_matches_by_allowed_ids(matches, allowed_ids):
+    return [match for match in matches if getattr(match, "id", None) in allowed_ids]
+
 
 def get_llm():
     global _llm
@@ -25,11 +50,13 @@ def get_llm():
         _llm = ChatUpstage(api_key=api_key)
     return _llm
 
+
 def get_vs():
     global _vectorstore
     if _vectorstore is None:
         _vectorstore = get_vectorstore()
     return _vectorstore
+
 
 @router.post("/employer/recommendations", response_model=EmployerRecommendationResponse)
 async def get_job_recommendations(req: RecommendationRequest):
@@ -37,106 +64,183 @@ async def get_job_recommendations(req: RecommendationRequest):
         vs = get_vs()
         llm = get_llm()
         structured_llm = llm.with_structured_output(FreelancerMatchList)
-        
-        search_query = f"{req.title} {req.description}"
 
+        description = req.description.strip() if req.description and req.description.strip() else "(상세 내용 없음)"
+        search_query = f"{req.title} {description}"
 
-        experienced_docs = await vs.as_retriever(search_kwargs={
-            "k": 10, 
-            "filter": {
-                "$and": [
-                    {"type": "experience"},
-                    {"status": {"$ne": "CONTRACTING"}} 
-                ]
+        experienced_docs = await vs.as_retriever(
+            search_kwargs={
+                "k": 10,
+                "filter": {
+                    "$and": [
+                        {"type": "experience"},
+                        {"status": {"$ne": "CONTRACTING"}},
+                    ]
+                },
             }
-        }).ainvoke(search_query)
+        ).ainvoke(search_query)
 
-        newbie_docs = await vs.as_retriever(search_kwargs={
-            "k": 5, 
-            "filter": {
-                "$and": [
-                    {"type": "new_profile"},
-                    {"status": {"$ne": "CONTRACTING"}}
-                ]
+        newbie_docs = await vs.as_retriever(
+            search_kwargs={
+                "k": 5,
+                "filter": {
+                    "$and": [
+                        {"type": "new_profile"},
+                        {"status": {"$ne": "CONTRACTING"}},
+                    ]
+                },
             }
-        }).ainvoke(search_query)
+        ).ainvoke(search_query)
 
-        all_context = "\n\n".join([d.page_content for d in (experienced_docs[:5] + newbie_docs[:2])])
+        candidate_docs = experienced_docs[:5] + newbie_docs[:2]
+        if not candidate_docs:
+            return {"success": True, "data": []}
+        allowed_ids = {
+            ref_id
+            for ref_id in (_parse_ref_id(doc.metadata.get("ref_id")) for doc in candidate_docs)
+            if ref_id is not None
+        }
+        all_context = "\n\n".join(
+            f"CANDIDATE_ID: {doc.metadata.get('ref_id', 'N/A')}\n{doc.page_content}"
+            for doc in candidate_docs
+        )
 
-        prompt = ChatPromptTemplate.from_template("""
-        전문 헤드헌터로서 다음 유저 중 공고에 가장 적합한 7명을 추천하세요.
-        (숙련자 5명, 신입/신규 2명을 가급적 포함하되 적합도가 중요함)
-        <context>{context}</context>
-        """)
-        
-        result = await structured_llm.ainvoke(prompt.format(context=all_context))
-        return {"success": True, "data": result.matches[:7]}
+        prompt = ChatPromptTemplate.from_template(
+            """
+            당신은 채용 공고에 가장 적합한 프리랜서를 추천하는 전문 헤드헌터입니다.
+            반드시 context에 포함된 후보자만 사용하세요.
+            ID, 이름, 가상의 인물을 새로 만들지 마세요.
+            반환하는 id는 반드시 context 안의 CANDIDATE_ID 값 중 하나와 정확히 일치해야 합니다.
+            context에 없는 후보자는 절대 반환하지 마세요.
+            적합도 순으로 최대 7명을 추천하세요.
+            현재 공고 제목: {job_title}
+            현재 공고 상세 내용: {job_description}
+            <context>{context}</context>
+            """
+        )
+
+        result = await structured_llm.ainvoke(
+            prompt.format(
+                job_title=req.title,
+                job_description=description,
+                context=all_context,
+            )
+        )
+        filtered_matches = _filter_matches_by_allowed_ids(result.matches, allowed_ids)
+        return {"success": True, "data": filtered_matches[:7]}
     except Exception as e:
         logger.exception("Employer Recommendation Error")
-        raise HTTPException(status_code=500, detail="Internal error")
+        raise HTTPException(status_code=500, detail="Internal error") from e
+
 
 @router.post("/sync/data")
 async def sync_single_data(data: dict):
     try:
         vs = get_vs()
-        
+        id_val = data.get("id")
+        if not id_val or (isinstance(id_val, str) and not id_val.strip()):
+            logger.error(
+                "Sync skipped because id is missing. type=%s, ref_id=%s",
+                data.get("type"),
+                data.get("refId", data.get("ref_id")),
+            )
+            raise HTTPException(status_code=400, detail="id is required")
+
+        ref_id = _parse_ref_id(data.get("refId", data.get("ref_id")))
+        if ref_id is None:
+            logger.error(
+                "Sync skipped because refId is missing or invalid. type=%s, id=%s",
+                data.get("type"),
+                id_val,
+            )
+            raise HTTPException(status_code=400, detail="refId is required")
+
         doc = Document(
-            page_content=data.get('content', ''),
+            page_content=data.get("content", ""),
             metadata={
-                "id": data.get('id'), 
-                "type": data.get('type'), 
-                "ref_id": data.get('id'),
-                "status": data.get('status', 'POTENTIAL')
-            }
+                "id": id_val,
+                "type": data.get("type"),
+                "ref_id": ref_id,
+                "status": data.get("status", "POTENTIAL"),
+            },
         )
-        
-        if data.get('type') == "experience":
-            prefix = "exp"
-        elif data.get('type') == "job_posting":
-            prefix = "job"
-        else:
-            prefix = "user"
-            
-        vs.add_documents([doc], ids=[f"{prefix}:{data['id']}"])
-        
-        logger.info(f"Sync Success: {prefix}:{data['id']} | Status: {data.get('status')}")
+
+        data_type = data.get("type")
+        prefix = _SYNC_TYPE_PREFIX.get(data_type)
+        if prefix is None:
+            logger.error("Sync skipped because type is missing or invalid. type=%s, id=%s", data_type, id_val)
+            raise HTTPException(status_code=400, detail="type is invalid")
+
+        await vs.aadd_documents([doc], ids=[f"{prefix}:{id_val}"])
+
+        logger.info(
+            "Sync Success: %s:%s | ref_id=%s | Status=%s",
+            prefix,
+            id_val,
+            ref_id,
+            data.get("status"),
+        )
         return {"success": True}
     except Exception as e:
         logger.exception("Sync Error")
-        raise HTTPException(status_code=500, detail="Sync failed")
-    
+        if isinstance(e, HTTPException):
+            raise
+        raise HTTPException(status_code=500, detail="Sync failed") from e
+
 
 @router.post("/freelancer/recommendations", response_model=FreelancerRecommendationResponse)
 async def get_freelancer_recommendations(req: FreelancerRecommendRequest):
     try:
         llm = get_llm()
         vs = get_vs()
-        
         structured_llm = llm.with_structured_output(JobMatchList)
 
-        prompt = ChatPromptTemplate.from_template("""
-        당신은 IT 전문 커리어 코치입니다. 프리랜서의 역량을 분석하여 가장 적합한 프로젝트 공고를 추천하세요.
-        - 최대 5개 추천 / 사유 금지 / 데이터만 추출 (ID, 제목, 점수)
-        
-        프리랜서 기술: {skills}
-        프리랜서 경력: {experience}
-        <context>{context}</context>
-        """)
+        prompt = ChatPromptTemplate.from_template(
+            """
+            당신은 프리랜서에게 적합한 공고를 추천하는 IT 커리어 코치입니다.
+            반드시 context에 포함된 공고만 사용하세요.
+            ID나 제목을 새로 만들지 마세요.
+            반환하는 id는 반드시 context 안의 JOB_ID 값 중 하나와 정확히 일치해야 합니다.
+            적합도 순으로 최대 5개의 공고를 추천하세요.
 
-        search_query = f"{req.skills} {req.experience}"
-        retriever = vs.as_retriever(search_kwargs={
-            "k": 15,
-            "filter": {"type": "job_posting"}
-        }) 
-        
-        docs = await retriever.ainvoke(search_query) 
-        context = "\n\n".join(doc.page_content for doc in docs)
-        
-        formatted_prompt = prompt.format(skills=req.skills, experience=req.experience, context=context)
+            프리랜서 보유 기술: {skills}
+            프리랜서 경력: {experience}
+            <context>{context}</context>
+            """
+        )
+
+        experience = req.experience.strip() if req.experience and req.experience.strip() else "(경력 정보 없음)"
+        search_query = f"{req.skills} {experience}"
+        retriever = vs.as_retriever(
+            search_kwargs={
+                "k": 15,
+                "filter": {
+                    "$and": [
+                        {"type": "job_posting"},
+                        {"status": "ACTIVE"},
+                    ]
+                },
+            }
+        )
+
+        docs = await retriever.ainvoke(search_query)
+        if not docs:
+            return {"success": True, "data": []}
+        allowed_ids = {
+            ref_id
+            for ref_id in (_parse_ref_id(doc.metadata.get("ref_id")) for doc in docs)
+            if ref_id is not None
+        }
+        context = "\n\n".join(
+            f"JOB_ID: {doc.metadata.get('ref_id', 'N/A')}\n{doc.page_content}"
+            for doc in docs
+        )
+
+        formatted_prompt = prompt.format(skills=req.skills, experience=experience, context=context)
         result = await structured_llm.ainvoke(formatted_prompt)
+        filtered_matches = _filter_matches_by_allowed_ids(result.matches, allowed_ids)
 
-        return {"success": True, "data": result.matches[:5]}
-
+        return {"success": True, "data": filtered_matches[:5]}
     except HTTPException:
         raise
     except Exception as e:

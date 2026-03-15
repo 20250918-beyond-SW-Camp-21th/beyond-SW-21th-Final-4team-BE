@@ -12,6 +12,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -131,10 +133,27 @@ public class ContractService {
         return toResponse(contract);
     }
 
-    public ContractResponse sign(Long contractId, String signature, String role, Long userId) {
+    public ContractResponse sign(Long contractId, SignContractRequest request, String role, Long userId) {
+        if (request == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        String signature = request.getSignature();
+        if (signature == null || signature.isBlank()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
         Contract contract = findByContractId(contractId);
         validateOwnership(contract, userId);
         contract.signBy(role, signature);
+
+        // 프리랜서 서명 시 주소/연락처 업데이트 (계약 생성 시 미입력 가능 → 서명 시 확정)
+        if ("FREELANCER".equalsIgnoreCase(role)) {
+            if (request.getFreelancerAddress() != null && !request.getFreelancerAddress().isBlank()) {
+                contract.setFreelancerAddress(request.getFreelancerAddress());
+            }
+            if (request.getFreelancerPhone() != null && !request.getFreelancerPhone().isBlank()) {
+                contract.setFreelancerPhone(request.getFreelancerPhone());
+            }
+        }
 
         if (contract.isActivatable()) {
             contract.activate();
@@ -144,7 +163,17 @@ public class ContractService {
             contract.setSignedPdfUrl(signedPdfUrl);
 
             Contract saved = contractRepository.save(contract);
-            eventPublisher.publishEvent(new ContractActivatedEvent(this, saved.getId()));
+
+            // Publish the event only after the current transaction has committed so that
+            // async or transactional listeners never observe uncommitted contract data.
+            final Long activatedContractId = saved.getId();
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    eventPublisher.publishEvent(new ContractActivatedEvent(ContractService.this, activatedContractId));
+                }
+            });
+
             return toResponse(saved);
         }
 
@@ -163,6 +192,19 @@ public class ContractService {
         validateOwnership(contract, userId);
         contract.reject();
         return toResponse(contractRepository.save(contract));
+    }
+
+    @Transactional(readOnly = true)
+    public String getPdfDownloadUrl(Long contractId, Long userId) {
+        Contract contract = findByContractId(contractId);
+        validateOwnership(contract, userId);
+        String key = contract.getSignedPdfUrl() != null
+                ? contract.getSignedPdfUrl()
+                : contract.getContractPdfUrl();
+        if (key == null) {
+            throw new BusinessException(ErrorCode.CONTRACT_NOT_FOUND);
+        }
+        return contractPdfService.generatePresignedUrl(key);
     }
 
     private Contract findByContractId(Long contractId) {

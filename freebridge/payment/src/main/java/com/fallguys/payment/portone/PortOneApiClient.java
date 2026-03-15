@@ -3,6 +3,7 @@ package com.fallguys.payment.portone;
 import com.fallguys.common.exception.BusinessException;
 import com.fallguys.common.exception.ErrorCode;
 import com.fallguys.payment.config.PortOneProperties;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -13,7 +14,6 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 /**
  * PortOne V2 REST API 클라이언트
@@ -32,26 +32,43 @@ public class PortOneApiClient {
 
     private final PortOneProperties portOneProperties;
 
+    private final ObjectMapper objectMapper;
+
     /**
      * 결제 정보 단건 조회
      * GET /payments/{paymentId}
      */
     public PortOnePaymentInfo getPayment(String paymentId) {
         try {
-            return webClient.get()
+            // 먼저 raw String으로 받아 응답 본문을 로그에 찍은 뒤 수동 파싱
+            String rawBody = webClient.get()
                     .uri("/payments/{paymentId}", paymentId)
                     .retrieve()
                     .onStatus(HttpStatus.NOT_FOUND::equals,
                             response -> response.bodyToMono(String.class)
                                     .map(body -> new BusinessException(ErrorCode.PAYMENT_NOT_FOUND)))
-                    .bodyToMono(PortOnePaymentInfo.class)
+                    .bodyToMono(String.class)
                     .block();
+
+            if (rawBody == null || rawBody.isBlank()) {
+                log.error("PortOne getPayment 빈 응답: paymentId={}", paymentId);
+                throw new BusinessException(ErrorCode.PAYMENT_FAILED);
+            }
+
+            return objectMapper.readValue(rawBody, PortOnePaymentInfo.class);
+
+        } catch (BusinessException e) {
+            throw e;
         } catch (WebClientResponseException e) {
-            log.error("PortOne getPayment 오류: paymentId={}, status={}, body={}",
+            log.error("PortOne getPayment HTTP 오류: paymentId={}, status={}, body={}",
                     paymentId, e.getStatusCode(), e.getResponseBodyAsString());
             if (e.getStatusCode() == HttpStatus.NOT_FOUND) {
                 throw new BusinessException(ErrorCode.PAYMENT_NOT_FOUND);
             }
+            throw new BusinessException(ErrorCode.PAYMENT_FAILED);
+        } catch (Exception e) {
+            log.error("PortOne getPayment 처리 오류: paymentId={}, exceptionType={}, message={}",
+                    paymentId, e.getClass().getName(), e.getMessage());
             throw new BusinessException(ErrorCode.PAYMENT_FAILED);
         }
     }
@@ -60,11 +77,16 @@ public class PortOneApiClient {
      * 빌링키로 즉시 결제
      * POST /payments/{paymentId}/billing-key
      *
+     * [포트원 V2 응답 구조 주의]
+     * 빌링키 결제 API의 응답은 {"payment": {"pgTxId": "...", "paidAt": "..."}} 형태로
+     * pgTxId와 paidAt만 포함합니다. status나 amount 등 전체 결제 정보가 없으므로
+     * 결제 요청 후 getPayment()를 별도 호출하여 실제 결제 상태를 확인합니다.
+     *
      * 테스트 모드에서는 테스트 빌링키를 사용하며 실제 결제가 발생하지 않습니다.
      * channelKey를 명시하여 테스트 채널로 정확히 라우팅합니다.
      */
-    public PortOnePaymentInfo chargeBillingKey(String billingKey, long amount, String orderName, String customerId) {
-        String paymentId = "sub-" + UUID.randomUUID();
+    public PortOnePaymentInfo chargeBillingKey(String paymentId, String billingKey, long amount, String orderName,
+            String customerId) {
 
         Map<String, Object> body = new HashMap<>();
         body.put("billingKey", billingKey);
@@ -82,21 +104,26 @@ public class PortOneApiClient {
         log.info("PortOne 빌링키 결제 요청: paymentId={}, amount={}, customerId={}", paymentId, amount, customerId);
 
         try {
-            return webClient.post()
+            // 빌링키 결제 요청 — 응답 본문(pgTxId, paidAt)은 사용하지 않고 소비만 함
+            webClient.post()
                     .uri("/payments/{paymentId}/billing-key", paymentId)
                     .bodyValue(body)
                     .retrieve()
-                    .bodyToMono(PortOnePaymentInfo.class)
+                    .bodyToMono(String.class)
                     .block();
         } catch (WebClientResponseException e) {
             log.error("PortOne chargeBillingKey 오류: billingKey={}, status={}, body={}",
                     billingKey, e.getStatusCode(), e.getResponseBodyAsString());
             throw new BusinessException(ErrorCode.PAYMENT_FAILED);
         }
+
+        // 실제 결제 상태(PAID 여부, amount 등)를 getPayment()로 재조회하여 반환
+        log.info("PortOne 빌링키 결제 완료, 결제 상태 재조회: paymentId={}", paymentId);
+        return getPayment(paymentId);
     }
 
     /**
-     * 포트원 결제 부분 취소
+     * 포트원 결제 부분 취소 (보상 트랜잭션용)
      * POST /payments/{paymentId}/cancel
      */
     public PortOnePaymentInfo cancelPayment(String paymentId, long amount, String reason) {
@@ -107,15 +134,27 @@ public class PortOneApiClient {
         log.info("PortOne 결제 취소 요청: paymentId={}, amount={}, reason={}", paymentId, amount, reason);
 
         try {
-            return webClient.post()
+            String rawBody = webClient.post()
                     .uri("/payments/{paymentId}/cancel", paymentId)
                     .bodyValue(body)
                     .retrieve()
-                    .bodyToMono(PortOnePaymentInfo.class)
+                    .bodyToMono(String.class)
                     .block();
+
+            if (rawBody == null || rawBody.isBlank()) {
+                log.warn("PortOne cancelPayment 빈 응답: paymentId={}", paymentId);
+                return null;
+            }
+
+            return objectMapper.readValue(rawBody, PortOnePaymentInfo.class);
+
         } catch (WebClientResponseException e) {
             log.error("PortOne cancelPayment 오류: paymentId={}, status={}, body={}",
                     paymentId, e.getStatusCode(), e.getResponseBodyAsString());
+            throw new BusinessException(ErrorCode.PAYMENT_FAILED);
+        } catch (Exception e) {
+            log.error("PortOne cancelPayment 처리 오류: paymentId={}, exceptionType={}, message={}",
+                    paymentId, e.getClass().getName(), e.getMessage());
             throw new BusinessException(ErrorCode.PAYMENT_FAILED);
         }
     }

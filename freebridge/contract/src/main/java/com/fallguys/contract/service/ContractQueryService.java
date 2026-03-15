@@ -1,9 +1,9 @@
 package com.fallguys.contract.service;
 
+import com.fallguys.common.api.contract.ContractInfo;
+import com.fallguys.common.api.contract.ContractQuery;
 import com.fallguys.common.exception.BusinessException;
 import com.fallguys.common.exception.ErrorCode;
-import com.fallguys.contract.api.shared.ContractInfo;
-import com.fallguys.contract.api.shared.ContractQuery;
 import com.fallguys.contract.repository.ContractRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -31,7 +31,7 @@ public class ContractQueryService implements ContractQuery {
                 c.getPaymentDay(),
                 c.getStartDate(),
                 c.getEndDate(),
-                c.getBudget()
-        );
+                c.getBudget(),
+                c.getEmployerBusinessName());
     }
 }

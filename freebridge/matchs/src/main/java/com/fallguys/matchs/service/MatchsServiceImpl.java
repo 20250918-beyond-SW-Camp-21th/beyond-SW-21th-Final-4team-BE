@@ -22,6 +22,7 @@ import com.fallguys.recruitment.service.JobPostingService;
 import com.fallguys.user.entity.Role;
 import com.fallguys.user.entity.User;
 import com.fallguys.user.repository.UserRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -72,6 +73,7 @@ public class MatchsServiceImpl implements MatchsService {
     public Long createApplication(Long freelancerId, ApplicationCreateRequest request) {
         getUserByRoleOrThrow(freelancerId, Role.FREELANCER);
         JobPosting jobPosting = getOpenJobPostingOrThrow(request.jobPostingId());
+        validateNoDuplicateApplication(request.jobPostingId(), freelancerId);
 
         Application application = Application.create(
                 jobPosting.getId(),
@@ -80,7 +82,7 @@ public class MatchsServiceImpl implements MatchsService {
                 request.message()
         );
 
-        Long applicationId = applicationRepo.save(application).getId();
+        Long applicationId = saveApplication(application).getId();
         runAfterCommitSafely(() -> {
             refreshEmployerProjectStats(jobPosting.getEmployerId());
             refreshEmployerProjectList(jobPosting.getEmployerId());
@@ -101,6 +103,7 @@ public class MatchsServiceImpl implements MatchsService {
         if (!jobPosting.getEmployerId().equals(employerId)) {
             throw new BusinessException(ErrorCode.JOB_POSTING_FORBIDDEN);
         }
+        validateNoDuplicateProposal(request.jobPostingId(), request.freelancerId());
 
         Proposal proposal = Proposal.create(
                 request.jobPostingId(),
@@ -109,7 +112,7 @@ public class MatchsServiceImpl implements MatchsService {
                 request.message()
         );
 
-        Long proposalId = proposalRepo.save(proposal).getId();
+        Long proposalId = saveProposal(proposal).getId();
         runAfterCommitSafely(() -> {
             refreshEmployerProjectStats(employerId);
             refreshEmployerProjectList(employerId);
@@ -170,6 +173,7 @@ public class MatchsServiceImpl implements MatchsService {
         validatePending(application.getStatus());
 
         application.reject();
+        ensureRejectedProjectHistory(application.getJobPostingId(), application.getFreelancerId());
         runAfterCommitSafely(() -> {
             refreshEmployerProjectStats(application.getEmployerId());
             refreshEmployerProjectList(application.getEmployerId());
@@ -190,6 +194,7 @@ public class MatchsServiceImpl implements MatchsService {
         validatePending(proposal.getStatus());
 
         proposal.reject();
+        ensureRejectedProjectHistory(proposal.getJobPostingId(), freelancerId);
         runAfterCommitSafely(() -> {
             refreshEmployerProjectStats(proposal.getEmployerId());
             refreshEmployerProjectList(proposal.getEmployerId());
@@ -263,6 +268,13 @@ public class MatchsServiceImpl implements MatchsService {
         JobPosting jobPosting = getOpenJobPostingForUpdateOrThrow(jobPostingId);
         Project existing = projectPostingRepo.findByJobPostingIdAndFreelancerId(jobPostingId, freelancerId).orElse(null);
         if (existing != null) {
+            if (existing.getStatus() == ProjectStatus.CANCELLED) {
+                if (jobPosting.isRecruitmentFull()) {
+                    throw new BusinessException(ErrorCode.JOB_POSTING_HEADCOUNT_FULL);
+                }
+                existing.reopen();
+                jobPosting.matchFreelancer();
+            }
             return existing.getId();
         }
 
@@ -274,6 +286,18 @@ public class MatchsServiceImpl implements MatchsService {
         Long projectId = projectPostingRepo.save(project).getId();
         jobPosting.matchFreelancer();
         return projectId;
+    }
+
+    private Long ensureRejectedProjectHistory(Long jobPostingId, Long freelancerId) {
+        JobPosting jobPosting = getJobPostingForProjectHistoryOrThrow(jobPostingId);
+        Project existing = projectPostingRepo.findByJobPostingIdAndFreelancerId(jobPostingId, freelancerId).orElse(null);
+        if (existing != null) {
+            return existing.getId();
+        }
+
+        Project project = Project.create(jobPosting, freelancerId);
+        project.cancel();
+        return projectPostingRepo.save(project).getId();
     }
 
     private Application getApplicationOrThrow(Long applicationId) {
@@ -302,6 +326,43 @@ public class MatchsServiceImpl implements MatchsService {
             throw new BusinessException(ErrorCode.JOB_POSTING_ALREADY_DELETED);
         }
         return jobPosting;
+    }
+
+    private JobPosting getJobPostingForProjectHistoryOrThrow(Long jobPostingId) {
+        return jobPostingRepo.findByIdForUpdate(jobPostingId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.JOB_POSTING_NOT_FOUND));
+    }
+
+    private void validateNoDuplicateApplication(Long jobPostingId, Long freelancerId) {
+        if (applicationRepo.existsByJobPostingIdAndFreelancerId(jobPostingId, freelancerId)) {
+            throw duplicateMatchRequest();
+        }
+    }
+
+    private void validateNoDuplicateProposal(Long jobPostingId, Long freelancerId) {
+        if (proposalRepo.existsByJobPostingIdAndFreelancerId(jobPostingId, freelancerId)) {
+            throw duplicateMatchRequest();
+        }
+    }
+
+    private Application saveApplication(Application application) {
+        try {
+            return applicationRepo.save(application);
+        } catch (DataIntegrityViolationException e) {
+            throw duplicateMatchRequest();
+        }
+    }
+
+    private Proposal saveProposal(Proposal proposal) {
+        try {
+            return proposalRepo.save(proposal);
+        } catch (DataIntegrityViolationException e) {
+            throw duplicateMatchRequest();
+        }
+    }
+
+    private BusinessException duplicateMatchRequest() {
+        return new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
     }
 
     private User getUserByRoleOrThrow(Long userId, Role role) {
@@ -407,11 +468,8 @@ public class MatchsServiceImpl implements MatchsService {
             item.put("applicantCount", applicantCountsByPostingId.getOrDefault(posting.getId(), 0));
             item.put("createdAt", formatIsoSeconds(posting.getCreatedAt()));
 
-            LocalDateTime deadline = posting.getCreatedAt();
-            if (posting.getDuration() != null && posting.getDuration() > 0) {
-                deadline = deadline.plusDays(posting.getDuration());
-            }
-            item.put("deadline", formatIsoSeconds(deadline));
+            // Job posting duration is an estimated project period in months, not a recruitment deadline.
+            item.put("deadline", null);
             payload.add(item);
         }
 

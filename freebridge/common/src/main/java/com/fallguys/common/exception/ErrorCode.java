@@ -14,6 +14,7 @@ public enum ErrorCode {
     EMAIL_DUPLICATE(409, "U001", "이미 사용 중인 이메일입니다."),
     USER_NOT_FOUND(404, "U002", "사용자를 찾을 수 없습니다."),
     INVALID_PASSWORD(401, "U003", "비밀번호가 일치하지 않습니다."),
+    UNAUTHORIZED(401, "U007", "Authentication required."),
     EMAIL_NOT_VERIFIED(403, "U004", "이메일 인증이 완료되지 않았습니다."),
     INVALID_VERIFICATION_CODE(400, "U005", "인증 코드가 올바르지 않거나 만료되었습니다."),
     VERIFICATION_CODE_EXPIRED(400, "U006", "인증 코드가 만료되었습니다."),
@@ -55,7 +56,10 @@ public enum ErrorCode {
     SUBSCRIPTION_SAME_PLAN(400, "SUB003", "현재와 동일한 플랜으로는 변경할 수 없습니다."),
     SUBSCRIPTION_BILLING_KEY_REQUIRED(400, "SUB004", "유료 플랜 변경에는 billingKey가 필요합니다."),
     SUBSCRIPTION_CANCEL_REQUIRED(400, "SUB005", "무료 플랜 전환은 구독 취소 기능을 이용해주세요."),
-    SUBSCRIPTION_ALREADY_BASIC(400, "SUB006", "이미 BASIC 플랜을 사용 중입니다.");
+    SUBSCRIPTION_ALREADY_BASIC(400, "SUB006", "이미 BASIC 플랜을 사용 중입니다."),
+
+    // Resume
+    RESUME_NOT_FOUND(404, "RES001", "이력서를 찾을 수 없습니다.");
 
     private final int status;
     private final String code;

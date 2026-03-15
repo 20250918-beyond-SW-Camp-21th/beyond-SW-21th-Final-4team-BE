@@ -1,32 +1,31 @@
 package com.fallguys.contract.service;
 
+import com.fallguys.common.port.FileStorage;
 import com.fallguys.contract.entity.Contract;
 import com.lowagie.text.*;
 import com.lowagie.text.pdf.*;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.awt.Color;
-import java.io.FileOutputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 
 /**
- * PDF 생성후 URL 저장
- * TODO: 지금은 pdfs라는 폴더에 저장하지만 추후에 서버에 저장하게 수정
+ * PDF 생성후 S3에 저장하고 URL 반환
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class ContractPdfService {
 
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy년 MM월 dd일");
     private static final DateTimeFormatter DT_FMT   = DateTimeFormatter.ofPattern("yyyy년 MM월 dd일 HH:mm");
 
-    private static final String CLASSPATH_FONT = "fonts/korean.ttf";
+    private static final String CLASSPATH_FONT = "fonts/NanumGothic.ttf";
     private static final String[] SYSTEM_FONT_PATHS = {
             // Windows fonts
             "C:\\Windows\\Fonts\\malgun.ttf",              // 맑은 고딕 (Malgun Gothic)
@@ -42,12 +41,9 @@ public class ContractPdfService {
             "/usr/share/fonts/truetype/nanum/NanumBarunGothic.ttf",
     };
 
-    @Value("${contract.pdf.dir:./pdfs/contracts}")
-    private String pdfDir;
+    private static final String CONTENT_TYPE_PDF = "application/pdf";
 
-    @Value("${contract.pdf.url-prefix:/pdfs/contracts}")
-    private String urlPrefix;
-
+    private final FileStorage fileStorage;
 
     public String generateContractPdf(Contract contract) {
         return generate(contract, false);
@@ -75,15 +71,14 @@ public class ContractPdfService {
 
     private String generate(Contract contract, boolean withSignatures) {
         log.info("Starting PDF generation for contract {}", contract.getContractId());
-        ensureDirectory();
 
         String suffix   = withSignatures ? "_signed" : "_contract";
         String fileName = contract.getContractId() + suffix + ".pdf";
-        String filePath = pdfDir + "/" + fileName;
+        String key = "contracts/" + fileName;
 
         Document doc = new Document(PageSize.A4, 60, 60, 60, 60);
-        try (FileOutputStream out = new FileOutputStream(filePath)) {
-            log.info("Creating PDF document at: {}", filePath);
+        try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            log.info("Creating PDF document for S3 key: {}", key);
             PdfWriter writer = PdfWriter.getInstance(doc, out);
             log.info("PdfWriter created successfully");
             doc.open();
@@ -92,13 +87,18 @@ public class ContractPdfService {
             log.info("Content built, closing document...");
             doc.close();
             log.info("Document closed successfully");
+            fileStorage.upload(out.toByteArray(), key, CONTENT_TYPE_PDF);
         } catch (Exception e) {
             log.error("PDF generation failed for contract {}: {}", contract.getContractId(), e.getMessage(), e);
             throw new RuntimeException("계약서 PDF 생성 실패: " + fileName, e);
         }
 
-        log.info("계약서 PDF 생성 완료: {}", filePath);
-        return urlPrefix + "/" + fileName;
+        log.info("계약서 PDF 생성 완료: {}", key);
+        return key;
+    }
+
+    public String generatePresignedUrl(String key) {
+        return fileStorage.generatePresignedUrl(key);
     }
 
     private void buildContent(Document doc, Contract contract, boolean withSignatures)
@@ -205,7 +205,7 @@ public class ContractPdfService {
                 labelFont, bodyFont));
 
         sigTable.addCell(signatureCell(
-                "프리랜서", null, freeSignedAt,
+                "프리랜서", contract.getFreelancerName(), freeSignedAt,
                 withSignatures ? contract.getFreelancerSignature() : null,
                 labelFont, bodyFont));
 
@@ -229,16 +229,16 @@ public class ContractPdfService {
         if (name != null && !name.isBlank()) {
             cell.addElement(new Paragraph("이름: " + name, bodyFont));
         }
-        if (signedAt != null) {
-            cell.addElement(new Paragraph("서명일: " + signedAt, bodyFont));
-        }
 
+        // 서명 이미지를 서명일 위에 배치
         if (base64Sig != null && !base64Sig.isBlank()) {
             try {
-                String raw     = base64Sig.replaceFirst("^data:image/[a-z]+;base64,", "");
+                String raw      = base64Sig.replaceFirst("^data:image/[a-z]+;base64,", "");
                 byte[] imgBytes = Base64.getDecoder().decode(raw);
                 Image sig = Image.getInstance(imgBytes);
                 sig.scaleToFit(160, 60);
+                sig.setSpacingBefore(6f);
+                sig.setSpacingAfter(4f);
                 cell.addElement(sig);
             } catch (Exception e) {
                 log.warn("서명 이미지 임베드 실패: {}", e.getMessage());
@@ -246,6 +246,10 @@ public class ContractPdfService {
             }
         } else {
             cell.addElement(new Paragraph("\n\n(서명 미완료)", bodyFont));
+        }
+
+        if (signedAt != null) {
+            cell.addElement(new Paragraph("서명일: " + signedAt, bodyFont));
         }
 
         return cell;
@@ -300,14 +304,6 @@ public class ContractPdfService {
             return BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
         } catch (Exception e) {
             throw new RuntimeException("기본 폰트 로드 실패", e);
-        }
-    }
-
-    private void ensureDirectory() {
-        try {
-            Files.createDirectories(Path.of(pdfDir));
-        } catch (IOException e) {
-            throw new RuntimeException("PDF 저장 폴더 생성 실패: " + pdfDir, e);
         }
     }
 

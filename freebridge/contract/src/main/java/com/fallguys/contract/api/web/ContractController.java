@@ -18,7 +18,7 @@ import java.util.List;
 
 @Tag(name = "Contract", description = "계약 관련 API")
 @RestController
-@RequestMapping("/api/v1/contracts")
+@RequestMapping("/api/contracts")
 @RequiredArgsConstructor
 public class ContractController {
 
@@ -39,7 +39,6 @@ public class ContractController {
         }
 
         ContractResponse response = contractService.createContract(request, userId);
-        response = contractService.sign(response.getContractId(), request.getEmployerSignature(), role, userId);
         ApiResponse<ContractResponse> apiResponse = ApiResponse.created(response);
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
@@ -85,7 +84,7 @@ public class ContractController {
         Long userId = principal.getId();
         String userRole = principal.getRole();
 
-        ContractResponse response = contractService.sign(contractId, request.getSignature(), userRole, userId);
+        ContractResponse response = contractService.sign(contractId, request, userRole, userId);
         ApiResponse<ContractResponse> apiResponse = ApiResponse.ok(response);
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
@@ -120,7 +119,6 @@ public class ContractController {
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 
-    // TODO: AWS에 올리면 E3에서 제대로 된 주소로 반환하게 수정
     @Operation(summary = "계약서 PDF URL 조회", description = "계약서의 PDF 파일 URL을 반환합니다. 서명 완료 전에는 미리보기 PDF URL, 서명 완료 후에는 서명본 PDF URL이 반환됩니다.")
     @GetMapping("/{contractId}/pdf")
     public ResponseEntity<ApiResponse<String>> getPdf(
@@ -129,8 +127,8 @@ public class ContractController {
 
         Long userId = principal.getId();
 
-        String pdfUrl = contractService.getContract(contractId, userId).getContractPdfUrl();
-        ApiResponse<String> apiResponse = ApiResponse.ok(pdfUrl);
+        String downloadUrl = contractService.getPdfDownloadUrl(contractId, userId);
+        ApiResponse<String> apiResponse = ApiResponse.ok(downloadUrl);
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 }

@@ -51,6 +51,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.LinkedHashMap;
 
 @Slf4j
 @Service
@@ -65,6 +66,11 @@ public class JobPostingServiceImpl implements JobPostingService {
     private static final String EMPLOYER_PROJECT_LIST_KEY_PREFIX = "employer:project:list:";
     private static final String FREELANCER_PROJECT_STATS_KEY_PREFIX = "freelancer:project:stats:";
     private static final DateTimeFormatter ISO_SECONDS_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+    private static final Duration AI_RECOMMENDATION_CACHE_TTL = Duration.ofHours(24);
+    private static final Duration AI_RECOMMENDATION_LOCK_TTL = Duration.ofMinutes(10);
+    private static final Duration AI_RECOMMENDATION_WAIT_TIMEOUT = Duration.ofSeconds(3);
+    private static final Duration AI_RECOMMENDATION_WAIT_INTERVAL = Duration.ofMillis(200);
+    private static final int AI_RECOMMENDATION_WARM_UP_LIMIT = 3;
 
     private final JobPostingRepo jobPostingRepo;
     private final JobPostingFavoriteRepo jobPostingFavoriteRepo;
@@ -74,6 +80,10 @@ public class JobPostingServiceImpl implements JobPostingService {
     private final RedisTemplate<String, Object> redisTemplate;
     private final ObjectMapper objectMapper;
 
+    @org.springframework.beans.factory.annotation.Autowired
+    @org.springframework.context.annotation.Lazy
+    private JobPostingService self;
+
     @Override
     @Transactional(readOnly = true)
     public List<JobPostingSearchDTO> getJobPostings(Long userId) {
@@ -82,6 +92,7 @@ public class JobPostingServiceImpl implements JobPostingService {
 
         List<JobPostingSearchDTO> cached = readCache(cacheKey, new TypeReference<>() {});
         if (cached != null) {
+            warmUpFreelancerRecommendationCaches(user.id(), cached, AI_RECOMMENDATION_WARM_UP_LIMIT);
             return cached;
         }
 
@@ -90,6 +101,7 @@ public class JobPostingServiceImpl implements JobPostingService {
                 .map(this::toJobPostingSearchDto)
                 .toList();
         writeCache(cacheKey, loaded);
+        warmUpFreelancerRecommendationCaches(user.id(), loaded, AI_RECOMMENDATION_WARM_UP_LIMIT);
         return loaded;
     }
 
@@ -103,6 +115,7 @@ public class JobPostingServiceImpl implements JobPostingService {
             evictEmployerSideCaches(user.id());
             refreshEmployerProjectStatsForMypage(user.id());
             refreshEmployerProjectListForMypage(user.id());
+            self.triggerFreelancerRecommendation(jobPosting.getId(), user.id()); // Async trigger AI matching
         });
     }
 
@@ -122,6 +135,11 @@ public class JobPostingServiceImpl implements JobPostingService {
             evictEmployerSideCaches(user.id());
             refreshEmployerProjectStatsForMypage(user.id());
             refreshEmployerProjectListForMypage(user.id());
+
+            redisTemplate.delete("ai:reco:freelancers:" + jobPosting.getId());
+            redisTemplate.delete("ai:lock:freelancers:" + jobPosting.getId());
+
+            self.triggerFreelancerRecommendation(jobPosting.getId(), user.id()); // Re-trigger AI matching on update
         });
     }
 
@@ -365,40 +383,246 @@ public class JobPostingServiceImpl implements JobPostingService {
         return source != null && source.toLowerCase(Locale.ROOT).contains(keyword);
     }
 
-    @Override   // 기업용
+    @Override   // 기업용: 캐싱 조회 전용
     public List<AiRecommendationResponseDTO> getRecommendedFreelancers(Long jobPostingId, Long userId) {
         JobPosting jobPosting = getJobPostingOrThrow(jobPostingId);
-
         validateNotDeleted(jobPosting);
-
         validateOwnership(jobPosting, userId);
 
-        return recommendationEngine.recommendFreelancers(
-                jobPosting.getId(),
-                jobPosting.getTitle(),
-                jobPosting.getDescription(),
-                AiRecommendationResponseDTO.class
+        String cacheKey = "ai:reco:freelancers:" + jobPostingId;
+        List<AiRecommendationResponseDTO> cached = readCache(cacheKey, new TypeReference<>() {});
+        if (cached != null) {
+            return cached;
+        }
+
+        self.triggerFreelancerRecommendation(jobPostingId, userId);
+
+        List<AiRecommendationResponseDTO> warmedUp = awaitRecommendationCache(
+                cacheKey,
+                new TypeReference<>() {},
+                AI_RECOMMENDATION_WAIT_TIMEOUT
         );
+        return warmedUp != null ? warmedUp : java.util.Collections.emptyList();
     }
 
-    @Override     // 프리랜서용 추천
+    @org.springframework.scheduling.annotation.Async
+    @Override
+    public void triggerFreelancerRecommendation(Long jobPostingId, Long userId) {
+        String lockKey = "ai:lock:freelancers:" + jobPostingId;
+        String lockToken = java.util.UUID.randomUUID().toString();
+        Boolean acquired = redisTemplate.opsForValue().setIfAbsent(lockKey, lockToken, AI_RECOMMENDATION_LOCK_TTL);
+        if (Boolean.FALSE.equals(acquired)) {
+            log.info("AI 추천 처리 중복 트리거 방지 (Job ID: {})", jobPostingId);
+            return; // 이미 10분 내에 누군가 동작시켰다면 무시
+        }
+
+        try {
+            JobPosting jobPosting = getJobPostingOrThrow(jobPostingId);
+            if (jobPosting.getStatus() != Status.ACTIVE
+                    || !EnumSet.of(JobPostingStatus.OPEN, JobPostingStatus.IN_PROGRESS)
+                    .contains(jobPosting.getPostingStatus())) {
+                return;
+            }
+
+            List<AiRecommendationResponseDTO> aiResults = recommendationEngine.recommendFreelancers(
+                    jobPosting.getId(),
+                    jobPosting.getTitle(),
+                    jobPosting.getDescription(),
+                    AiRecommendationResponseDTO.class
+            );
+
+            List<Long> freelancerIds = aiResults.stream()
+                    .map(AiRecommendationResponseDTO::id)
+                    .filter(java.util.Objects::nonNull)
+                    .distinct()
+                    .toList();
+            Map<Long, RecruitmentUser> userMap;
+            try {
+                userMap = recruitmentUserReader.getFreelancersByFreelancerIdsOrThrow(freelancerIds);
+            } catch (Exception e) {
+                log.warn("AI 추천 결과 보정 실패 - 프리랜서 일괄 조회 실패", e);
+                userMap = java.util.Collections.emptyMap();
+            }
+
+            Map<Long, RecruitmentUser> combinedUserMap = new LinkedHashMap<>(userMap);
+            List<Long> missingIds = aiResults.stream()
+                    .map(AiRecommendationResponseDTO::id)
+                    .filter(java.util.Objects::nonNull)
+                    .filter(id -> !combinedUserMap.containsKey(id))
+                    .distinct()
+                    .toList();
+            if (!missingIds.isEmpty()) {
+                try {
+                    combinedUserMap.putAll(recruitmentUserReader.getFreelancersByFreelancerIdsOrThrow(missingIds));
+                } catch (Exception e) {
+                    log.warn("AI 추천 결과 보정 실패 - 누락 프리랜서 일괄 조회 실패", e);
+                    for (Long missingId : missingIds) {
+                        try {
+                            combinedUserMap.put(missingId, recruitmentUserReader.getFreelancerByFreelancerIdOrThrow(missingId));
+                        } catch (Exception singleFetchException) {
+                            log.warn("AI 추천 결과 보정 실패 - 프리랜서 개별 조회 실패. freelancerId={}", missingId, singleFetchException);
+                        }
+                    }
+                }
+            }
+
+            final Map<Long, RecruitmentUser> finalUserMap = combinedUserMap;
+            List<AiRecommendationResponseDTO> result = aiResults.stream().map(dto -> {
+                try {
+                    RecruitmentUser f = finalUserMap.get(dto.id());
+                    if (f == null) {
+                        return dto; 
+                    }
+                    List<String> userSkills = (f.skills() != null && !f.skills().trim().isEmpty())
+                            ? java.util.Arrays.asList(f.skills().split(",")) 
+                            : java.util.Collections.emptyList();
+                    return dto.withFreelancerInfo(f.name(), userSkills, f.experience());
+                } catch (Exception e) {
+                    return dto;
+                }
+            }).filter(Objects::nonNull).toList();
+
+            String cacheKey = "ai:reco:freelancers:" + jobPostingId;
+            writeCacheWithTtl(cacheKey, result, AI_RECOMMENDATION_CACHE_TTL);
+        } catch (Exception e) {
+            log.error("Async Freelancer Recommendation failed for Job: {}", jobPostingId, e);
+        } finally {
+            releaseLockIfOwned(lockKey, lockToken);
+        }
+    }
+
+    @Override     // 프리랜서용: 캐싱 조회 전용
     public List<AiRecommendationResponseDTO> getRecommendedJobsForFreelancer(Long userId) {
-        // 1. 프리랜서 정보 조회
-        RecruitmentUser freelancer = recruitmentUserReader.getFreelancerByIdOrThrow(userId);
+        // Validation check to prevent triggering background task for bad userIds
+        recruitmentUserReader.getFreelancerByIdOrThrow(userId);
 
-        // 2. 추천에 필요한 텍스트 가공
-        String skills = (freelancer.skills() == null || freelancer.skills().isBlank())
-                ? "없음" : freelancer.skills().trim();
-        String experience = (freelancer.experience() == null || freelancer.experience().isBlank())
-                ? "없음" : freelancer.experience().trim();
+        String cacheKey = "ai:reco:jobs:" + userId;
+        List<AiRecommendationResponseDTO> cached = readCache(cacheKey, new TypeReference<>() {});
+        if (cached != null) {
+            return cached;
+        }
 
-        // 3. AI 서버 호출
-        return recommendationEngine.recommendJobs(
-                userId,
-                skills,
-                experience,
-                AiRecommendationResponseDTO.class
+        self.triggerJobRecommendation(userId);
+
+        List<AiRecommendationResponseDTO> warmedUp = awaitRecommendationCache(
+                cacheKey,
+                new TypeReference<>() {},
+                AI_RECOMMENDATION_WAIT_TIMEOUT
         );
+        return warmedUp != null ? warmedUp : java.util.Collections.emptyList();
+    }
+
+    @org.springframework.scheduling.annotation.Async
+    @Override
+    public void triggerJobRecommendation(Long userId) {
+        String lockKey = "ai:lock:jobs:" + userId;
+        String lockToken = java.util.UUID.randomUUID().toString();
+        Boolean acquired = redisTemplate.opsForValue().setIfAbsent(lockKey, lockToken, AI_RECOMMENDATION_LOCK_TTL);
+        if (Boolean.FALSE.equals(acquired)) {
+            log.info("AI 추천 처리 중복 트리거 방지 (User ID: {})", userId);
+            return;
+        }
+
+        try {
+            RecruitmentUser freelancer = recruitmentUserReader.getFreelancerByIdOrThrow(userId);
+            String skills = (freelancer.skills() == null || freelancer.skills().isBlank())
+                    ? "없음" : freelancer.skills().trim();
+            String experience = (freelancer.experience() == null || freelancer.experience().isBlank())
+                    ? "없음" : freelancer.experience().trim();
+
+            List<AiRecommendationResponseDTO> aiResults = recommendationEngine.recommendJobs(
+                    userId,
+                    skills,
+                    experience,
+                    AiRecommendationResponseDTO.class
+            );
+
+            List<Long> jobIds = aiResults.stream().map(AiRecommendationResponseDTO::id).toList();
+            Map<Long, JobPosting> jobsMap = jobPostingRepo.findAllById(jobIds).stream()
+                    .collect(java.util.stream.Collectors.toMap(JobPosting::getId, j -> j));
+
+            List<AiRecommendationResponseDTO> result = aiResults.stream().map(dto -> {
+                try {
+                    JobPosting job = jobsMap.get(dto.id());
+                    if (job == null || job.getStatus() != Status.ACTIVE) {
+                        return null;
+                    }
+                    if (!EnumSet.of(JobPostingStatus.OPEN, JobPostingStatus.IN_PROGRESS).contains(job.getPostingStatus())) {
+                        return null;
+                    }
+                    return dto.withJobInfo(job.getTechStack(), job.getDescription(), job.getBudget(), job.getDuration());
+                } catch (Exception e) {
+                    return null;
+                }
+            }).filter(Objects::nonNull).toList();
+
+            String cacheKey = "ai:reco:jobs:" + userId;
+            writeCacheWithTtl(cacheKey, result, AI_RECOMMENDATION_CACHE_TTL);
+        } catch (Exception e) {
+            log.error("Async Job Recommendation failed for Freelancer: {}", userId, e);
+        } finally {
+            releaseLockIfOwned(lockKey, lockToken);
+        }
+    }
+
+    private void warmUpFreelancerRecommendationCaches(Long employerId, List<JobPostingSearchDTO> jobPostings, int maxWarmUps) {
+        int triggered = 0;
+        for (JobPostingSearchDTO jobPosting : orEmpty(jobPostings)) {
+            if (triggered >= maxWarmUps) {
+                break;
+            }
+
+            if (jobPosting == null || !EnumSet.of(JobPostingStatus.OPEN, JobPostingStatus.IN_PROGRESS).contains(jobPosting.status())) {
+                continue;
+            }
+
+            String cacheKey = "ai:reco:freelancers:" + jobPosting.jobPostingId();
+            String lockKey = "ai:lock:freelancers:" + jobPosting.jobPostingId();
+            if (Boolean.TRUE.equals(redisTemplate.hasKey(cacheKey)) || Boolean.TRUE.equals(redisTemplate.hasKey(lockKey))) {
+                continue;
+            }
+
+            self.triggerFreelancerRecommendation(jobPosting.jobPostingId(), employerId);
+            triggered++;
+        }
+    }
+
+    private <T> T awaitRecommendationCache(String key, TypeReference<T> typeReference, Duration timeout) {
+        long deadline = System.currentTimeMillis() + timeout.toMillis();
+        while (System.currentTimeMillis() < deadline) {
+            T cached = readCache(key, typeReference);
+            if (cached != null) {
+                return cached;
+            }
+
+            try {
+                Thread.sleep(AI_RECOMMENDATION_WAIT_INTERVAL.toMillis());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return null;
+            }
+        }
+        return readCache(key, typeReference);
+    }
+
+    private void releaseLockIfOwned(String lockKey, String lockToken) {
+        try {
+            String script = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
+            redisTemplate.execute(
+                    new org.springframework.data.redis.core.script.DefaultRedisScript<>(script, Long.class),
+                    java.util.Collections.singletonList(lockKey),
+                    lockToken
+            );
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void writeCacheWithTtl(String key, Object value, Duration ttl) {
+        try {
+            redisTemplate.opsForValue().set(key, value, ttl);
+        } catch (Exception e) {
+            log.warn("레디스 쓰기 실패: {}", key, e);
+        }
     }
 
     @Transactional
@@ -417,19 +641,19 @@ public class JobPostingServiceImpl implements JobPostingService {
         }
 
         Long freelancerId = project.getFreelancerId();
-        RecruitmentUser freelancer = recruitmentUserReader.getFreelancerByIdOrThrow(freelancerId);
+        RecruitmentUser freelancer = recruitmentUserReader.getFreelancerByFreelancerIdOrThrow(freelancerId);
         String syncContent = String.format("프로젝트 완료: %s", project.getProjectName());
 
         Runnable syncTask = () -> {
             try {
-                recommendationEngine.syncToAiServer(
-                        freelancer.id(),
-                        "experience",
+                recommendationEngine.syncProjectExperience(
+                        projectId,
+                        freelancerId,
                         syncContent,
-                        freelancer.status()
+                        "COMPLETED"
                 );
             } catch (Exception e) {
-                log.error("프로젝트 완료 후 AI 서버 동기화 실패 - 프리랜서 ID: {}, 내용: {}", freelancer.id(), syncContent, e);
+                log.error("프로젝트 완료 후 AI 서버 동기화 실패 - 프리랜서 ID: {}, 내용: {}", freelancerId, syncContent, e);
             }
         };
 
@@ -567,15 +791,14 @@ public class JobPostingServiceImpl implements JobPostingService {
         item.put("title", posting.getTitle());
         item.put("status", toEmployerProjectStatus(posting.getPostingStatus()));
         item.put("applicantCount", cachedApplicantCount != null ? cachedApplicantCount : posting.getMatchedHeadcount());
+        item.put("description", posting.getDescription());
+        item.put("monthlySalary", posting.getBudget());
 
         LocalDateTime createdAt = posting.getCreatedAt();
         item.put("createdAt", createdAt != null ? createdAt.format(ISO_SECONDS_FORMATTER) : null);
 
-        LocalDateTime deadline = createdAt;
-        if (createdAt != null && posting.getDuration() != null && posting.getDuration() > 0) {
-            deadline = createdAt.plusDays(posting.getDuration());
-        }
-        item.put("deadline", deadline != null ? deadline.format(ISO_SECONDS_FORMATTER) : null);
+        // Job posting duration is an estimated project period in months, not a recruitment deadline.
+        item.put("deadline", null);
         return item;
     }
 

@@ -281,16 +281,19 @@ public class ReviewServiceImpl implements ReviewService {
 
     private void refreshFreelancerReviewRates(Long freelancerId) {
         List<EmployerReview> reviews = orEmpty(employerReviewRepository.findAllByFreelancerIdAndStatus(freelancerId, ReviewStatus.ACTIVE));
-        List<Map<String, Object>> payload = new ArrayList<>(reviews.size());
-        for (EmployerReview review : reviews) {
-            Map<String, Object> item = new HashMap<>();
-            item.put("expertiseRate", average(review.getLanguage(), review.getFramework(), review.getDebugging()));
-            item.put("communicationRate", toNumberOrZero(review.getCommunication()));
-            item.put("scheduleRate", toNumberOrZero(review.getSchedule()));
-            payload.add(item);
+        if (reviews.isEmpty()) {
+            deleteRedisValue(FREELANCER_REVIEW_RATES_KEY_PREFIX + freelancerId);
+        } else {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("programming", round1(average(reviews, EmployerReview::getLanguage)));
+            payload.put("framework", round1(average(reviews, EmployerReview::getFramework)));
+            payload.put("debugging", round1(average(reviews, EmployerReview::getDebugging)));
+            payload.put("communication", round1(average(reviews, EmployerReview::getCommunication)));
+            payload.put("schedule", round1(average(reviews, EmployerReview::getSchedule)));
+            payload.put("dispute", round1(average(reviews, EmployerReview::getDispute)));
+            writeRedisValue(FREELANCER_REVIEW_RATES_KEY_PREFIX + freelancerId, payload);
         }
-        writeRedisValue(FREELANCER_REVIEW_RATES_KEY_PREFIX + freelancerId, payload);
-        
+
         // 프리랜서 리뷰가 변경되었으므로, 해당 프리랜서의 AI 분석 리포트 캐시 무효화
         if (redisTemplate != null) {
             try {
@@ -306,10 +309,11 @@ public class ReviewServiceImpl implements ReviewService {
         return value == null ? 0 : value;
     }
 
-    private double average(Integer... values) {
+    private double average(List<EmployerReview> reviews, java.util.function.Function<EmployerReview, Integer> extractor) {
         int sum = 0;
         int count = 0;
-        for (Integer value : values) {
+        for (EmployerReview review : reviews) {
+            Integer value = extractor.apply(review);
             if (value == null) {
                 continue;
             }
@@ -322,6 +326,10 @@ public class ReviewServiceImpl implements ReviewService {
         return (double) sum / count;
     }
 
+    private double round1(double value) {
+        return Math.round(value * 10.0) / 10.0;
+    }
+
     private void writeRedisValue(String key, Object value) {
         if (redisTemplate == null) {
             return;
@@ -330,6 +338,17 @@ public class ReviewServiceImpl implements ReviewService {
             redisTemplate.opsForValue().set(key, value);
         } catch (RuntimeException e) {
             log.warn("Failed to write mypage review payload. key={}", key, e);
+        }
+    }
+
+    private void deleteRedisValue(String key) {
+        if (redisTemplate == null) {
+            return;
+        }
+        try {
+            redisTemplate.delete(key);
+        } catch (RuntimeException e) {
+            log.warn("Failed to delete mypage review payload. key={}", key, e);
         }
     }
 

@@ -46,6 +46,31 @@ public record FreelancerEvaluationSummaryDto(
         return new FreelancerEvaluationSummaryDto(totalAverage, topPercentile, avgExpertise, avgCommunication, avgSchedule);
     }
 
+    public static FreelancerEvaluationSummaryDto fromAverageMap(Map<String, Object> averages, Integer topPercentile) {
+        if (averages == null || averages.isEmpty()) {
+            return empty(topPercentile);
+        }
+
+        double avgProgramming = safeNumber(averages.get("programming"));
+        double avgFramework = safeNumber(averages.get("framework"));
+        double avgDebugging = safeNumber(averages.get("debugging"));
+        double avgCommunication = safeNumber(averages.get("communication"));
+        double avgSchedule = safeNumber(averages.get("schedule"));
+
+        double expertiseRate = round1((avgProgramming + avgFramework + avgDebugging) / 3.0);
+        double communicationRate = round1(avgCommunication);
+        double scheduleRate = round1(avgSchedule);
+        double totalAverage = round1((expertiseRate + communicationRate + scheduleRate) / 3.0);
+
+        return new FreelancerEvaluationSummaryDto(
+                totalAverage,
+                topPercentile,
+                expertiseRate,
+                communicationRate,
+                scheduleRate
+        );
+    }
+
     /** Integer, Long, Double 등 모든 Number 하위 타입과 null을 안전하게 double로 변환합니다. */
     private static double safeNumber(Object value) {
         if (value instanceof Number n) {
