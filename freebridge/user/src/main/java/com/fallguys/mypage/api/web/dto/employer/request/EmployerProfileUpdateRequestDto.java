@@ -6,5 +6,6 @@ public record EmployerProfileUpdateRequestDto(
         String scale,
         String location,
         String websiteUrl,
-        String description
+        String description,
+        String phone
 ) {}

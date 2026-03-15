@@ -1,5 +1,7 @@
 package com.fallguys.mypage.api.web.freelancer;
 
+import com.fallguys.common.exception.BusinessException;
+import com.fallguys.common.exception.ErrorCode;
 import com.fallguys.common.response.ApiResponse;
 import com.fallguys.common.security.CustomUserDetails;
 import com.fallguys.mypage.api.web.dto.freelancer.response.PortfolioInfoDto;
@@ -27,6 +29,9 @@ public class FreelancerPortfolioController {
     @Operation(summary = "포트폴리오 조회", description = "프리랜서 포트폴리오 파일 정보를 조회합니다.")
     @GetMapping
     public ApiResponse<PortfolioInfoDto> getPortfolio(@AuthenticationPrincipal CustomUserDetails userDetails) {
+        if (userDetails == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
         return ApiResponse.ok(freelancerPortfolioService.getPortfolio(userDetails.getId()));
     }
 
@@ -34,6 +39,9 @@ public class FreelancerPortfolioController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ApiResponse<PortfolioInfoDto> uploadPortfolio(@AuthenticationPrincipal CustomUserDetails userDetails,
                                                          @RequestPart("file") MultipartFile file) {
+        if (userDetails == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
         return ApiResponse.ok(freelancerPortfolioService.uploadPortfolio(userDetails.getId(), file));
     }
 }

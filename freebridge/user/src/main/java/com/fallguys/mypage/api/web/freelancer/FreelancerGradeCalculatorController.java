@@ -32,6 +32,6 @@ public class FreelancerGradeCalculatorController {
     public ApiResponse<GradeCalculationResultDto> calculate(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @RequestBody GradeCalculationRequestDto request) {
-        return ApiResponse.ok(freelancerGradeCalculatorService.calculateAndSave(userDetails.getId(), request));
+        return ApiResponse.ok(freelancerGradeCalculatorService.calculate(request));
     }
 }

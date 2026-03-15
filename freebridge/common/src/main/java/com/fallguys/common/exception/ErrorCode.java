@@ -14,6 +14,7 @@ public enum ErrorCode {
     EMAIL_DUPLICATE(409, "U001", "이미 사용 중인 이메일입니다."),
     USER_NOT_FOUND(404, "U002", "사용자를 찾을 수 없습니다."),
     INVALID_PASSWORD(401, "U003", "비밀번호가 일치하지 않습니다."),
+    UNAUTHORIZED(401, "U007", "Authentication required."),
     EMAIL_NOT_VERIFIED(403, "U004", "이메일 인증이 완료되지 않았습니다."),
     INVALID_VERIFICATION_CODE(400, "U005", "인증 코드가 올바르지 않거나 만료되었습니다."),
     VERIFICATION_CODE_EXPIRED(400, "U006", "인증 코드가 만료되었습니다."),

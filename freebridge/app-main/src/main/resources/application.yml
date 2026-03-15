@@ -47,11 +47,9 @@ fallguys:
   ai:
     python-url: ${PYTHON_AI_URL:http://localhost:8000}
   s3:
-    bucket: ${S3_BUCKET:dummy-bucket}
+    bucket: ${S3_BUCKET:freebr-s3}
     region: ${S3_REGION:ap-northeast-2}
-    credentials:
-      access-key: ${S3_ACCESS_KEY:dummy-access}
-      secret-key: ${S3_SECRET_KEY:dummy-secret}
+    presigned-url-expiration-minutes: ${S3_PRESIGNED_URL_EXPIRATION_MINUTES:60}
 
 security:
   jwt:

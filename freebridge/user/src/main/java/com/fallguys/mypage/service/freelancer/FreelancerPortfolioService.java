@@ -67,16 +67,19 @@ public class FreelancerPortfolioService {
             String extension = getExtension(file.getOriginalFilename());
             uploadKey = "freelancers/portfolio/" + UUID.randomUUID() + extension;
             String uploadedKey = fileStorage.upload(fileBytes, uploadKey, contentType);
+            String previousKey = freelancer.getPortfolioInfo() != null
+                    ? freelancer.getPortfolioInfo().getPortfolioFileUrl()
+                    : null;
 
-            String finalUploadKey = uploadKey;
+            final String finalUploadedKey = uploadedKey;
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCompletion(int status) {
                     if (status == STATUS_ROLLED_BACK) {
                         try {
-                            fileStorage.deleteByKey(finalUploadKey);
+                            fileStorage.deleteByKey(finalUploadedKey);
                         } catch (Exception ex) {
-                            log.error("S3 롤백 삭제 실패 - key: {}", finalUploadKey, ex);
+                            log.error("S3 rollback delete failed. key: {}", finalUploadedKey, ex);
                         }
                     }
                 }
@@ -84,6 +87,19 @@ public class FreelancerPortfolioService {
 
             PortfolioInfo info = new PortfolioInfo(uploadedKey, file.getOriginalFilename(), LocalDateTime.now());
             freelancer.updatePortfolioInfo(info);
+
+            if (previousKey != null && !previousKey.isBlank() && !previousKey.equals(uploadedKey)) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        try {
+                            fileStorage.deleteByKey(previousKey);
+                        } catch (Exception ex) {
+                            log.error("S3 old portfolio delete failed. key: {}", previousKey, ex);
+                        }
+                    }
+                });
+            }
 
             return new PortfolioInfoDto(info.getPortfolioFileUrl(), info.getPortfolioFileName(), info.getPortfolioLastUpdated());
         } catch (BusinessException e) {

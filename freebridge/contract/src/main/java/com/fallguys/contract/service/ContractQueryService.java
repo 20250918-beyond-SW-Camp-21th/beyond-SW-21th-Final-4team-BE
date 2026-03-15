@@ -31,6 +31,7 @@ public class ContractQueryService implements ContractQuery {
                 c.getPaymentDay(),
                 c.getStartDate(),
                 c.getEndDate(),
-                c.getBudget());
+                c.getBudget(),
+                c.getEmployerBusinessName());
     }
 }
