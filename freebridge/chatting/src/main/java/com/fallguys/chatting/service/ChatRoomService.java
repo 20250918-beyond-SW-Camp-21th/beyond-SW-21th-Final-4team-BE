@@ -74,9 +74,26 @@ public class ChatRoomService {
         ChatRoom room = chatRoomRepository.findById(roomId)
                 .orElseThrow(() -> new IllegalArgumentException("채팅방을 찾을 수 없습니다: " + roomId));
 
-        if (!room.getParticipants().contains(participantId)) {
+        if (!room.isParticipant(participantId)) {
             log.warn("권한 없는 사용자의 채팅방 계약 연결 시도 - roomId: {}, participantId: {}", roomId, participantId);
             throw new IllegalArgumentException("채팅방에 참여하고 있지 않습니다.");
+        }
+        if (!room.isEmployerParticipant(participantId)) {
+            log.warn("기업 회원이 아닌 사용자의 채팅방 계약 연결 시도 - roomId: {}, participantId: {}", roomId, participantId);
+            throw new IllegalArgumentException("기업 회원만 채팅방에 계약을 연결할 수 있습니다.");
+        }
+        if (contractId == null) {
+            log.warn("계약 ID 없이 채팅방 계약 연결 시도 - roomId: {}, participantId: {}", roomId, participantId);
+            throw new IllegalArgumentException("연결할 계약 ID가 필요합니다.");
+        }
+        if (room.getContractId() != null && !room.getContractId().equals(contractId)) {
+            log.warn(
+                    "기존 계약이 연결된 채팅방 덮어쓰기 시도 - roomId: {}, participantId: {}, currentContractId: {}, requestedContractId: {}",
+                    roomId,
+                    participantId,
+                    room.getContractId(),
+                    contractId);
+            throw new IllegalArgumentException("이미 계약이 연결된 채팅방입니다. 기존 계약을 덮어쓸 수 없습니다.");
         }
 
         room.updateContractId(contractId);

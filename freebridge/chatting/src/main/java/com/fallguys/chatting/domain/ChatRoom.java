@@ -98,6 +98,14 @@ public class ChatRoom {
         }
     }
 
+    public boolean isParticipant(String participantId) {
+        return participantId != null && participants.contains(participantId);
+    }
+
+    public boolean isEmployerParticipant(String participantId) {
+        return isParticipant(participantId) && participantId.toLowerCase().startsWith("e");
+    }
+
     // 5. 모두가 방을 나갔는지 확인
     public boolean hasEveryoneLeft() {
         return leftBy.containsAll(participants);
@@ -105,6 +113,12 @@ public class ChatRoom {
 
     // 6. 새로운 계약이 성사되었을 때 연결
     public void updateContractId(Long contractId) {
+        if (contractId == null) {
+            throw new IllegalArgumentException("연결할 계약 ID가 필요합니다.");
+        }
+        if (this.contractId != null && !this.contractId.equals(contractId)) {
+            throw new IllegalArgumentException("이미 계약이 연결된 채팅방입니다. 기존 계약을 덮어쓸 수 없습니다.");
+        }
         this.contractId = contractId;
     }
 }
