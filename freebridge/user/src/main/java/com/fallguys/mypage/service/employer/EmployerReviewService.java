@@ -66,6 +66,7 @@ public class EmployerReviewService {
         @SuppressWarnings("unchecked")
         List<Object[]> rows = query.getResultList();
         if (rows == null || rows.isEmpty()) {
+            cacheEmployerReviewSummary(redisKey, List.of());
             return EmployerReviewSummaryResponseDto.empty();
         }
 
@@ -78,13 +79,16 @@ public class EmployerReviewService {
             ));
         }
 
+        cacheEmployerReviewSummary(redisKey, payload);
+        return EmployerReviewSummaryResponseDto.from(payload);
+    }
+
+    private void cacheEmployerReviewSummary(String redisKey, List<Map<String, Object>> payload) {
         try {
             redisTemplate.opsForValue().set(redisKey, payload);
         } catch (Exception e) {
-            log.warn("고용주 리뷰 요약을 Redis에 저장하지 못했습니다. employerId={}", employerId, e);
+            log.warn("고용주 리뷰 요약을 Redis에 저장하지 못했습니다. key={}", redisKey, e);
         }
-
-        return EmployerReviewSummaryResponseDto.from(payload);
     }
 
     private Long resolveEmployerId(Long userId) {

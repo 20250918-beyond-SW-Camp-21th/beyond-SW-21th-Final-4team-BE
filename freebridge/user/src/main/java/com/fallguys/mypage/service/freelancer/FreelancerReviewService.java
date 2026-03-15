@@ -47,16 +47,19 @@ public class FreelancerReviewService {
         Integer topPercentile = getTopPercentile(userId);
 
         if (freelancerId == null) {
+          log.warn("프리랜서 리뷰 요약 캐시 생성을 건너뜁니다. freelancerId를 찾지 못했습니다. userId={}", userId);
           return FreelancerEvaluationSummaryDto.empty(topPercentile);
-          }
+        }
 
         String redisKey = "freelancer:review:rates:" + freelancerId;
 
         try {
             Object rawData = redisTemplate.opsForValue().get(redisKey);
             if (rawData == null) {
+                log.info("프리랜서 리뷰 요약 Redis miss. userId={}, freelancerId={}, key={}", userId, freelancerId, redisKey);
                 return buildAndCacheReviewSummary(freelancerId, topPercentile, redisKey);
             }
+            log.info("프리랜서 리뷰 요약 Redis hit. userId={}, freelancerId={}, key={}", userId, freelancerId, redisKey);
             if (rawData instanceof Map<?, ?> rawMap) {
                 @SuppressWarnings("unchecked")
                 Map<String, Object> averages = (Map<String, Object>) rawMap;
@@ -98,6 +101,7 @@ public class FreelancerReviewService {
 
         Object[] row = (Object[]) query.getSingleResult();
         if (row == null || isAllNull(row)) {
+            cacheFreelancerReviewSummary(redisKey, Map.of());
             return FreelancerEvaluationSummaryDto.empty(topPercentile);
         }
 
@@ -109,16 +113,22 @@ public class FreelancerReviewService {
         averages.put("schedule", round1(numberValue(row[4])));
         averages.put("dispute", round1(numberValue(row[5])));
 
-        try {
-            redisTemplate.opsForValue().set(redisKey, averages);
-        } catch (Exception e) {
-            log.warn("프리랜서 리뷰 요약을 Redis에 저장하지 못했습니다. freelancerId={}", freelancerId, e);
-        }
-
+        cacheFreelancerReviewSummary(redisKey, averages);
         return FreelancerEvaluationSummaryDto.fromAverageMap(averages, topPercentile);
     }
 
+    private void cacheFreelancerReviewSummary(String redisKey, Map<String, Object> averages) {
+        try {
+            redisTemplate.opsForValue().set(redisKey, averages);
+            log.info("프리랜서 리뷰 요약 Redis 저장 완료. key={}, empty={}", redisKey, averages.isEmpty());
+        } catch (Exception e) {
+            log.warn("프리랜서 리뷰 요약을 Redis에 저장하지 못했습니다. key={}", redisKey, e);
+        }
+    }
+
     public FreelancerAiReputationReportDto getAiReputationReport(Long userId) {
+        getReviewSummary(userId);
+
         Long freelancerId = resolveFreelancerId(userId);
         if (freelancerId == null) {
             log.warn("해당 userId에 대한 프리랜서 엔티티를 찾지 못했습니다. userId={}", userId);
