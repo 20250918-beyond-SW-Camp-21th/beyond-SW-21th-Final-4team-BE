@@ -105,6 +105,9 @@ public class Contract {
 
     private LocalDateTime freelancerSignedDate;
 
+    @Column(columnDefinition = "TEXT")
+    private String aiLegalAdvice;
+
 
     public void signBy(String role, String signature) {
         if ("FREELANCER".equalsIgnoreCase(role)) {

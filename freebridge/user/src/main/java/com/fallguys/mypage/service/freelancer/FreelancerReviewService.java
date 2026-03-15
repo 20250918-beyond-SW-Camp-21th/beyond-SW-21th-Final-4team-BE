@@ -16,6 +16,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.context.event.EventListener;
+import org.springframework.scheduling.annotation.Async;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fallguys.common.event.ReputationUpdateRequestedEvent;
 
 import java.time.Duration;
 import java.util.Collections;
@@ -143,6 +147,8 @@ public class FreelancerReviewService {
             }
             if (ratesData instanceof Map<?, ?> map && map.isEmpty()) {
                 return new FreelancerAiReputationReportDto(
+                        "미정",
+                        0,
                         "아직 충분한 리뷰가 등록되지 않았습니다.",
                         Collections.emptyList(),
                         Collections.emptyList(),
@@ -232,6 +238,8 @@ public class FreelancerReviewService {
                 report.weaknesses() != null ? report.weaknesses() : Collections.emptyList()
         );
     }
+
+    // ─── 내부 헬퍼 ──────────────────────────────────────────────
 
     private Integer getTopPercentile(Long userId) {
         try {

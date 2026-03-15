@@ -18,6 +18,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -40,6 +41,7 @@ public class ReviewServiceImpl implements ReviewService {
     private final FreelancerReviewRepository freelancerReviewRepository;
     private final ProjectExternalApi projectExternalApi;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     public Page<FreelancerReview> getEmployerReceivedReviews(Long employerId, Pageable pageable) {
@@ -268,7 +270,16 @@ public class ReviewServiceImpl implements ReviewService {
     private void invalidateFreelancerReviewCaches(Long freelancerId) {
         deleteRedisValue(FREELANCER_REVIEW_RATES_KEY_PREFIX + freelancerId);
         deleteRedisValue("freelancer:review:ai_report:" + freelancerId);
+
+        try {
+            eventPublisher.publishEvent(
+                    new com.fallguys.common.event.ReputationUpdateRequestedEvent(freelancerId)
+            );
+        } catch (RuntimeException e) {
+            log.warn("Failed to publish reputation update event. freelancerId={}", freelancerId, e);
+        }
     }
+
 
     private void deleteRedisValue(String key) {
         if (redisTemplate == null) {

@@ -74,6 +74,23 @@ public class ContractController {
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
     }
 
+    @PostMapping("/{contractId}/ai-review")
+    public ResponseEntity<ApiResponse<ContractResponse>> requestAiReview(
+            @PathVariable Long contractId,
+            @AuthenticationPrincipal CustomUserDetails principal) {
+
+        if (principal == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+
+        Long userId = principal.getId();
+
+        ApiResponse<ContractResponse> apiResponse = ApiResponse.ok(
+                contractService.requestAiLegalReview(contractId, userId)
+        );
+        return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);
+    }
+
     @Operation(summary = "계약 서명", description = "EMPLOYER 또는 FREELANCER가 계약서에 서명합니다. 양 당사자 모두 서명 완료 시 계약 상태가 WAITING_SIGNATURE → IN_PROGRESS로 전환됩니다.")
     @PatchMapping("/{contractId}/sign")
     public ResponseEntity<ApiResponse<ContractResponse>> sign(

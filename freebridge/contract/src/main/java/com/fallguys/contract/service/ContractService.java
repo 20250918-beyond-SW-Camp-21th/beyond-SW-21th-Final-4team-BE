@@ -18,7 +18,9 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.util.List;
 import java.util.stream.Collectors;
 
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -30,6 +32,7 @@ public class ContractService {
     private final ContractRepository contractRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final ContractPdfService contractPdfService;
+
 
     public ContractResponse createContract(CreateContractRequest req, Long employerId) {
         Contract contract = new Contract();
@@ -67,6 +70,16 @@ public class ContractService {
 
         String pdfUrl = contractPdfService.generateContractPdf(saved);
         saved.setContractPdfUrl(pdfUrl);
+
+        // Feature 5: AI 계약서 법률 검토 (비동기 이벤트 발행)
+        try {
+            byte[] pdfBytes = contractPdfService.generateContractPdfBytes(saved);
+            saved.setAiLegalAdvice("AI가 계약서의 독소 조항과 법률 위반 사항을 분석하고 있습니다...");
+            eventPublisher.publishEvent(new com.fallguys.common.event.ContractAIAnalysisRequestedEvent(saved.getId(), pdfBytes));
+        } catch (Exception e) {
+            log.error("AI 계약서 분석용 PDF 생성 실패: contractId={}", saved.getContractId(), e);
+            saved.setAiLegalAdvice("AI 분석 준비에 실패했습니다.");
+        }
 
         saved = contractRepository.save(saved);
         return toResponse(saved);
@@ -118,6 +131,24 @@ public class ContractService {
         Contract contract = findByContractId(contractId);
         validateOwnership(contract, userId);
         return toResponse(contract);
+    }
+
+    public ContractResponse requestAiLegalReview(Long contractId, Long userId) {
+        Contract contract = findByContractId(contractId);
+        validateOwnership(contract, userId);
+
+        try {
+            byte[] pdfBytes = contractPdfService.generateContractPdfBytes(contract);
+            contract.setAiLegalAdvice("AI 법률 검토를 다시 진행하고 있습니다...");
+            Contract saved = contractRepository.save(contract);
+            eventPublisher.publishEvent(
+                    new com.fallguys.common.event.ContractAIAnalysisRequestedEvent(saved.getId(), pdfBytes)
+            );
+            return toResponse(saved);
+        } catch (Exception e) {
+            log.error("AI 법률 검토 재요청 실패: contractId={}", contractId, e);
+            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
+        }
     }
 
     public ContractResponse sign(Long contractId, SignContractRequest request, String role, Long userId) {
@@ -228,6 +259,7 @@ public class ContractService {
                 .contractPdfUrl(c.getContractPdfUrl())
                 .signedPdfUrl(c.getSignedPdfUrl())
                 .signedDate(c.getSignedDate())
+                .aiLegalAdvice(c.getAiLegalAdvice())
                 .jobDescription(c.getJobDescription())
                 .workLocation(c.getWorkLocation())
                 .workStartTime(c.getWorkStartTime())
