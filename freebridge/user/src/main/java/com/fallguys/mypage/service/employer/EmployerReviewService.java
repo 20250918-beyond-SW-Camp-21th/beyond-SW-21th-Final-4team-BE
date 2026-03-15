@@ -3,11 +3,16 @@ package com.fallguys.mypage.service.employer;
 import com.fallguys.common.ai.port.ReviewEngine;
 import com.fallguys.mypage.api.web.dto.employer.response.EmployerReputationAiResponseDto;
 import com.fallguys.mypage.api.web.dto.employer.response.EmployerReviewSummaryResponseDto;
+import com.fallguys.mypage.entity.employer.Employer;
+import com.fallguys.mypage.repository.employer.EmployerRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.Query;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -18,16 +23,23 @@ import java.util.Map;
 public class EmployerReviewService {
 
     private final RedisTemplate<String, Object> redisTemplate;
+    private final EmployerRepository employerRepository;
+    private final EntityManager entityManager;
     private final ReviewEngine reviewEngine;
 
     public EmployerReviewSummaryResponseDto getReputationSummary(Long userId) {
-        String redisKey = "employer:review:rates:" + userId;
+        Long employerId = resolveEmployerId(userId);
+        if (employerId == null) {
+            return EmployerReviewSummaryResponseDto.empty();
+        }
+
+        String redisKey = "employer:review:rates:" + employerId;
         
         try {
             Object rawData = redisTemplate.opsForValue().get(redisKey);
             
             if (rawData == null) {
-                return EmployerReviewSummaryResponseDto.empty();
+                return buildAndCacheSummary(employerId, redisKey);
             }
 
             @SuppressWarnings("unchecked")
@@ -39,6 +51,58 @@ public class EmployerReviewService {
             log.error("Failed to parse employer review summary from Redis for employerId: {}", userId, e);
             return EmployerReviewSummaryResponseDto.empty();
         }
+    }
+
+    private EmployerReviewSummaryResponseDto buildAndCacheSummary(Long employerId, String redisKey) {
+        Query query = entityManager.createNativeQuery("""
+                SELECT atmosphere, requirement_detail, schedule
+                FROM freelancer_employer_reviews
+                WHERE employer_id = :employerId
+                  AND status = 'ACTIVE'
+                  AND deleted = false
+                """);
+        query.setParameter("employerId", employerId);
+
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = query.getResultList();
+        if (rows == null || rows.isEmpty()) {
+            return EmployerReviewSummaryResponseDto.empty();
+        }
+
+        List<Map<String, Object>> payload = new ArrayList<>(rows.size());
+        for (Object[] row : rows) {
+            payload.add(Map.of(
+                    "atmosphereRate", numberValue(row[0]),
+                    "requirementsDetailRate", numberValue(row[1]),
+                    "scheduleAdherenceRate", numberValue(row[2])
+            ));
+        }
+
+        try {
+            redisTemplate.opsForValue().set(redisKey, payload);
+        } catch (Exception e) {
+            log.warn("고용주 리뷰 요약을 Redis에 저장하지 못했습니다. employerId={}", employerId, e);
+        }
+
+        return EmployerReviewSummaryResponseDto.from(payload);
+    }
+
+    private Long resolveEmployerId(Long userId) {
+        try {
+            return employerRepository.findByUserId(userId)
+                    .map(Employer::getEmployerId)
+                    .orElse(null);
+        } catch (Exception e) {
+            log.warn("userId로 employerId를 찾지 못했습니다. userId={}", userId, e);
+            return null;
+        }
+    }
+
+    private double numberValue(Object value) {
+        if (value instanceof Number number) {
+            return number.doubleValue();
+        }
+        return 0.0;
     }
 
     public EmployerReputationAiResponseDto getAiReputation(Long userId) {

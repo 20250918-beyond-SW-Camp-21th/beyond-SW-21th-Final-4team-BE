@@ -9,6 +9,8 @@ import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerEvaluationS
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerStrengthWeaknessDto;
 import com.fallguys.mypage.entity.freelancer.Freelancer;
 import com.fallguys.mypage.repository.freelancer.FreelancerRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.Query;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -18,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 
 @Slf4j
@@ -27,6 +30,7 @@ public class FreelancerReviewService {
 
     private final RedisTemplate<String, Object> redisTemplate;
     private final FreelancerRepository freelancerRepository;
+    private final EntityManager entityManager;
     private final ReviewEngine reviewEngine;
     private final ObjectMapper objectMapper;
 
@@ -51,7 +55,7 @@ public class FreelancerReviewService {
         try {
             Object rawData = redisTemplate.opsForValue().get(redisKey);
             if (rawData == null) {
-                return FreelancerEvaluationSummaryDto.empty(topPercentile);
+                return buildAndCacheReviewSummary(freelancerId, topPercentile, redisKey);
             }
             if (rawData instanceof Map<?, ?> rawMap) {
                 @SuppressWarnings("unchecked")
@@ -74,6 +78,44 @@ public class FreelancerReviewService {
             );
             return FreelancerEvaluationSummaryDto.empty(topPercentile);
         }
+    }
+
+    private FreelancerEvaluationSummaryDto buildAndCacheReviewSummary(Long freelancerId, Integer topPercentile, String redisKey) {
+        Query query = entityManager.createNativeQuery("""
+                SELECT
+                    AVG(language),
+                    AVG(framework),
+                    AVG(debugging),
+                    AVG(communication),
+                    AVG(schedule),
+                    AVG(dispute)
+                FROM employer_freelancer_reviews
+                WHERE freelancer_id = :freelancerId
+                  AND status = 'ACTIVE'
+                  AND deleted = false
+                """);
+        query.setParameter("freelancerId", freelancerId);
+
+        Object[] row = (Object[]) query.getSingleResult();
+        if (row == null || isAllNull(row)) {
+            return FreelancerEvaluationSummaryDto.empty(topPercentile);
+        }
+
+        Map<String, Object> averages = new HashMap<>();
+        averages.put("programming", round1(numberValue(row[0])));
+        averages.put("framework", round1(numberValue(row[1])));
+        averages.put("debugging", round1(numberValue(row[2])));
+        averages.put("communication", round1(numberValue(row[3])));
+        averages.put("schedule", round1(numberValue(row[4])));
+        averages.put("dispute", round1(numberValue(row[5])));
+
+        try {
+            redisTemplate.opsForValue().set(redisKey, averages);
+        } catch (Exception e) {
+            log.warn("프리랜서 리뷰 요약을 Redis에 저장하지 못했습니다. freelancerId={}", freelancerId, e);
+        }
+
+        return FreelancerEvaluationSummaryDto.fromAverageMap(averages, topPercentile);
     }
 
     public FreelancerAiReputationReportDto getAiReputationReport(Long userId) {
@@ -211,5 +253,25 @@ public class FreelancerReviewService {
                 Collections.emptyList(),
                 Collections.emptyList()
         );
+    }
+
+    private boolean isAllNull(Object[] row) {
+        for (Object value : row) {
+            if (value != null) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private double numberValue(Object value) {
+        if (value instanceof Number number) {
+            return number.doubleValue();
+        }
+        return 0.0;
+    }
+
+    private double round1(double value) {
+        return Math.round(value * 10.0) / 10.0;
     }
 }
