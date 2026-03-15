@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 
 from fastapi import APIRouter, HTTPException
 from langchain_core.documents import Document
@@ -39,6 +40,23 @@ def _parse_ref_id(value):
 
 def _filter_matches_by_allowed_ids(matches, allowed_ids):
     return [match for match in matches if getattr(match, "id", None) in allowed_ids]
+
+
+def _extract_skill_tokens(skills_text):
+    if not skills_text:
+        return []
+    return [
+        token.lower()
+        for token in re.split(r"[,/|\\s]+", skills_text)
+        if token and token.strip()
+    ]
+
+
+def _count_skill_overlap(doc, skill_tokens):
+    if not skill_tokens:
+        return 0
+    page_content = (doc.page_content or "").lower()
+    return sum(1 for token in skill_tokens if token in page_content)
 
 
 def get_llm():
@@ -226,6 +244,25 @@ async def get_freelancer_recommendations(req: FreelancerRecommendRequest):
         docs = await retriever.ainvoke(search_query)
         if not docs:
             return {"success": True, "data": []}
+
+        skill_tokens = _extract_skill_tokens(req.skills)
+        if skill_tokens:
+            scored_docs = [
+                (doc, _count_skill_overlap(doc, skill_tokens))
+                for doc in docs
+            ]
+            overlapping_docs = [doc for doc, score in scored_docs if score > 0]
+            if overlapping_docs:
+                docs = [
+                    doc
+                    for doc, _ in sorted(
+                        scored_docs,
+                        key=lambda item: item[1],
+                        reverse=True,
+                    )
+                    if _ > 0
+                ]
+
         allowed_ids = {
             ref_id
             for ref_id in (_parse_ref_id(doc.metadata.get("ref_id")) for doc in docs)

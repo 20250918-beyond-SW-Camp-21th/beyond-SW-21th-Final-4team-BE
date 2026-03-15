@@ -133,6 +133,24 @@ public class ContractService {
         return toResponse(contract);
     }
 
+    public ContractResponse requestAiLegalReview(Long contractId, Long userId) {
+        Contract contract = findByContractId(contractId);
+        validateOwnership(contract, userId);
+
+        try {
+            byte[] pdfBytes = contractPdfService.generateContractPdfBytes(contract);
+            contract.setAiLegalAdvice("AI 법률 검토를 다시 진행하고 있습니다...");
+            Contract saved = contractRepository.save(contract);
+            eventPublisher.publishEvent(
+                    new com.fallguys.common.event.ContractAIAnalysisRequestedEvent(saved.getId(), pdfBytes)
+            );
+            return toResponse(saved);
+        } catch (Exception e) {
+            log.error("AI 법률 검토 재요청 실패: contractId={}", contractId, e);
+            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
+        }
+    }
+
     public ContractResponse sign(Long contractId, SignContractRequest request, String role, Long userId) {
         if (request == null) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
