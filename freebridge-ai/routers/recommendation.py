@@ -55,8 +55,12 @@ def _extract_skill_tokens(skills_text):
 def _count_skill_overlap(doc, skill_tokens):
     if not skill_tokens:
         return 0
-    page_content = (doc.page_content or "").lower()
-    return sum(1 for token in skill_tokens if token in page_content)
+    document_tokens = {
+        token.lower()
+        for token in re.split(r"[^0-9A-Za-z가-힣+#.]+", doc.page_content or "")
+        if token and token.strip()
+    }
+    return sum(1 for token in skill_tokens if token in document_tokens)
 
 
 def get_llm():

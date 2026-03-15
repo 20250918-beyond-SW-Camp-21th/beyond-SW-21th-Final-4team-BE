@@ -79,6 +79,10 @@ public class ContractController {
             @PathVariable Long contractId,
             @AuthenticationPrincipal CustomUserDetails principal) {
 
+        if (principal == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+
         Long userId = principal.getId();
 
         ApiResponse<ContractResponse> apiResponse = ApiResponse.ok(
