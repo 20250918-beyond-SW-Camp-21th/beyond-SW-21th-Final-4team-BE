@@ -26,7 +26,6 @@ import org.springframework.dao.DataIntegrityViolationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
@@ -35,7 +34,6 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -55,9 +53,8 @@ public class MatchsServiceImpl implements MatchsService {
     private static final String EMPLOYER_PROJECT_LIST_KEY_PREFIX = "employer:project:list:";
     private static final String EMPLOYER_PROJECT_APPLICANTS_KEY_PREFIX = "employer:project:applicants:";
     private static final String FREELANCER_PROJECT_STATS_KEY_PREFIX = "freelancer:project:stats:";
-    private static final String FREELANCER_PROJECT_APPLIED_KEY_PREFIX = "freelancer:project:applied:";
+    private static final String FREELANCER_PROJECT_LIST_KEY_PREFIX = "freelancer:project:list:";
     private static final DateTimeFormatter ISO_SECONDS_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
-    private static final int FREELANCER_APPLIED_CACHE_LIMIT = 100;
     private static final int APPLICANT_COUNT_QUERY_CHUNK_SIZE = 500;
 
     private final ApplicationRepo applicationRepo;
@@ -88,7 +85,7 @@ public class MatchsServiceImpl implements MatchsService {
             refreshEmployerProjectList(jobPosting.getEmployerId());
             refreshEmployerProjectApplicants(applicationId);
             refreshFreelancerProjectStats(freelancerId);
-            refreshFreelancerAppliedProjects(freelancerId);
+            refreshFreelancerProjectList(freelancerId);
         });
         return applicationId;
     }
@@ -117,7 +114,7 @@ public class MatchsServiceImpl implements MatchsService {
             refreshEmployerProjectStats(employerId);
             refreshEmployerProjectList(employerId);
             refreshFreelancerProjectStats(request.freelancerId());
-            refreshFreelancerAppliedProjects(request.freelancerId());
+            refreshFreelancerProjectList(request.freelancerId());
         });
         return proposalId;
     }
@@ -138,7 +135,7 @@ public class MatchsServiceImpl implements MatchsService {
             refreshEmployerProjectList(application.getEmployerId());
             refreshEmployerProjectApplicants(application.getId());
             refreshFreelancerProjectStats(application.getFreelancerId());
-            refreshFreelancerAppliedProjects(application.getFreelancerId());
+            refreshFreelancerProjectList(application.getFreelancerId());
         });
         return projectId;
     }
@@ -158,7 +155,7 @@ public class MatchsServiceImpl implements MatchsService {
             refreshEmployerProjectStats(proposal.getEmployerId());
             refreshEmployerProjectList(proposal.getEmployerId());
             refreshFreelancerProjectStats(freelancerId);
-            refreshFreelancerAppliedProjects(freelancerId);
+            refreshFreelancerProjectList(freelancerId);
         });
         return projectId;
     }
@@ -179,7 +176,7 @@ public class MatchsServiceImpl implements MatchsService {
             refreshEmployerProjectList(application.getEmployerId());
             refreshEmployerProjectApplicants(application.getId());
             refreshFreelancerProjectStats(application.getFreelancerId());
-            refreshFreelancerAppliedProjects(application.getFreelancerId());
+            refreshFreelancerProjectList(application.getFreelancerId());
         });
         return application.getId();
     }
@@ -199,7 +196,7 @@ public class MatchsServiceImpl implements MatchsService {
             refreshEmployerProjectStats(proposal.getEmployerId());
             refreshEmployerProjectList(proposal.getEmployerId());
             refreshFreelancerProjectStats(freelancerId);
-            refreshFreelancerAppliedProjects(freelancerId);
+            refreshFreelancerProjectList(freelancerId);
         });
         return proposal.getId();
     }
@@ -583,60 +580,45 @@ public class MatchsServiceImpl implements MatchsService {
         writeRedisValue(FREELANCER_PROJECT_STATS_KEY_PREFIX + freelancerId, payload);
     }
 
-    private void refreshFreelancerAppliedProjects(Long freelancerId) {
-        Pageable limitPageable = PageRequest.of(0, FREELANCER_APPLIED_CACHE_LIMIT);
-        List<Application> applications = orEmpty(
-                applicationRepo.findAllByFreelancerIdOrderByCreatedAtDesc(freelancerId, limitPageable).getContent()
-        );
-        List<Proposal> proposals = orEmpty(
-                proposalRepo.findAllByFreelancerIdOrderByCreatedAtDesc(freelancerId, limitPageable).getContent()
-        );
+    private void refreshFreelancerProjectList(Long freelancerId) {
+        List<Project> projects = orEmpty(projectPostingRepo.findAllByFreelancerIdOrderByCreatedAtDesc(freelancerId));
 
         Set<Long> postingIds = new LinkedHashSet<>();
-        applications.stream().map(Application::getJobPostingId).forEach(postingIds::add);
-        proposals.stream().map(Proposal::getJobPostingId).forEach(postingIds::add);
+        projects.stream()
+                .map(Project::getJobPosting)
+                .filter(Objects::nonNull)
+                .map(JobPosting::getId)
+                .filter(Objects::nonNull)
+                .forEach(postingIds::add);
 
         Map<Long, JobPosting> postingsById = new HashMap<>();
         if (!postingIds.isEmpty()) {
             jobPostingRepo.findAllById(postingIds).forEach(posting -> postingsById.put(posting.getId(), posting));
         }
 
-        List<Map<String, Object>> payload = new ArrayList<>();
-        for (Application application : applications) {
-            JobPosting posting = postingsById.get(application.getJobPostingId());
-            payload.add(toFreelancerAppliedItem(
-                    application.getJobPostingId(),
-                    posting,
-                    toFreelancerApplyStatus(application.getStatus()),
-                    application.getCreatedAt()
-            ));
-        }
-        for (Proposal proposal : proposals) {
-            JobPosting posting = postingsById.get(proposal.getJobPostingId());
-            payload.add(toFreelancerAppliedItem(
-                    proposal.getJobPostingId(),
-                    posting,
-                    toFreelancerApplyStatus(proposal.getStatus()),
-                    proposal.getCreatedAt()
-            ));
+        List<Map<String, Object>> payload = new ArrayList<>(projects.size());
+        for (Project project : projects) {
+            JobPosting posting = project.getJobPosting();
+            if (posting != null && posting.getId() != null) {
+                posting = postingsById.getOrDefault(posting.getId(), posting);
+            }
+            payload.add(toFreelancerProjectItem(project, posting));
         }
 
-        payload.sort(Comparator.comparingLong(item -> (Long) item.get("appliedAt")));
-        java.util.Collections.reverse(payload);
-        if (payload.size() > FREELANCER_APPLIED_CACHE_LIMIT) {
-            payload = new ArrayList<>(payload.subList(0, FREELANCER_APPLIED_CACHE_LIMIT));
-        }
-
-        writeRedisValue(FREELANCER_PROJECT_APPLIED_KEY_PREFIX + freelancerId, payload);
+        writeRedisValue(FREELANCER_PROJECT_LIST_KEY_PREFIX + freelancerId, payload);
     }
 
-    private Map<String, Object> toFreelancerAppliedItem(Long projectId, JobPosting posting, String applyStatus, LocalDateTime appliedAt) {
+    private Map<String, Object> toFreelancerProjectItem(Project project, JobPosting posting) {
         Map<String, Object> item = new HashMap<>();
-        item.put("projectId", projectId);
-        item.put("title", posting != null ? posting.getTitle() : null);
+        item.put("projectId", project.getId());
+        item.put("title", posting != null ? posting.getTitle() : project.getProjectName());
         item.put("employerName", posting != null ? posting.getEmployerName() : null);
-        item.put("applyStatus", applyStatus);
-        item.put("appliedAt", toEpochMillis(appliedAt));
+        item.put("projectStatus", toFreelancerProjectStatus(project.getStatus()));
+        item.put("description", posting != null ? posting.getDescription() : null);
+        item.put("budget", posting != null ? posting.getBudget() : null);
+        item.put("techStack", posting != null ? List.copyOf(posting.getTechStack()) : List.of());
+        item.put("startDate", project.getStartDate() != null ? project.getStartDate().toString() : null);
+        item.put("endDate", project.getEndDate() != null ? project.getEndDate().toString() : null);
         return item;
     }
 
@@ -663,14 +645,14 @@ public class MatchsServiceImpl implements MatchsService {
         };
     }
 
-    private String toFreelancerApplyStatus(MatchsStatus status) {
+    private String toFreelancerProjectStatus(ProjectStatus status) {
         if (status == null) {
-            return "심사중";
+            return "IN_PROGRESS";
         }
         return switch (status) {
-            case PENDING -> "심사중";
-            case ACCEPTED -> "합격";
-            case REJECTED -> "거절";
+            case IN_PROGRESS -> "IN_PROGRESS";
+            case COMPLETED -> "COMPLETED";
+            case CANCELLED -> "CANCELED";
         };
     }
 
@@ -679,13 +661,6 @@ public class MatchsServiceImpl implements MatchsService {
             return null;
         }
         return dateTime.format(ISO_SECONDS_FORMATTER);
-    }
-
-    private long toEpochMillis(LocalDateTime dateTime) {
-        if (dateTime == null) {
-            return 0L;
-        }
-        return dateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
     }
 
     private Long parseLongSafely(Object value) {
