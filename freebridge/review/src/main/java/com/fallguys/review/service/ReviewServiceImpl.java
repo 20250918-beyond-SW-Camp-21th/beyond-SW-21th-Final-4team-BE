@@ -25,11 +25,8 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 
 @Slf4j
 @Service
@@ -97,7 +94,7 @@ public class ReviewServiceImpl implements ReviewService {
             EmployerReview savedReview = employerReviewRepository.save(review);
             Long reviewId = savedReview.getId();
 
-            runAfterCommitSafely(() -> refreshFreelancerReviewRates(request.freelancerId()));
+            runAfterCommitSafely(() -> invalidateFreelancerReviewCaches(request.freelancerId()));
 
             projectExternalApi.completeProjectWithReview(
                     new ProjectExternalApi.ProjectCompletionData(
@@ -141,7 +138,7 @@ public class ReviewServiceImpl implements ReviewService {
                 request.dispute(),
                 request.description()
         );
-        runAfterCommitSafely(() -> refreshFreelancerReviewRates(review.getFreelancerId()));
+        runAfterCommitSafely(() -> invalidateFreelancerReviewCaches(review.getFreelancerId()));
     }
 
     @Override
@@ -154,7 +151,7 @@ public class ReviewServiceImpl implements ReviewService {
                 )
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INPUT_VALUE));
         review.softDelete();
-        runAfterCommitSafely(() -> refreshFreelancerReviewRates(review.getFreelancerId()));
+        runAfterCommitSafely(() -> invalidateFreelancerReviewCaches(review.getFreelancerId()));
     }
 
     @Override
@@ -201,7 +198,7 @@ public class ReviewServiceImpl implements ReviewService {
 
         try {
             Long reviewId = freelancerReviewRepository.save(review).getId();
-            runAfterCommitSafely(() -> refreshEmployerReviewRates(request.employerId()));
+            runAfterCommitSafely(() -> invalidateEmployerReviewCache(request.employerId()));
             return reviewId;
         } catch (DataIntegrityViolationException e) {
             if (!isDuplicateKeyViolation(e)) {
@@ -227,7 +224,7 @@ public class ReviewServiceImpl implements ReviewService {
                 request.schedule(),
                 request.description()
         );
-        runAfterCommitSafely(() -> refreshEmployerReviewRates(review.getEmployerId()));
+        runAfterCommitSafely(() -> invalidateEmployerReviewCache(review.getEmployerId()));
     }
 
     @Override
@@ -240,7 +237,7 @@ public class ReviewServiceImpl implements ReviewService {
                 )
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INPUT_VALUE));
         review.softDelete();
-        runAfterCommitSafely(() -> refreshEmployerReviewRates(review.getEmployerId()));
+        runAfterCommitSafely(() -> invalidateEmployerReviewCache(review.getEmployerId()));
     }
 
     private void runAfterCommit(Runnable task) {
@@ -266,80 +263,23 @@ public class ReviewServiceImpl implements ReviewService {
         });
     }
 
-    private void refreshEmployerReviewRates(Long employerId) {
-        List<FreelancerReview> reviews = orEmpty(freelancerReviewRepository.findAllByEmployerIdAndStatus(employerId, ReviewStatus.ACTIVE));
-        List<Map<String, Object>> payload = new ArrayList<>(reviews.size());
-        for (FreelancerReview review : reviews) {
-            Map<String, Object> item = new HashMap<>();
-            item.put("atmosphereRate", toNumberOrZero(review.getAtmosphere()));
-            item.put("requirementsDetailRate", toNumberOrZero(review.getRequirementDetail()));
-            item.put("scheduleAdherenceRate", toNumberOrZero(review.getSchedule()));
-            payload.add(item);
-        }
-        writeRedisValue(EMPLOYER_REVIEW_RATES_KEY_PREFIX + employerId, payload);
+    private void invalidateEmployerReviewCache(Long employerId) {
+        deleteRedisValue(EMPLOYER_REVIEW_RATES_KEY_PREFIX + employerId);
     }
 
-    private void refreshFreelancerReviewRates(Long freelancerId) {
-        List<EmployerReview> reviews = orEmpty(employerReviewRepository.findAllByFreelancerIdAndStatus(freelancerId, ReviewStatus.ACTIVE));
-        if (reviews.isEmpty()) {
-            deleteRedisValue(FREELANCER_REVIEW_RATES_KEY_PREFIX + freelancerId);
-        } else {
-            Map<String, Object> payload = new HashMap<>();
-            payload.put("programming", round1(average(reviews, EmployerReview::getLanguage)));
-            payload.put("framework", round1(average(reviews, EmployerReview::getFramework)));
-            payload.put("debugging", round1(average(reviews, EmployerReview::getDebugging)));
-            payload.put("communication", round1(average(reviews, EmployerReview::getCommunication)));
-            payload.put("schedule", round1(average(reviews, EmployerReview::getSchedule)));
-            payload.put("dispute", round1(average(reviews, EmployerReview::getDispute)));
-            writeRedisValue(FREELANCER_REVIEW_RATES_KEY_PREFIX + freelancerId, payload);
-        }
+    private void invalidateFreelancerReviewCaches(Long freelancerId) {
+        deleteRedisValue(FREELANCER_REVIEW_RATES_KEY_PREFIX + freelancerId);
+        deleteRedisValue("freelancer:review:ai_report:" + freelancerId);
 
-        // 프리랜서 리뷰가 변경되었으므로, 해당 프리랜서의 AI 분석 리포트 캐시 무효화
-        if (redisTemplate != null) {
-            try {
-                redisTemplate.delete("freelancer:review:ai_report:" + freelancerId);
-                eventPublisher.publishEvent(new com.fallguys.common.event.ReputationUpdateRequestedEvent(freelancerId));
-            } catch (Exception e) {
-                log.warn("Failed to invalidate AI report cache for freelancerId: {}", freelancerId, e);
-            }
-        }
-    }
-
-    private Number toNumberOrZero(Integer value) {
-        return value == null ? 0 : value;
-    }
-
-    private double average(List<EmployerReview> reviews, java.util.function.Function<EmployerReview, Integer> extractor) {
-        int sum = 0;
-        int count = 0;
-        for (EmployerReview review : reviews) {
-            Integer value = extractor.apply(review);
-            if (value == null) {
-                continue;
-            }
-            sum += value;
-            count++;
-        }
-        if (count == 0) {
-            return 0.0;
-        }
-        return (double) sum / count;
-    }
-
-    private double round1(double value) {
-        return Math.round(value * 10.0) / 10.0;
-    }
-
-    private void writeRedisValue(String key, Object value) {
-        if (redisTemplate == null) {
-            return;
-        }
         try {
-            redisTemplate.opsForValue().set(key, value);
+            eventPublisher.publishEvent(
+                    new com.fallguys.common.event.ReputationUpdateRequestedEvent(freelancerId)
+            );
         } catch (RuntimeException e) {
-            log.warn("Failed to write mypage review payload. key={}", key, e);
+            log.warn("Failed to publish reputation update event. freelancerId={}", freelancerId, e);
         }
     }
+
 
     private void deleteRedisValue(String key) {
         if (redisTemplate == null) {
@@ -351,11 +291,6 @@ public class ReviewServiceImpl implements ReviewService {
             log.warn("Failed to delete mypage review payload. key={}", key, e);
         }
     }
-
-    private <T> List<T> orEmpty(List<T> list) {
-        return list == null ? List.of() : list;
-    }
-
     private boolean isDuplicateKeyViolation(Throwable throwable) {
         Throwable current = throwable;
         while (current != null) {

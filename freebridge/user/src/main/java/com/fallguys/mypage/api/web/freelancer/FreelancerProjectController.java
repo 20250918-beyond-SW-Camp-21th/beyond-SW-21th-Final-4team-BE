@@ -2,7 +2,7 @@ package com.fallguys.mypage.api.web.freelancer;
 
 import com.fallguys.common.response.ApiResponse;
 import com.fallguys.common.security.CustomUserDetails;
-import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerAppliedProjectListDto;
+import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerProjectListDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerProjectStatusStatsDto;
 import com.fallguys.mypage.service.freelancer.FreelancerProjectService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -27,10 +27,10 @@ public class FreelancerProjectController {
         return ApiResponse.ok(freelancerProjectService.getProjectStats(userDetails.getId()));
     }
 
-    @Operation(summary = "내 지원 및 진행 프로젝트 목록", description = "상태값을 받아(status파라미터 등) 해당 프로젝트 목록을 조회합니다.")
+    @Operation(summary = "내 프로젝트 목록", description = "상태값을 받아(status 파라미터) 해당 프로젝트 목록을 조회합니다.")
     @GetMapping
-    public ApiResponse<List<FreelancerAppliedProjectListDto>> getMyProjects(@AuthenticationPrincipal CustomUserDetails userDetails,
-                                                                            @RequestParam(required = false) String status) {
+    public ApiResponse<List<FreelancerProjectListDto>> getMyProjects(@AuthenticationPrincipal CustomUserDetails userDetails,
+                                                                     @RequestParam(required = false) String status) {
         return ApiResponse.ok(freelancerProjectService.getMyProjects(userDetails.getId(), status));
     }
 }

@@ -17,6 +17,11 @@ public class ContractQueryService implements ContractQuery {
     private final ContractRepository contractRepository;
 
     @Override
+    public boolean existsContract(Long contractId) {
+        return contractRepository.existsById(contractId);
+    }
+
+    @Override
     public ContractInfo getContractInfo(Long contractId) {
         var c = contractRepository.findById(contractId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.CONTRACT_NOT_FOUND));

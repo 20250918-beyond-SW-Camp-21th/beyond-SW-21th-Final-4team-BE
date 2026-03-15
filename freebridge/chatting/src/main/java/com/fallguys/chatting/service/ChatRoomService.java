@@ -1,14 +1,16 @@
 package com.fallguys.chatting.service;
 
-import com.fallguys.chatting.domain.ChatRoom;
 import com.fallguys.chatting.api.web.dto.response.ChatRoomResponse;
+import com.fallguys.chatting.domain.ChatRoom;
 import com.fallguys.chatting.repository.ChatRoomRepository;
+import com.fallguys.common.api.contract.ContractQuery;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -19,6 +21,8 @@ public class ChatRoomService {
 
     private final ChatRoomRepository chatRoomRepository;
     private final ChatPresenceService chatPresenceService;
+    private final ChatMessageService chatMessageService;
+    private final ContractQuery contractQuery;
 
     /**
      * 1:1 채팅방 생성 (이미 방이 존재할 경우 기존 방을 반환하는 로직은 추후 추가)
@@ -49,6 +53,61 @@ public class ChatRoomService {
         return rooms.stream()
                 .map(room -> ChatRoomResponse.from(room, buildParticipantPresence(room)))
                 .toList();
+    }
+
+    public ChatRoomResponse leaveChatRoom(String roomId, String participantId) {
+        ChatRoom room = chatRoomRepository.findById(roomId)
+                .orElseThrow(() -> new IllegalArgumentException("채팅방을 찾을 수 없습니다: " + roomId));
+
+        if (!room.getParticipants().contains(participantId)) {
+            log.warn("권한 없는 사용자의 채팅방 나가기 시도 - roomId: {}, participantId: {}", roomId, participantId);
+            throw new IllegalArgumentException("채팅방에 참여하고 있지 않습니다.");
+        }
+
+        boolean alreadyLeft = room.getLeftBy().contains(participantId);
+        room.leave(participantId);
+        ChatRoom savedRoom = chatRoomRepository.save(room);
+        if (!alreadyLeft) {
+            chatMessageService.publishLeaveSystemMessage(savedRoom, participantId);
+        }
+        return ChatRoomResponse.from(savedRoom, buildParticipantPresence(savedRoom));
+    }
+
+    public ChatRoomResponse updateRoomContract(String roomId, String participantId, Long contractId) {
+        ChatRoom room = chatRoomRepository.findById(roomId)
+                .orElseThrow(() -> new IllegalArgumentException("채팅방을 찾을 수 없습니다: " + roomId));
+
+        if (!room.isParticipant(participantId)) {
+            log.warn("권한 없는 사용자의 채팅방 계약 연결 시도 - roomId: {}, participantId: {}", roomId, participantId);
+            throw new IllegalArgumentException("채팅방에 참여하고 있지 않습니다.");
+        }
+        if (!room.isEmployerParticipant(participantId)) {
+            log.warn("기업 회원이 아닌 사용자의 채팅방 계약 연결 시도 - roomId: {}, participantId: {}", roomId, participantId);
+            throw new IllegalArgumentException("기업 회원만 채팅방에 계약을 연결할 수 있습니다.");
+        }
+        if (contractId == null) {
+            log.warn("계약 ID 없이 채팅방 계약 연결 시도 - roomId: {}, participantId: {}", roomId, participantId);
+            throw new IllegalArgumentException("연결할 계약 ID가 필요합니다.");
+        }
+        if (room.getContractId() != null && !room.getContractId().equals(contractId)) {
+            log.warn(
+                    "기존 계약이 연결된 채팅방 덮어쓰기 시도 - roomId: {}, participantId: {}, currentContractId: {}, requestedContractId: {}",
+                    roomId,
+                    participantId,
+                    room.getContractId(),
+                    contractId);
+            throw new IllegalArgumentException("이미 계약이 연결된 채팅방입니다. 기존 계약을 덮어쓸 수 없습니다.");
+        }
+
+        if (!contractQuery.existsContract(contractId)) {
+            log.warn("존재하지 않는 계약 연결 시도 - roomId: {}, participantId: {}, contractId: {}", roomId, participantId,
+                    contractId);
+            throw new NoSuchElementException("계약을 찾을 수 없습니다.");
+        }
+
+        room.updateContractId(contractId);
+        ChatRoom savedRoom = chatRoomRepository.save(room);
+        return ChatRoomResponse.from(savedRoom, buildParticipantPresence(savedRoom));
     }
 
     private Map<String, Boolean> buildParticipantPresence(ChatRoom room) {
