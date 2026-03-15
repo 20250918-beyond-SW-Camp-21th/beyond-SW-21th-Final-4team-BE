@@ -19,6 +19,7 @@ public class ChatRoomService {
 
     private final ChatRoomRepository chatRoomRepository;
     private final ChatPresenceService chatPresenceService;
+    private final ChatMessageService chatMessageService;
 
     /**
      * 1:1 채팅방 생성 (이미 방이 존재할 경우 기존 방을 반환하는 로직은 추후 추가)
@@ -60,8 +61,12 @@ public class ChatRoomService {
             throw new IllegalArgumentException("채팅방에 참여하고 있지 않습니다.");
         }
 
+        boolean alreadyLeft = room.getLeftBy().contains(participantId);
         room.leave(participantId);
         ChatRoom savedRoom = chatRoomRepository.save(room);
+        if (!alreadyLeft) {
+            chatMessageService.publishLeaveSystemMessage(savedRoom, participantId);
+        }
         return ChatRoomResponse.from(savedRoom, buildParticipantPresence(savedRoom));
     }
 
