@@ -1,4 +1,4 @@
-package com.fallguys.mypage.service.freelancer;
+    package com.fallguys.mypage.service.freelancer;
 
 import com.fallguys.common.exception.BusinessException;
 import com.fallguys.common.exception.ErrorCode;
@@ -41,7 +41,7 @@ public class FreelancerProfileService {
     private final FileStorage fileStorage;
     private final SharedMypageApi sharedMypageApi;
 
-    private static final long MAX_AVATAR_BYTES = 5 * 1024 * 1024; // 프로필 이미지 최대 5MB
+    private static final long MAX_AVATAR_BYTES = 5 * 1024 * 1024; // 프로필 이미지 최대 허용 크기 5MB
 
     @Transactional(readOnly = true)
     public FreelancerProfileResponseDto getProfile(Long userId) {
@@ -94,7 +94,7 @@ public class FreelancerProfileService {
                 workConditionsDto,
                 expertiseDto,
                 collaborationDto,
-                freelancer.getAverageRate(),
+                calculateTotalScore(expertise, collaboration, freelancer.getAverageRate()),
                 portfolioInfoDto,
                 crmAlerts
         );
@@ -295,4 +295,79 @@ public class FreelancerProfileService {
         }
         return false;
     }
+
+    private Double calculateTotalScore(Expertise expertise, Collaboration collaboration, Double fallbackAverageRate) {
+        Double expertiseAverage = calculateExpertiseAverage(expertise);
+        Double collaborationAverage = calculateCollaborationAverage(collaboration);
+
+        if (expertiseAverage == null) {
+            expertiseAverage = fallbackAverageRate;
+        }
+        if (collaborationAverage == null) {
+            collaborationAverage = fallbackAverageRate;
+        }
+
+        if (expertiseAverage == null && collaborationAverage == null) {
+            return null;
+        }
+        if (expertiseAverage == null) {
+            return collaborationAverage;
+        }
+        if (collaborationAverage == null) {
+            return expertiseAverage;
+        }
+
+        return (expertiseAverage + collaborationAverage) / 2.0;
+    }
+
+    private Double calculateExpertiseAverage(Expertise expertise) {
+        if (expertise == null) {
+            return null;
+        }
+
+        int count = 0;
+        double total = 0.0;
+
+        if (expertise.getProgramming() != null) {
+            total += expertise.getProgramming();
+            count++;
+        }
+        if (expertise.getFramework() != null) {
+            total += expertise.getFramework();
+            count++;
+        }
+        if (expertise.getProblemSolving() != null) {
+            total += expertise.getProblemSolving();
+            count++;
+        }
+
+        return count == 0 ? null : total / count;
+    }
+
+    private Double calculateCollaborationAverage(Collaboration collaboration) {
+        if (collaboration == null) {
+            return null;
+        }
+
+        int count = 0;
+        double total = 0.0;
+
+        if (collaboration.getCommunication() != null) {
+            total += collaboration.getCommunication();
+            count++;
+        }
+        if (collaboration.getScheduleAdherence() != null) {
+            total += collaboration.getScheduleAdherence();
+            count++;
+        }
+        if (collaboration.getDispute() != null) {
+            total += collaboration.getDispute();
+            count++;
+        }
+
+        return count == 0 ? null : total / count;
+    }
 }
+
+
+
