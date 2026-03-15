@@ -42,6 +42,10 @@ public class ChatMessageService {
             log.warn("권한 없는 사용자의 메시지 전송 시도 - roomId: {}, senderId: {}", roomId, senderId);
             throw new IllegalArgumentException("채팅방에 참여하고 있지 않습니다.");
         }
+        if (room.getLeftBy().contains(senderId)) {
+            log.warn("채팅방을 나간 사용자의 메시지 전송 시도 - roomId: {}, senderId: {}", roomId, senderId);
+            throw new IllegalArgumentException("채팅방을 나간 후에는 메시지를 전송할 수 없습니다.");
+        }
 
         // 1. 메시지 도메인 객체 생성
         ChatMessage chatMessage = ChatMessage.builder()
@@ -84,6 +88,36 @@ public class ChatMessageService {
 
         redisPublisher.publish(channelTopic, response);
 
+        return response;
+    }
+
+    public ChatMessageResponse publishLeaveSystemMessage(ChatRoom room, String participantId) {
+        String leaverName = room.getParticipantNames().getOrDefault(participantId, participantId);
+
+        ChatMessage chatMessage = ChatMessage.builder()
+                .roomId(room.getId())
+                .senderId(participantId)
+                .content(leaverName + "님이 채팅방을 나갔습니다.")
+                .type(MessageType.SYSTEM)
+                .metadata(Map.of(
+                        "eventType", "ROOM_LEFT",
+                        "participantId", participantId))
+                .build();
+
+        chatMessage.markAsReadBy(participantId);
+
+        ChatMessage savedMessage = chatMessageRepository.save(chatMessage);
+
+        room.updateLastMessage(savedMessage);
+        room.incrementUnreadCountForOthers(participantId);
+        room.getParticipants().stream()
+                .filter(roomParticipantId -> !roomParticipantId.equals(participantId))
+                .forEach(roomParticipantId -> unreadMessageRedisRepository.incrementUnreadCount(room.getId(), roomParticipantId));
+
+        chatRoomRepository.save(room);
+
+        ChatMessageResponse response = ChatMessageResponse.from(savedMessage);
+        redisPublisher.publish(channelTopic, response);
         return response;
     }
 
