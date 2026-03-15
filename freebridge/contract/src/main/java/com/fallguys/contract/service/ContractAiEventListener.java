@@ -24,7 +24,6 @@ public class ContractAiEventListener {
     private final ContractRepository contractRepository;
 
     @Async
-    @Transactional
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleContractAIAnalysisRequestedEvent(ContractAIAnalysisRequestedEvent event) {
         log.info("비동기 AI 계약서 분석 시작 - contractId: {}", event.contractId());
@@ -64,20 +63,24 @@ public class ContractAiEventListener {
             if (finalAdvice.isEmpty()) {
                 finalAdvice = "AI 분석 내용이 없습니다.";
             }
-            
-            contract.setAiLegalAdvice(finalAdvice);
-            contractRepository.save(contract);
+
+            saveAiLegalAdvice(event.contractId(), finalAdvice);
             log.info("비동기 AI 계약서 분석 완료 및 저장 - contractId: {}", event.contractId());
         } catch (Exception e) {
             log.error("AI 계약서 분석 실패 - contractId: {}", event.contractId(), e);
             try {
-                contractRepository.findById(event.contractId()).ifPresent(contract -> {
-                    contract.setAiLegalAdvice("AI 분석 중 오류가 발생했습니다.");
-                    contractRepository.save(contract);
-                });
+                saveAiLegalAdvice(event.contractId(), "AI 분석 중 오류가 발생했습니다.");
             } catch (Exception innerE) {
                 log.error("Failed to persist AI error message for contractId: {}", event.contractId(), innerE);
             }
         }
+    }
+
+    @Transactional
+    protected void saveAiLegalAdvice(Long contractId, String advice) {
+        Contract contract = contractRepository.findById(contractId)
+                .orElseThrow(() -> new IllegalArgumentException("Contract not found for id: " + contractId));
+        contract.setAiLegalAdvice(advice);
+        contractRepository.save(contract);
     }
 }

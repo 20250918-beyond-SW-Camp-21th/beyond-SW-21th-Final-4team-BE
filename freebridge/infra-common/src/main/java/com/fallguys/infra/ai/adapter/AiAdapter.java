@@ -104,7 +104,12 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, (request, response) -> {
                     String errorBody = new String(response.getBody().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
-                    throw new RuntimeException("AI 계약서 분석 서비스 응답 오류: " + response.getStatusCode() + ", detail: " + errorBody);
+                    log.warn(
+                            "AI 계약서 분석 요청 실패. status={}, body={}",
+                            response.getStatusCode(),
+                            truncateForLog(errorBody)
+                    );
+                    throw new AiServiceException("AI 계약서 분석 요청이 실패했습니다: " + response.getStatusCode());
                 })
                 .body(String.class);
     }

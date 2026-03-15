@@ -11,6 +11,7 @@ from langchain_core.prompts import ChatPromptTemplate
 
 router = APIRouter(prefix="", tags=["Analysis"])
 logger = logging.getLogger(__name__)
+MAX_PDF_BYTES = 10 * 1024 * 1024
 
 
 class ScoreDto(BaseModel):
@@ -112,6 +113,8 @@ async def analyze_freelancer_reputation(freelancer_id: int):
 
         if not rows:
             return FreelancerAiReputationReportDto(
+                grade="D",
+                positivityScore=0,
                 summary="아직 충분한 리뷰가 등록되지 않았습니다.",
                 strengths=[],
                 weaknesses=[],
@@ -224,6 +227,19 @@ async def analyze_contract(file: UploadFile = File(...)):
         if not file.filename.lower().endswith('.pdf'):
             raise HTTPException(status_code=400, detail="Only PDF files are supported")
 
+        file.file.seek(0, 2)
+        file_size = file.file.tell()
+        if file_size <= 0:
+            raise HTTPException(status_code=400, detail="Empty PDF files are not supported")
+        if file_size > MAX_PDF_BYTES:
+            raise HTTPException(status_code=413, detail="PDF file is too large")
+
+        file.file.seek(0)
+        header = file.file.read(4)
+        if header != b"%PDF":
+            raise HTTPException(status_code=400, detail="Invalid PDF file")
+
+        file.file.seek(0)
         file_content = await file.read()
 
         parse_url = "https://api.upstage.ai/v1/document-ai/document-parse"

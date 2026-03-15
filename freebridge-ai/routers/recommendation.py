@@ -47,7 +47,7 @@ def _extract_skill_tokens(skills_text):
         return []
     return [
         token.lower()
-        for token in re.split(r"[,/|\\s]+", skills_text)
+        for token in re.split(r"[,/|\s]+", skills_text)
         if token and token.strip()
     ]
 
