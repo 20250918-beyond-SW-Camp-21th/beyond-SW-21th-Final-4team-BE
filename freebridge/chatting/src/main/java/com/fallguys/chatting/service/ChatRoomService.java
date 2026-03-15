@@ -1,14 +1,16 @@
 package com.fallguys.chatting.service;
 
-import com.fallguys.chatting.domain.ChatRoom;
 import com.fallguys.chatting.api.web.dto.response.ChatRoomResponse;
+import com.fallguys.chatting.domain.ChatRoom;
 import com.fallguys.chatting.repository.ChatRoomRepository;
+import com.fallguys.common.api.contract.ContractQuery;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -20,6 +22,7 @@ public class ChatRoomService {
     private final ChatRoomRepository chatRoomRepository;
     private final ChatPresenceService chatPresenceService;
     private final ChatMessageService chatMessageService;
+    private final ContractQuery contractQuery;
 
     /**
      * 1:1 채팅방 생성 (이미 방이 존재할 경우 기존 방을 반환하는 로직은 추후 추가)
@@ -94,6 +97,12 @@ public class ChatRoomService {
                     room.getContractId(),
                     contractId);
             throw new IllegalArgumentException("이미 계약이 연결된 채팅방입니다. 기존 계약을 덮어쓸 수 없습니다.");
+        }
+
+        if (!contractQuery.existsContract(contractId)) {
+            log.warn("존재하지 않는 계약 연결 시도 - roomId: {}, participantId: {}, contractId: {}", roomId, participantId,
+                    contractId);
+            throw new NoSuchElementException("계약을 찾을 수 없습니다.");
         }
 
         room.updateContractId(contractId);
