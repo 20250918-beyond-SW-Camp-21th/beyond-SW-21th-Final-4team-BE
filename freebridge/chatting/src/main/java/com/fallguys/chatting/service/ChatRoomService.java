@@ -70,6 +70,20 @@ public class ChatRoomService {
         return ChatRoomResponse.from(savedRoom, buildParticipantPresence(savedRoom));
     }
 
+    public ChatRoomResponse updateRoomContract(String roomId, String participantId, Long contractId) {
+        ChatRoom room = chatRoomRepository.findById(roomId)
+                .orElseThrow(() -> new IllegalArgumentException("채팅방을 찾을 수 없습니다: " + roomId));
+
+        if (!room.getParticipants().contains(participantId)) {
+            log.warn("권한 없는 사용자의 채팅방 계약 연결 시도 - roomId: {}, participantId: {}", roomId, participantId);
+            throw new IllegalArgumentException("채팅방에 참여하고 있지 않습니다.");
+        }
+
+        room.updateContractId(contractId);
+        ChatRoom savedRoom = chatRoomRepository.save(room);
+        return ChatRoomResponse.from(savedRoom, buildParticipantPresence(savedRoom));
+    }
+
     private Map<String, Boolean> buildParticipantPresence(ChatRoom room) {
         return room.getParticipants().stream()
                 .collect(Collectors.toMap(Function.identity(), chatPresenceService::isUserOnline));
