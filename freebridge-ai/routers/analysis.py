@@ -100,7 +100,13 @@ def fetch_freelancer_reviews(freelancer_id: int):
                 WHERE freelancer_id = %s AND status = 'ACTIVE' LIMIT 50
             """
             cursor.execute(sql, (freelancer_id,))
-            return cursor.fetchall()
+            rows = cursor.fetchall()
+            logger.info(
+                "Fetched freelancer reviews from DB. freelancer_id=%s row_count=%s",
+                freelancer_id,
+                len(rows),
+            )
+            return rows
     finally:
         conn.close()
 
@@ -109,9 +115,19 @@ def fetch_freelancer_reviews(freelancer_id: int):
 async def analyze_freelancer_reputation(freelancer_id: int):
     """(Feature 3) 특정 프리랜서의 DB 리뷰를 긁어 평판 분석"""
     try:
+        logger.info("Freelancer analysis requested. freelancer_id=%s", freelancer_id)
         rows = await run_in_threadpool(fetch_freelancer_reviews, freelancer_id)
+        logger.info(
+            "Freelancer analysis loaded rows. freelancer_id=%s row_count=%s",
+            freelancer_id,
+            len(rows),
+        )
 
         if not rows:
+            logger.info(
+                "Freelancer analysis returning empty report because no rows were found. freelancer_id=%s",
+                freelancer_id,
+            )
             return FreelancerAiReputationReportDto(
                 grade="D",
                 positivityScore=0,
@@ -131,6 +147,12 @@ async def analyze_freelancer_reputation(freelancer_id: int):
             for key in detailed_scores.keys():
                 if row.get(key) is not None:
                     detailed_scores[key].append(row[key])
+        logger.info(
+            "Freelancer analysis prepared review payload. freelancer_id=%s review_text_count=%s score_counts=%s",
+            freelancer_id,
+            len(review_texts),
+            {key: len(scores) for key, scores in detailed_scores.items()},
+        )
         
         all_reviews = "\n- ".join(review_texts)
         all_reviews = f"- {all_reviews}"
@@ -165,6 +187,13 @@ async def analyze_freelancer_reputation(freelancer_id: int):
         """)
 
         result = await structured_llm.ainvoke(prompt.format(reviews=truncated_reviews, avg_scores=avg_scores_context))
+        logger.info(
+            "Freelancer analysis completed. freelancer_id=%s positivity_score=%s strengths_count=%s weaknesses_count=%s",
+            freelancer_id,
+            result.positivityScore,
+            len(result.strengths),
+            len(result.weaknesses),
+        )
         return result
 
     except Exception as e:

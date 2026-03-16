@@ -13,12 +13,11 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.event.EventListener;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.context.event.EventListener;
-import org.springframework.scheduling.annotation.Async;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fallguys.common.event.ReputationUpdateRequestedEvent;
 
 import java.time.Duration;
@@ -293,5 +292,25 @@ public class FreelancerReviewService {
 
     private double round1(double value) {
         return Math.round(value * 10.0) / 10.0;
+    }
+
+    @Async
+    @EventListener
+    public void handleReputationUpdateRequested(ReputationUpdateRequestedEvent event) {
+        if (event == null || event.freelancerId() == null) {
+            log.warn("Reputation update event skipped because freelancerId is null.");
+            return;
+        }
+
+        Long freelancerId = event.freelancerId();
+        String aiReportKey = "freelancer:review:ai_report:" + freelancerId;
+        String ratesKey = "freelancer:review:rates:" + freelancerId;
+        try {
+            redisTemplate.delete(aiReportKey);
+            redisTemplate.delete(ratesKey);
+            log.info("프리랜서 리뷰 캐시 삭제 완료. freelancerId={}, aiReportKey={}, ratesKey={}", freelancerId, aiReportKey, ratesKey);
+        } catch (Exception e) {
+            log.warn("프리랜서 리뷰 캐시 삭제 실패. freelancerId={}, aiReportKey={}, ratesKey={}", freelancerId, aiReportKey, ratesKey, e);
+        }
     }
 }
