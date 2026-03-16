@@ -481,12 +481,12 @@ public class JobPostingServiceImpl implements JobPostingService {
                     freelancerIds.size(),
                     freelancerIds
             );
-            Map<Long, RecruitmentUser> userMap;
+            Map<Long, RecruitmentUser> userMap = loadFreelancersByFreelancerIds(freelancerIds);
             try {
                 userMap = recruitmentUserReader.getFreelancersByFreelancerIdsOrThrow(freelancerIds);
             } catch (Exception e) {
                 log.warn("AI 추천 결과 보정 실패 - 프리랜서 일괄 조회 실패", e);
-                userMap = java.util.Collections.emptyMap();
+                userMap = loadFreelancersByFreelancerIds(freelancerIds);
             }
 
             Map<Long, RecruitmentUser> combinedUserMap = new LinkedHashMap<>(userMap);
@@ -540,14 +540,27 @@ public class JobPostingServiceImpl implements JobPostingService {
                 try {
                     RecruitmentUser f = finalUserMap.get(dto.id());
                     if (f == null) {
-                        return dto; 
+                        log.warn(
+                                "Freelancer recommendation candidate dropped. jobPostingId={}, employerId={}, freelancerId={}",
+                                jobPostingId,
+                                userId,
+                                dto.id()
+                        );
+                        return null;
                     }
                     List<String> userSkills = (f.skills() != null && !f.skills().trim().isEmpty())
                             ? java.util.Arrays.asList(f.skills().split(",")) 
                             : java.util.Collections.emptyList();
                     return dto.withFreelancerInfo(f.name(), userSkills, f.experience());
                 } catch (Exception e) {
-                    return dto;
+                    log.warn(
+                            "Freelancer recommendation enrichment failed. jobPostingId={}, employerId={}, freelancerId={}",
+                            jobPostingId,
+                            userId,
+                            dto.id(),
+                            e
+                    );
+                    return null;
                 }
             }).filter(Objects::nonNull).toList();
 
@@ -1112,6 +1125,28 @@ public class JobPostingServiceImpl implements JobPostingService {
                 + (visibleSuffix > 0 ? normalized.substring(normalized.length() - visibleSuffix) : "");
 
         return masked.length() > 24 ? masked.substring(0, 24) + "..." : masked;
+    }
+
+    private Map<Long, RecruitmentUser> loadFreelancersByFreelancerIds(Collection<Long> freelancerIds) {
+        if (freelancerIds == null || freelancerIds.isEmpty()) {
+            return Map.of();
+        }
+
+        Map<Long, RecruitmentUser> resolved = new LinkedHashMap<>();
+        for (Long freelancerId : freelancerIds) {
+            if (freelancerId == null || resolved.containsKey(freelancerId)) {
+                continue;
+            }
+            try {
+                resolved.put(
+                        freelancerId,
+                        recruitmentUserReader.getFreelancerByFreelancerIdOrThrow(freelancerId)
+                );
+            } catch (Exception e) {
+                log.warn("Freelancer recommendation lookup failed. freelancerId={}", freelancerId, e);
+            }
+        }
+        return resolved;
     }
 
     private <T> List<T> orEmpty(List<T> list) {
