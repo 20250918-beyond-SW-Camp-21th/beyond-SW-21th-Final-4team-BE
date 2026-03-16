@@ -12,6 +12,7 @@ import com.fallguys.review.entity.FreelancerReview;
 import com.fallguys.review.entity.ReviewStatus;
 import com.fallguys.review.repository.EmployerReviewRepository;
 import com.fallguys.review.repository.FreelancerReviewRepository;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -42,6 +43,9 @@ class ReviewServiceImplTest {
 
     @Mock
     private ProjectExternalApi projectExternalApi;
+
+    @Mock
+    private EntityManager entityManager;
 
     @InjectMocks
     private ReviewServiceImpl reviewService;
