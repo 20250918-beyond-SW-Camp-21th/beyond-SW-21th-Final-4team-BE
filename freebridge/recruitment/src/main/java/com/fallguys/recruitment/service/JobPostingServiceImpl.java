@@ -253,6 +253,7 @@ public class JobPostingServiceImpl implements JobPostingService {
         RecruitmentUser user = recruitmentUserReader.getFreelancerByIdOrThrow(userId);
         Long freelancerId = user.id();
 
+
         JobPosting jobPosting = getJobPostingOrThrow(jobPostingId);
         validateNotDeleted(jobPosting);
 

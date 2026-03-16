@@ -3,8 +3,6 @@ package com.fallguys.mypage.service.employer;
 import com.fallguys.common.ai.port.ReviewEngine;
 import com.fallguys.mypage.api.web.dto.employer.response.EmployerReputationAiResponseDto;
 import com.fallguys.mypage.api.web.dto.employer.response.EmployerReviewSummaryResponseDto;
-import com.fallguys.mypage.entity.employer.Employer;
-import com.fallguys.mypage.repository.employer.EmployerRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
 import lombok.RequiredArgsConstructor;
@@ -12,9 +10,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 
 @Slf4j
@@ -23,15 +21,11 @@ import java.util.Map;
 public class EmployerReviewService {
 
     private final RedisTemplate<String, Object> redisTemplate;
-    private final EmployerRepository employerRepository;
     private final EntityManager entityManager;
     private final ReviewEngine reviewEngine;
 
     public EmployerReviewSummaryResponseDto getReputationSummary(Long userId) {
-        Long employerId = resolveEmployerId(userId);
-        if (employerId == null) {
-            return EmployerReviewSummaryResponseDto.empty();
-        }
+        Long employerId = userId;
 
         String redisKey = "employer:review:rates:" + employerId;
         
@@ -42,10 +36,19 @@ public class EmployerReviewService {
                 return buildAndCacheSummary(employerId, redisKey);
             }
 
-            @SuppressWarnings("unchecked")
-            List<Map<String, Object>> reviews = (List<Map<String, Object>>) rawData;
+            if (rawData instanceof Map<?, ?> rawMap) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> averages = (Map<String, Object>) rawMap;
+                return EmployerReviewSummaryResponseDto.fromAverageMap(averages);
+            }
 
-            return EmployerReviewSummaryResponseDto.from(reviews);
+            if (rawData instanceof List<?> rawList) {
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> reviews = (List<Map<String, Object>>) rawList;
+                return EmployerReviewSummaryResponseDto.from(reviews);
+            }
+
+            return EmployerReviewSummaryResponseDto.empty();
 
         } catch (Exception e) {
             log.error("Failed to parse employer review summary from Redis for employerId: {}", userId, e);
@@ -66,39 +69,36 @@ public class EmployerReviewService {
         @SuppressWarnings("unchecked")
         List<Object[]> rows = query.getResultList();
         if (rows == null || rows.isEmpty()) {
-            cacheEmployerReviewSummary(redisKey, List.of());
+            cacheEmployerReviewSummary(redisKey, Map.of());
             return EmployerReviewSummaryResponseDto.empty();
         }
 
-        List<Map<String, Object>> payload = new ArrayList<>(rows.size());
+        double sumAtmosphere = 0.0;
+        double sumRequirements = 0.0;
+        double sumSchedule = 0.0;
+        int count = 0;
+
         for (Object[] row : rows) {
-            payload.add(Map.of(
-                    "atmosphereRate", numberValue(row[0]),
-                    "requirementsDetailRate", numberValue(row[1]),
-                    "scheduleAdherenceRate", numberValue(row[2])
-            ));
+            sumAtmosphere += numberValue(row[0]);
+            sumRequirements += numberValue(row[1]);
+            sumSchedule += numberValue(row[2]);
+            count++;
         }
 
-        cacheEmployerReviewSummary(redisKey, payload);
-        return EmployerReviewSummaryResponseDto.from(payload);
+        Map<String, Object> averages = new HashMap<>();
+        averages.put("atmosphereRate", round1(sumAtmosphere / count));
+        averages.put("requirementsDetailRate", round1(sumRequirements / count));
+        averages.put("scheduleAdherenceRate", round1(sumSchedule / count));
+
+        cacheEmployerReviewSummary(redisKey, averages);
+        return EmployerReviewSummaryResponseDto.fromAverageMap(averages);
     }
 
-    private void cacheEmployerReviewSummary(String redisKey, List<Map<String, Object>> payload) {
+    private void cacheEmployerReviewSummary(String redisKey, Map<String, Object> payload) {
         try {
             redisTemplate.opsForValue().set(redisKey, payload);
         } catch (Exception e) {
             log.warn("고용주 리뷰 요약을 Redis에 저장하지 못했습니다. key={}", redisKey, e);
-        }
-    }
-
-    private Long resolveEmployerId(Long userId) {
-        try {
-            return employerRepository.findByUserId(userId)
-                    .map(Employer::getEmployerId)
-                    .orElse(null);
-        } catch (Exception e) {
-            log.warn("userId로 employerId를 찾지 못했습니다. userId={}", userId, e);
-            return null;
         }
     }
 
@@ -107,6 +107,10 @@ public class EmployerReviewService {
             return number.doubleValue();
         }
         return 0.0;
+    }
+
+    private double round1(double value) {
+        return Math.round(value * 10.0) / 10.0;
     }
 
     public EmployerReputationAiResponseDto getAiReputation(Long userId) {

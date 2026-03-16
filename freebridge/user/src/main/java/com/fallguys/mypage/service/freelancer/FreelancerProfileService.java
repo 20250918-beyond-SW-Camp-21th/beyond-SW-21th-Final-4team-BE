@@ -40,6 +40,7 @@ public class FreelancerProfileService {
     private final FreelancerRepository freelancerRepository;
     private final FileStorage fileStorage;
     private final SharedMypageApi sharedMypageApi;
+    private final FreelancerReviewService freelancerReviewService;
 
     private static final long MAX_AVATAR_BYTES = 5 * 1024 * 1024; // 프로필 이미지 최대 허용 크기 5MB
 
@@ -47,6 +48,7 @@ public class FreelancerProfileService {
     public FreelancerProfileResponseDto getProfile(Long userId) {
         Freelancer freelancer = findByUserIdOrThrow(userId);
         ExternalUserResponse userResponse = sharedMypageApi.getUserById(userId);
+        freelancerReviewService.getReviewSummary(userId);
 
         WorkConditions workConditions = freelancer.getWorkConditions();
         WorkConditionsDto workConditionsDto = workConditions == null ? null : new WorkConditionsDto(
