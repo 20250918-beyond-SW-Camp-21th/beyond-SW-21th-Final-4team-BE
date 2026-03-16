@@ -71,25 +71,6 @@ public class ExternalSubscriptionPortImpl implements ExternalSubscriptionPort {
 
     @Override
     @Transactional
-    public void schedulePlanDowngrade(Long userId, PlanGrade targetGrade, LocalDateTime effectiveDate) {
-        Employer employer = getEmployerOrThrow(userId);
-
-        employer.scheduleSubscriptionChange(toSubscriptionEnum(targetGrade), effectiveDate);
-        log.info("[ExternalSubscriptionPortImpl] 다운그레이드 예약 등록 (userId: {}, current: {}, target: {}, effectiveDate: {})",
-                userId, employer.getSubscription(), targetGrade, effectiveDate);
-    }
-
-    @Override
-    @Transactional
-    public void cancelSubscription(Long userId, LocalDateTime effectiveDate) {
-        Employer employer = getEmployerOrThrow(userId);
-
-        employer.scheduleSubscriptionChange(Subscription.BASIC, effectiveDate);
-        log.info("[ExternalSubscriptionPortImpl] 구독 취소 예약 완료 (userId: {}, effectiveDate: {})", userId, effectiveDate);
-    }
-
-    @Override
-    @Transactional
     public void applyPendingSubscription(Long userId) {
         Employer employer = getEmployerOrThrow(userId);
         employer.applyPendingSubscription();

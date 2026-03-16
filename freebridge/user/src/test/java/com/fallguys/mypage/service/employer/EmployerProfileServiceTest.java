@@ -103,7 +103,8 @@ class EmployerProfileServiceTest {
                         "S30_99",
                         "Yeouido",
                         "https://new.com",
-                        "Updated Description"
+                        "Updated Description",
+                        "0108998932"
                 );
 
         // when
@@ -137,7 +138,8 @@ class EmployerProfileServiceTest {
                         "INVALID_SCALE",
                         "Yeouido",
                         "https://new.com",
-                        "Updated Description"
+                        "Updated Description",
+                        "0108998932"
                 );
 
         // when & then
