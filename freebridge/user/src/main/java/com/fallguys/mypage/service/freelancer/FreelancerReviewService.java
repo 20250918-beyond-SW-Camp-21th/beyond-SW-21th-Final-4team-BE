@@ -130,11 +130,9 @@ public class FreelancerReviewService {
     }
 
     public FreelancerAiReputationReportDto getAiReputationReport(Long userId) {
-        log.info("프리랜서 AI 평판 조회 요청. userId={}", userId);
         getReviewSummary(userId);
 
         Long freelancerId = resolveFreelancerId(userId);
-        log.info("프리랜서 AI 평판 조회 매핑 결과. userId={}, freelancerId={}", userId, freelancerId);
         if (freelancerId == null) {
             log.warn("해당 userId에 대한 프리랜서 엔티티를 찾지 못했습니다. userId={}", userId);
             return emptyAiReport();
@@ -143,24 +141,10 @@ public class FreelancerReviewService {
         String ratesRedisKey = "freelancer:review:rates:" + freelancerId;
         try {
             Object ratesData = redisTemplate.opsForValue().get(ratesRedisKey);
-            if (ratesData == null) {
-                log.info("프리랜서 리뷰 rates 캐시 miss. userId={}, freelancerId={}, key={}", userId, freelancerId, ratesRedisKey);
-            } else {
-                log.info(
-                        "프리랜서 리뷰 rates 캐시 hit. userId={}, freelancerId={}, key={}, valueType={}, empty={}",
-                        userId,
-                        freelancerId,
-                        ratesRedisKey,
-                        ratesData.getClass().getSimpleName(),
-                        isEmptyCacheValue(ratesData)
-                );
-            }
             if (ratesData instanceof List<?> list && list.isEmpty()) {
-                log.info("프리랜서 AI 평판 기본 응답 반환. 이유=empty_list_rates_cache, userId={}, freelancerId={}", userId, freelancerId);
                 return emptyAiReport();
             }
             if (ratesData instanceof Map<?, ?> map && map.isEmpty()) {
-                log.info("프리랜서 AI 평판 기본 응답 반환. 이유=empty_map_rates_cache, userId={}, freelancerId={}", userId, freelancerId);
                 return new FreelancerAiReputationReportDto(
                         "미정",
                         0,
@@ -172,30 +156,21 @@ public class FreelancerReviewService {
                 );
             }
         } catch (Exception e) {
-            log.warn("Redis에서 리뷰 존재 여부를 확인하지 못했습니다. userId={}, freelancerId={}, key={}", userId, freelancerId, ratesRedisKey, e);
+            log.warn("Redis에서 리뷰 존재 여부를 확인하지 못했습니다. freelancerId={}", freelancerId, e);
         }
 
         String redisKey = "freelancer:review:ai_report:" + freelancerId;
         try {
             Object cachedData = redisTemplate.opsForValue().get(redisKey);
             if (cachedData != null) {
-                log.info(
-                        "프리랜서 AI 평판 리포트 캐시 hit. userId={}, freelancerId={}, key={}, valueType={}",
-                        userId,
-                        freelancerId,
-                        redisKey,
-                        cachedData.getClass().getSimpleName()
-                );
                 return objectMapper.convertValue(cachedData, FreelancerAiReputationReportDto.class);
             }
-            log.info("프리랜서 AI 평판 리포트 캐시 miss. userId={}, freelancerId={}, key={}", userId, freelancerId, redisKey);
         } catch (Exception e) {
-            log.warn("Redis에서 AI 평판 리포트를 조회하지 못했습니다. userId={}, freelancerId={}, key={}", userId, freelancerId, redisKey, e);
+            log.warn("Redis에서 AI 평판 리포트를 조회하지 못했습니다. freelancerId={}", freelancerId, e);
         }
 
         FreelancerAiReputationReportDto report;
         try {
-            log.info("Python AI 평판 분석 호출 시작. userId={}, freelancerId={}", userId, freelancerId);
             report = reviewEngine.getFreelancerAnalysis(freelancerId);
         } catch (AiServiceException e) {
             log.warn("AI 평판 분석을 사용할 수 없습니다. userId={}, freelancerId={}", userId, freelancerId, e);
@@ -205,10 +180,9 @@ public class FreelancerReviewService {
         try {
             if (report != null) {
                 redisTemplate.opsForValue().set(redisKey, report, Duration.ofHours(24));
-                log.info("프리랜서 AI 평판 리포트 Redis 저장 완료. userId={}, freelancerId={}, key={}", userId, freelancerId, redisKey);
             }
         } catch (Exception e) {
-            log.warn("AI 평판 리포트를 Redis에 저장하지 못했습니다. userId={}, freelancerId={}, key={}", userId, freelancerId, redisKey, e);
+            log.warn("AI 평판 리포트를 Redis에 저장하지 못했습니다. freelancerId={}", freelancerId, e);
         }
 
         return report != null ? report : emptyAiReport();
@@ -320,16 +294,6 @@ public class FreelancerReviewService {
         return Math.round(value * 10.0) / 10.0;
     }
 
-    private boolean isEmptyCacheValue(Object value) {
-        if (value instanceof Map<?, ?> map) {
-            return map.isEmpty();
-        }
-        if (value instanceof List<?> list) {
-            return list.isEmpty();
-        }
-        return false;
-    }
-
     @Async
     @EventListener
     public void handleReputationUpdateRequested(ReputationUpdateRequestedEvent event) {
@@ -339,12 +303,14 @@ public class FreelancerReviewService {
         }
 
         Long freelancerId = event.freelancerId();
-        String redisKey = "freelancer:review:ai_report:" + freelancerId;
+        String aiReportKey = "freelancer:review:ai_report:" + freelancerId;
+        String ratesKey = "freelancer:review:rates:" + freelancerId;
         try {
-            redisTemplate.delete(redisKey);
-            log.info("프리랜서 AI 평판 리포트 캐시 삭제 완료. freelancerId={}, key={}", freelancerId, redisKey);
+            redisTemplate.delete(aiReportKey);
+            redisTemplate.delete(ratesKey);
+            log.info("프리랜서 리뷰 캐시 삭제 완료. freelancerId={}, aiReportKey={}, ratesKey={}", freelancerId, aiReportKey, ratesKey);
         } catch (Exception e) {
-            log.warn("프리랜서 AI 평판 리포트 캐시 삭제 실패. freelancerId={}, key={}", freelancerId, redisKey, e);
+            log.warn("프리랜서 리뷰 캐시 삭제 실패. freelancerId={}, aiReportKey={}, ratesKey={}", freelancerId, aiReportKey, ratesKey, e);
         }
     }
 }
