@@ -3,8 +3,6 @@ package com.fallguys.mypage.service.employer;
 import com.fallguys.common.ai.port.ReviewEngine;
 import com.fallguys.mypage.api.web.dto.employer.response.EmployerReputationAiResponseDto;
 import com.fallguys.mypage.api.web.dto.employer.response.EmployerReviewSummaryResponseDto;
-import com.fallguys.mypage.entity.employer.Employer;
-import com.fallguys.mypage.repository.employer.EmployerRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
 import lombok.RequiredArgsConstructor;
@@ -23,15 +21,11 @@ import java.util.Map;
 public class EmployerReviewService {
 
     private final RedisTemplate<String, Object> redisTemplate;
-    private final EmployerRepository employerRepository;
     private final EntityManager entityManager;
     private final ReviewEngine reviewEngine;
 
     public EmployerReviewSummaryResponseDto getReputationSummary(Long userId) {
-        Long employerId = resolveEmployerId(userId);
-        if (employerId == null) {
-            return EmployerReviewSummaryResponseDto.empty();
-        }
+        Long employerId = userId;
 
         String redisKey = "employer:review:rates:" + employerId;
         
@@ -88,17 +82,6 @@ public class EmployerReviewService {
             redisTemplate.opsForValue().set(redisKey, payload);
         } catch (Exception e) {
             log.warn("고용주 리뷰 요약을 Redis에 저장하지 못했습니다. key={}", redisKey, e);
-        }
-    }
-
-    private Long resolveEmployerId(Long userId) {
-        try {
-            return employerRepository.findByUserId(userId)
-                    .map(Employer::getEmployerId)
-                    .orElse(null);
-        } catch (Exception e) {
-            log.warn("userId로 employerId를 찾지 못했습니다. userId={}", userId, e);
-            return null;
         }
     }
 
