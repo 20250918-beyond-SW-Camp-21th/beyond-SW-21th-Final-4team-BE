@@ -91,10 +91,16 @@ def mask_profile(value, visible=2, limit=24):
     normalized = re.sub(r"\s+", " ", str(value)).strip()
     if not normalized:
         return normalized
-    if len(normalized) <= visible * 2:
-        masked = normalized[:visible] + "*" * max(0, len(normalized) - visible)
-    else:
-        masked = normalized[:visible] + "*" * min(8, len(normalized) - visible * 2) + normalized[-visible:]
+    visible_prefix = min(visible, max(0, len(normalized) - 1))
+    visible_suffix = min(visible, max(0, len(normalized) - visible_prefix - 1))
+    desired_mask_count = min(8, max(0, len(normalized) - visible_prefix - visible_suffix))
+    masked_count = max(1, desired_mask_count)
+
+    masked = (
+        normalized[:visible_prefix]
+        + "*" * masked_count
+        + (normalized[-visible_suffix:] if visible_suffix > 0 else "")
+    )
     return masked[:limit] + ("..." if len(masked) > limit else "")
 
 

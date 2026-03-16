@@ -1098,9 +1098,14 @@ public class JobPostingServiceImpl implements JobPostingService {
             return normalized;
         }
 
-        int visiblePrefix = Math.min(2, normalized.length());
-        int visibleSuffix = normalized.length() > 6 ? 2 : 0;
-        int maskedLength = Math.max(0, normalized.length() - visiblePrefix - visibleSuffix);
+        int minMask = 2;
+        int length = normalized.length();
+        int visiblePrefix = Math.min(2, Math.max(0, length - minMask));
+        int remainingAfterPrefix = length - visiblePrefix;
+        int visibleSuffix = remainingAfterPrefix > minMask
+                ? Math.min(2, remainingAfterPrefix - minMask)
+                : 0;
+        int maskedLength = Math.max(minMask, length - visiblePrefix - visibleSuffix);
 
         String masked = normalized.substring(0, visiblePrefix)
                 + "*".repeat(Math.min(maskedLength, 8))
