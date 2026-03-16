@@ -52,11 +52,33 @@ public record EmployerReviewSummaryResponseDto(
         );
     }
 
+    public static EmployerReviewSummaryResponseDto fromAverageMap(Map<String, Object> averages) {
+        if (averages == null || averages.isEmpty()) {
+            return empty();
+        }
+
+        double avgAtmosphere = round1(safeNumber(averages.get("atmosphereRate")));
+        double avgRequirements = round1(safeNumber(averages.get("requirementsDetailRate")));
+        double avgSchedule = round1(safeNumber(averages.get("scheduleAdherenceRate")));
+        double totalAverage = round1((avgAtmosphere + avgRequirements + avgSchedule) / 3.0);
+
+        return new EmployerReviewSummaryResponseDto(
+                totalAverage,
+                avgAtmosphere,
+                avgRequirements,
+                avgSchedule
+        );
+    }
+
     /** Integer, Long, Double 등 모든 Number 하위 타입과 null을 안전하게 double로 변환합니다. */
     private static double safeNumber(Object value) {
         if (value instanceof Number n) {
             return n.doubleValue();
         }
         return 0.0;
+    }
+
+    private static double round1(double value) {
+        return Math.round(value * 10.0) / 10.0;
     }
 }
