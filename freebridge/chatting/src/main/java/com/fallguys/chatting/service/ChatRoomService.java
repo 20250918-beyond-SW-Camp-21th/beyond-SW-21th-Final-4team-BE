@@ -73,7 +73,8 @@ public class ChatRoomService {
         return ChatRoomResponse.from(savedRoom, buildParticipantPresence(savedRoom));
     }
 
-    public ChatRoomResponse updateRoomContract(String roomId, String participantId, Long contractId) {
+    public ChatRoomResponse updateRoomContract(String roomId, String participantId, Long contractId,
+            boolean overrideExisting) {
         ChatRoom room = chatRoomRepository.findById(roomId)
                 .orElseThrow(() -> new IllegalArgumentException("채팅방을 찾을 수 없습니다: " + roomId));
 
@@ -89,7 +90,7 @@ public class ChatRoomService {
             log.warn("계약 ID 없이 채팅방 계약 연결 시도 - roomId: {}, participantId: {}", roomId, participantId);
             throw new IllegalArgumentException("연결할 계약 ID가 필요합니다.");
         }
-        if (room.getContractId() != null && !room.getContractId().equals(contractId)) {
+        if (room.getContractId() != null && !room.getContractId().equals(contractId) && !overrideExisting) {
             log.warn(
                     "기존 계약이 연결된 채팅방 덮어쓰기 시도 - roomId: {}, participantId: {}, currentContractId: {}, requestedContractId: {}",
                     roomId,
@@ -97,6 +98,14 @@ public class ChatRoomService {
                     room.getContractId(),
                     contractId);
             throw new IllegalArgumentException("이미 계약이 연결된 채팅방입니다. 기존 계약을 덮어쓸 수 없습니다.");
+        }
+        if (room.getContractId() != null && !room.getContractId().equals(contractId) && overrideExisting) {
+            log.info(
+                    "명시적 계약 재연결 수행 - roomId: {}, participantId: {}, previousContractId: {}, requestedContractId: {}",
+                    roomId,
+                    participantId,
+                    room.getContractId(),
+                    contractId);
         }
 
         if (!contractQuery.existsContract(contractId)) {

@@ -18,7 +18,7 @@ public class ContractQueryService implements ContractQuery {
 
     @Override
     public boolean existsContract(Long contractId) {
-        return contractRepository.existsById(contractId);
+        return contractRepository.existsByContractId(contractId) || contractRepository.existsById(contractId);
     }
 
     @Override
