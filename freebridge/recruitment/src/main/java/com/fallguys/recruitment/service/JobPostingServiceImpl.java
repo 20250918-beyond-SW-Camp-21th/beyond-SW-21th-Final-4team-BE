@@ -392,8 +392,17 @@ public class JobPostingServiceImpl implements JobPostingService {
         String cacheKey = "ai:reco:freelancers:" + jobPostingId;
         List<AiRecommendationResponseDTO> cached = readCache(cacheKey, new TypeReference<>() {});
         if (cached != null) {
+            log.info("Freelancer recommendation cache hit. jobPostingId={}, result={}", jobPostingId, summarizeRecommendationIds(cached));
             return cached;
         }
+
+        log.info(
+                "Freelancer recommendation requested. jobPostingId={}, employerId={}, title={}, techStack={}",
+                jobPostingId,
+                userId,
+                jobPosting.getTitle(),
+                jobPosting.getTechStack()
+        );
 
         self.triggerFreelancerRecommendation(jobPostingId, userId);
 
@@ -429,6 +438,14 @@ public class JobPostingServiceImpl implements JobPostingService {
                     jobPosting.getTitle(),
                     jobPosting.getDescription(),
                     AiRecommendationResponseDTO.class
+            );
+
+            log.info(
+                    "Freelancer recommendation AI raw result. jobPostingId={}, employerId={}, title={}, result={}",
+                    jobPostingId,
+                    userId,
+                    jobPosting.getTitle(),
+                    summarizeRecommendationIds(aiResults)
             );
 
             List<Long> freelancerIds = aiResults.stream()
@@ -482,6 +499,13 @@ public class JobPostingServiceImpl implements JobPostingService {
                 }
             }).filter(Objects::nonNull).toList();
 
+            log.info(
+                    "Freelancer recommendation enriched result. jobPostingId={}, employerId={}, result={}",
+                    jobPostingId,
+                    userId,
+                    summarizeRecommendationIds(result)
+            );
+
             String cacheKey = "ai:reco:freelancers:" + jobPostingId;
             writeCacheWithTtl(cacheKey, result, AI_RECOMMENDATION_CACHE_TTL);
         } catch (Exception e) {
@@ -494,13 +518,21 @@ public class JobPostingServiceImpl implements JobPostingService {
     @Override     // 프리랜서용: 캐싱 조회 전용
     public List<AiRecommendationResponseDTO> getRecommendedJobsForFreelancer(Long userId) {
         // Validation check to prevent triggering background task for bad userIds
-        recruitmentUserReader.getFreelancerByIdOrThrow(userId);
+        RecruitmentUser freelancer = recruitmentUserReader.getFreelancerByIdOrThrow(userId);
 
         String cacheKey = "ai:reco:jobs:" + userId;
         List<AiRecommendationResponseDTO> cached = readCache(cacheKey, new TypeReference<>() {});
         if (cached != null) {
+            log.info("Job recommendation cache hit. userId={}, result={}", userId, summarizeRecommendationIds(cached));
             return cached;
         }
+
+        log.info(
+                "Job recommendation requested. userId={}, skills={}, experience={}",
+                userId,
+                freelancer.skills(),
+                freelancer.experience()
+        );
 
         self.triggerJobRecommendation(userId);
 
@@ -530,11 +562,24 @@ public class JobPostingServiceImpl implements JobPostingService {
             String experience = (freelancer.experience() == null || freelancer.experience().isBlank())
                     ? "없음" : freelancer.experience().trim();
 
+            log.info(
+                    "Job recommendation AI request. userId={}, rawSkills={}, rawExperience={}",
+                    userId,
+                    skills,
+                    experience
+            );
+
             List<AiRecommendationResponseDTO> aiResults = recommendationEngine.recommendJobs(
                     userId,
                     skills,
                     experience,
                     AiRecommendationResponseDTO.class
+            );
+
+            log.info(
+                    "Job recommendation AI raw result. userId={}, result={}",
+                    userId,
+                    summarizeRecommendationIds(aiResults)
             );
 
             List<Long> jobIds = aiResults.stream().map(AiRecommendationResponseDTO::id).toList();
@@ -555,6 +600,12 @@ public class JobPostingServiceImpl implements JobPostingService {
                     return null;
                 }
             }).filter(Objects::nonNull).toList();
+
+            log.info(
+                    "Job recommendation filtered result. userId={}, result={}",
+                    userId,
+                    summarizeRecommendationIds(result)
+            );
 
             String cacheKey = "ai:reco:jobs:" + userId;
             writeCacheWithTtl(cacheKey, result, AI_RECOMMENDATION_CACHE_TTL);
@@ -952,6 +1003,19 @@ public class JobPostingServiceImpl implements JobPostingService {
         } catch (RuntimeException e) {
             log.warn("Failed to write mypage redis payload. key={}", key, e);
         }
+    }
+
+    private String summarizeRecommendationIds(List<AiRecommendationResponseDTO> recommendations) {
+        if (recommendations == null || recommendations.isEmpty()) {
+            return "[]";
+        }
+
+        return recommendations.stream()
+                .map(item -> "%s(%.2f)".formatted(
+                        item.id(),
+                        item.matchScore() == null ? 0.0 : item.matchScore()
+                ))
+                .collect(java.util.stream.Collectors.joining(", ", "[", "]"));
     }
 
     private <T> List<T> orEmpty(List<T> list) {
