@@ -1,6 +1,9 @@
 package com.fallguys.mypage.service.employer;
 
 import com.fallguys.mypage.api.web.dto.employer.response.EmployerSubscriptionResponseDto;
+import com.fallguys.subscription.api.request.SubscriptionChangeRequest;
+import com.fallguys.subscription.api.response.SubscriptionChangeResultResponse;
+import com.fallguys.subscription.service.SubscriptionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -28,6 +31,7 @@ public class EmployerAccountService {
     private final RedisTemplate<String, Object> redisTemplate;
     private final EmployerRepository employerRepository;
     private final SharedMypageApi sharedMypageApi;
+    private final SubscriptionService subscriptionService;
 
     public void updatePassword(Long employerId, UpdatePasswordRequestDto request) {
         if (request == null || 
@@ -40,11 +44,14 @@ public class EmployerAccountService {
     }
 
     @Transactional
-    public void updateSubscription(Long userId, UpdateSubscriptionRequestDto request) {
+    public SubscriptionChangeResultResponse updateSubscription(Long userId, UpdateSubscriptionRequestDto request) {
         if (request == null || request.targetPlan() == null || request.targetPlan().isBlank()) {
             throw new IllegalArgumentException("변경할 구독 플랜 값이 필요합니다.");
         }
-        sharedMypageApi.updateSubscription(userId, request.targetPlan().toUpperCase());
+        return subscriptionService.changePlan(
+                userId,
+                new SubscriptionChangeRequest(request.targetPlan().toUpperCase(), request.billingKey())
+        );
     }
 
     public EmployerSubscriptionResponseDto getSubscription(Long userId) {

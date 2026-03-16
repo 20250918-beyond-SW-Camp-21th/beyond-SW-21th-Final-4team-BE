@@ -453,4 +453,12 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
                 nextBillingDate
         );
     }
+
+    @Override
+    public LocalDateTime getNextBillingDate(Long employerId) {
+        return billingKeyRepository
+                .findByEmployerIdAndActiveTrue(employerId)
+                .map(bk -> bk.getNextBillingDate().atTime(9, 0))
+                .orElse(null);
+    }
 }

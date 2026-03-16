@@ -7,5 +7,7 @@ import jakarta.validation.constraints.Pattern;
 public record UpdateSubscriptionRequestDto(
         @NotBlank(message = "변경할 플랜을 입력해주세요.")
         @Pattern(regexp = "^(?i)(BASIC|PRO|PRIME)$", message = "유효하지 않은 플랜 값입니다. (BASIC, PRO, PRIME)")
-        String targetPlan
+        String targetPlan,
+
+        String billingKey
 ) {}

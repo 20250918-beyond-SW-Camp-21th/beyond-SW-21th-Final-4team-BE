@@ -25,12 +25,4 @@ public interface SubscriptionService {
      */
     SubscriptionChangeResultResponse changePlan(Long userId, SubscriptionChangeRequest request);
 
-    /**
-     * 유료 구독을 취소하고 자동 결제를 해지합니다.
-     * 취소 시 즉시 BASIC 플랜으로 전환됩니다.
-     *
-     * @param userId 취소할 고용주의 사용자 ID
-     * @throws IllegalStateException 이미 BASIC 플랜인 경우 발생
-     */
-    SubscriptionChangeResultResponse cancelSubscription(Long userId);
 }
