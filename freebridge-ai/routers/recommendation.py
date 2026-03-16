@@ -85,6 +85,23 @@ def _describe_matches(matches):
     ]
 
 
+def mask_profile(value, visible=2, limit=24):
+    if value is None:
+        return None
+    normalized = re.sub(r"\s+", " ", str(value)).strip()
+    if not normalized:
+        return normalized
+    if len(normalized) <= visible * 2:
+        masked = normalized[:visible] + "*" * max(0, len(normalized) - visible)
+    else:
+        masked = normalized[:visible] + "*" * min(8, len(normalized) - visible * 2) + normalized[-visible:]
+    return masked[:limit] + ("..." if len(masked) > limit else "")
+
+
+def mask_tokens(tokens, limit=10):
+    return [mask_profile(token, visible=1, limit=12) for token in tokens[:limit]]
+
+
 def get_llm():
     global _llm
     if _llm is None:
@@ -112,10 +129,14 @@ async def get_job_recommendations(req: RecommendationRequest):
         description = req.description.strip() if req.description and req.description.strip() else "(상세 내용 없음)"
         search_query = f"{req.title} {description}"
         logger.info(
-            "Employer recommendation request. job_id=%s title=%s query=%s",
+            "Employer recommendation request. job_id=%s",
             req.jobId,
-            req.title,
-            search_query,
+        )
+        logger.debug(
+            "Employer recommendation request detail. job_id=%s title=%s query=%s",
+            req.jobId,
+            mask_profile(req.title),
+            mask_profile(search_query, limit=40),
         )
 
         experienced_docs = await vs.as_retriever(
@@ -146,7 +167,14 @@ async def get_job_recommendations(req: RecommendationRequest):
         if not candidate_docs:
             return {"success": True, "data": []}
         logger.info(
-            "Employer recommendation candidates. job_id=%s experienced=%s newbie=%s merged=%s",
+            "Employer recommendation candidates. job_id=%s experienced_count=%s newbie_count=%s merged_count=%s",
+            req.jobId,
+            len(experienced_docs[:5]),
+            len(newbie_docs[:2]),
+            len(candidate_docs),
+        )
+        logger.debug(
+            "Employer recommendation candidate detail. job_id=%s experienced=%s newbie=%s merged=%s",
             req.jobId,
             _describe_docs(experienced_docs[:5]),
             _describe_docs(newbie_docs[:2]),
@@ -185,7 +213,14 @@ async def get_job_recommendations(req: RecommendationRequest):
         )
         filtered_matches = _filter_matches_by_allowed_ids(result.matches, allowed_ids)
         logger.info(
-            "Employer recommendation result. job_id=%s allowed_ids=%s raw=%s filtered=%s",
+            "Employer recommendation result. job_id=%s allowed_count=%s raw_count=%s filtered_count=%s",
+            req.jobId,
+            len(allowed_ids),
+            len(result.matches),
+            len(filtered_matches[:7]),
+        )
+        logger.debug(
+            "Employer recommendation result detail. job_id=%s allowed_ids=%s raw=%s filtered=%s",
             req.jobId,
             sorted(allowed_ids),
             _describe_matches(result.matches),
@@ -276,11 +311,15 @@ async def get_freelancer_recommendations(req: FreelancerRecommendRequest):
         experience = req.experience.strip() if req.experience and req.experience.strip() else "(경력 정보 없음)"
         search_query = f"{req.skills} {experience}"
         logger.info(
-            "Freelancer recommendation request. freelancer_id=%s raw_skills=%s raw_experience=%s query=%s",
+            "Freelancer recommendation request. freelancer_id=%s",
             req.freelancerId,
-            req.skills,
-            req.experience,
-            search_query,
+        )
+        logger.debug(
+            "Freelancer recommendation request detail. freelancer_id=%s raw_skills=%s raw_experience=%s query=%s",
+            req.freelancerId,
+            mask_profile(req.skills, limit=40),
+            mask_profile(req.experience, limit=40),
+            mask_profile(search_query, limit=50),
         )
         retriever = vs.as_retriever(
             search_kwargs={
@@ -298,16 +337,22 @@ async def get_freelancer_recommendations(req: FreelancerRecommendRequest):
         if not docs:
             return {"success": True, "data": []}
         logger.info(
-            "Freelancer recommendation initial docs. freelancer_id=%s docs=%s",
+            "Freelancer recommendation initial docs. freelancer_id=%s doc_count=%s",
+            req.freelancerId,
+            len(docs),
+        )
+        logger.debug(
+            "Freelancer recommendation initial docs detail. freelancer_id=%s docs=%s",
             req.freelancerId,
             _describe_docs(docs),
         )
 
         skill_tokens = _extract_skill_tokens(req.skills)
-        logger.info(
-            "Freelancer recommendation skill tokens. freelancer_id=%s tokens=%s",
+        logger.debug(
+            "Freelancer recommendation skill tokens. freelancer_id=%s token_count=%s tokens=%s",
             req.freelancerId,
-            skill_tokens,
+            len(skill_tokens),
+            mask_tokens(skill_tokens),
         )
         if skill_tokens:
             scored_docs = [
@@ -316,6 +361,11 @@ async def get_freelancer_recommendations(req: FreelancerRecommendRequest):
             ]
             overlapping_docs = [doc for doc, score in scored_docs if score > 0]
             logger.info(
+                "Freelancer recommendation overlap summary. freelancer_id=%s overlapping_count=%s",
+                req.freelancerId,
+                len(overlapping_docs),
+            )
+            logger.debug(
                 "Freelancer recommendation overlap scores. freelancer_id=%s scores=%s",
                 req.freelancerId,
                 [
@@ -336,7 +386,7 @@ async def get_freelancer_recommendations(req: FreelancerRecommendRequest):
                     )
                     if _ > 0
                 ]
-                logger.info(
+                logger.debug(
                     "Freelancer recommendation overlap-filtered docs. freelancer_id=%s docs=%s",
                     req.freelancerId,
                     _describe_docs(docs),
@@ -356,7 +406,14 @@ async def get_freelancer_recommendations(req: FreelancerRecommendRequest):
         result = await structured_llm.ainvoke(formatted_prompt)
         filtered_matches = _filter_matches_by_allowed_ids(result.matches, allowed_ids)
         logger.info(
-            "Freelancer recommendation result. freelancer_id=%s allowed_ids=%s raw=%s filtered=%s",
+            "Freelancer recommendation result. freelancer_id=%s allowed_count=%s raw_count=%s filtered_count=%s",
+            req.freelancerId,
+            len(allowed_ids),
+            len(result.matches),
+            len(filtered_matches[:5]),
+        )
+        logger.debug(
+            "Freelancer recommendation result detail. freelancer_id=%s allowed_ids=%s raw=%s filtered=%s",
             req.freelancerId,
             sorted(allowed_ids),
             _describe_matches(result.matches),
