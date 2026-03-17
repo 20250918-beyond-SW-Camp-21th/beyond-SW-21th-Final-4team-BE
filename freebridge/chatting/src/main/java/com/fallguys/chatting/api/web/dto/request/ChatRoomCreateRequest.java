@@ -21,4 +21,5 @@ public class ChatRoomCreateRequest {
     private String relatedJobId;
     private String relatedApplicationId;
     private String relatedProposalId;
+    private Long contractId;
 }

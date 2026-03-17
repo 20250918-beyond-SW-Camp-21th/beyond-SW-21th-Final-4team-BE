@@ -11,11 +11,25 @@ import org.springframework.data.mongodb.core.query.Update;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
+import java.util.Optional;
 
 @RequiredArgsConstructor
 public class ChatRoomRepositoryImpl implements ChatRoomRepositoryCustom {
 
     private final MongoTemplate mongoTemplate;
+
+    @Override
+    public Optional<ChatRoom> findRoomByContractAndParticipants(Long contractId, Collection<String> participants) {
+        if (contractId == null || participants == null || participants.isEmpty()) {
+            return Optional.empty();
+        }
+
+        Query query = new Query()
+                .addCriteria(Criteria.where("contractId").is(contractId))
+                .addCriteria(Criteria.where("participants").all(participants))
+                .addCriteria(Criteria.where("participants").size(participants.size()));
+        return Optional.ofNullable(mongoTemplate.findOne(query, ChatRoom.class));
+    }
 
     @Override
     public boolean clearUnreadCount(String roomId, String participantId) {

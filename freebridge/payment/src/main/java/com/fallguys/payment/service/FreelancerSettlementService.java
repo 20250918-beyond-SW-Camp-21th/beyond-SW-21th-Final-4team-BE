@@ -87,7 +87,7 @@ public class FreelancerSettlementService {
             throw new BusinessException(ErrorCode.SETTLEMENT_FORBIDDEN);
         }
 
-        ContractInfo contract = contractQuery.getContractInfo(f.getContractId());
+        ContractInfo contract = contractQuery.getContractInfoByContractId(f.getContractId());
 
         return new FreelancerSettlementDetailResponse(
                 f.getId(), f.getContractId(), f.getEmployerSettlementId(),

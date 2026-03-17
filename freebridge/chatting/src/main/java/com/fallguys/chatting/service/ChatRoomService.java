@@ -27,10 +27,24 @@ public class ChatRoomService {
     private final UnreadMessageRedisRepository unreadMessageRedisRepository;
 
     /**
-     * 1:1 채팅방 생성 (이미 방이 존재할 경우 기존 방을 반환하는 로직은 추후 추가)
+     * 1:1 채팅방 생성
      */
     public ChatRoomResponse createChatRoom(List<String> participants, Map<String, String> participantNames,
-            String relatedJobId, String relatedApplicationId, String relatedProposalId) {
+            String relatedJobId, String relatedApplicationId, String relatedProposalId, Long contractId) {
+
+        if (contractId != null && !contractQuery.existsContract(contractId)) {
+            log.warn("존재하지 않는 계약 기준 채팅방 생성 시도 - contractId: {}, participants: {}", contractId, participants);
+            throw new NoSuchElementException("계약을 찾을 수 없습니다.");
+        }
+
+        if (contractId != null) {
+            ChatRoom existingContractRoom = chatRoomRepository
+                    .findRoomByContractAndParticipants(contractId, participants)
+                    .orElse(null);
+            if (existingContractRoom != null) {
+                return ChatRoomResponse.from(existingContractRoom, buildParticipantPresence(existingContractRoom));
+            }
+        }
 
         ChatRoom newRoom = ChatRoom.builder()
                 .participants(participants)
@@ -38,6 +52,7 @@ public class ChatRoomService {
                 .relatedJobId(relatedJobId)
                 .relatedApplicationId(relatedApplicationId)
                 .relatedProposalId(relatedProposalId)
+                .contractId(contractId)
                 .build();
 
         ChatRoom savedRoom = chatRoomRepository.save(newRoom);

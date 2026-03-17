@@ -132,7 +132,7 @@ public class EmployerSettlementService {
             throw new BusinessException(ErrorCode.SETTLEMENT_FORBIDDEN);
         }
 
-        ContractInfo contract = contractQuery.getContractInfo(e.getContractId());
+        ContractInfo contract = contractQuery.getContractInfoByContractId(e.getContractId());
 
         return new EmployerSettlementDetailResponse(
                 e.getId(), e.getContractId(), contract.projectName(), null,
@@ -151,7 +151,7 @@ public class EmployerSettlementService {
             throw new BusinessException(ErrorCode.SETTLEMENT_FORBIDDEN);
         }
         if (e.getInvoicePdfUrl() == null) {
-            ContractInfo contract = contractQuery.getContractInfo(e.getContractId());
+            ContractInfo contract = contractQuery.getContractInfoByContractId(e.getContractId());
             String key = paymentInvoicePdfService.generateServiceFeeInvoice(e, contract);
             e.setInvoicePdfUrl(key);
             employerSettlementRepository.save(e);
@@ -168,7 +168,7 @@ public class EmployerSettlementService {
             throw new BusinessException(ErrorCode.SETTLEMENT_FORBIDDEN);
         }
 
-        ContractInfo contract = contractQuery.getContractInfo(e.getContractId());
+        ContractInfo contract = contractQuery.getContractInfoByContractId(e.getContractId());
         String invoiceUrl = paymentInvoicePdfService.generateServiceFeeInvoice(e, contract);
         e.setInvoicePdfUrl(invoiceUrl);
         employerSettlementRepository.save(e);
@@ -225,7 +225,7 @@ public class EmployerSettlementService {
         }
 
         // 계약 정보 조회
-        ContractInfo contract = contractQuery.getContractInfo(contractId);
+        ContractInfo contract = contractQuery.getContractInfoByContractId(contractId);
 
         // 이 지점부터 외부 결제는 PAID 확정 — 내부 처리 실패 시 cancelPayment로 보상
         try {
