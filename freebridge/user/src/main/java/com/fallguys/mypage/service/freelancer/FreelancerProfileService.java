@@ -151,55 +151,6 @@ public class FreelancerProfileService {
             freelancer.updateWorkConditions(workConditions);
         }
 
-        boolean hasExpertise = request.expertiseProgramming() != null
-                || request.expertiseFramework() != null
-                || request.expertiseProblemSolving() != null;
-
-        if (hasExpertise) {
-            Expertise existing = freelancer.getExpertise();
-            Double programming = request.expertiseProgramming() != null
-                    ? request.expertiseProgramming().doubleValue()
-                    : existing != null ? existing.getProgramming() : null;
-            Double framework = request.expertiseFramework() != null
-                    ? request.expertiseFramework().doubleValue()
-                    : existing != null ? existing.getFramework() : null;
-            Double problemSolving = request.expertiseProblemSolving() != null
-                    ? request.expertiseProblemSolving().doubleValue()
-                    : existing != null ? existing.getProblemSolving() : null;
-            Expertise expertise = new Expertise(
-                    programming,
-                    framework,
-                    problemSolving
-            );
-            freelancer.updateExpertise(expertise);
-        }
-
-        boolean hasCollaboration = request.collaborationCommunication() != null
-                || request.collaborationScheduleAdherence() != null
-                || request.collaborationDispute() != null;
-
-        if (hasCollaboration) {
-            Collaboration existing = freelancer.getCollaboration();
-            Double communication = request.collaborationCommunication() != null
-                    ? request.collaborationCommunication().doubleValue()
-                    : existing != null ? existing.getCommunication() : null;
-            Double scheduleAdherence = request.collaborationScheduleAdherence() != null
-                    ? request.collaborationScheduleAdherence().doubleValue()
-                    : existing != null ? existing.getScheduleAdherence() : null;
-            Double dispute = request.collaborationDispute() != null
-                    ? request.collaborationDispute().doubleValue()
-                    : existing != null ? existing.getDispute() : null;
-            Collaboration collaboration = new Collaboration(
-                    communication,
-                    scheduleAdherence,
-                    dispute
-            );
-            freelancer.updateCollaboration(collaboration);
-        }
-
-        if (request.averageRating() != null) {
-            freelancer.updateAverageRate(request.averageRating());
-        }
     }
 
     @Transactional
@@ -233,7 +184,7 @@ public class FreelancerProfileService {
             String previousKey = freelancer.getAvatarUrl();
 
             // DB 롤백 시 이미 업로드된 S3 파일 삭제 (고아 파일 방지)
-            String finalUploadKey = uploadKey;
+            String finalUploadKey = uploadedKey;
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCompletion(int status) {

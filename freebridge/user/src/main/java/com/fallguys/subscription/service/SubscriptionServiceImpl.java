@@ -107,8 +107,7 @@ public class SubscriptionServiceImpl implements SubscriptionService {
                 "ACTIVE",
                 nextBillingDate,
                 targetGrade == PlanGrade.BASIC
-                        ? "기본 플랜으로 변경 완료 되었습니다."
-                        : "플랜이 변경 완료 되었습니다."
+                        ? "기본 플랜으로 변경되었습니다." : "플랜이 변경되었습니다."
         );
     }
 

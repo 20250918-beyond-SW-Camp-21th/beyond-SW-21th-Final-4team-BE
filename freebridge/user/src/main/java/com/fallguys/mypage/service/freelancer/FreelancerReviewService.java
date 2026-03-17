@@ -78,6 +78,11 @@ public class FreelancerReviewService {
 
         FreelancerReviewMetricsDto metrics = externalFreelancerReviewApi.getFreelancerReviewMetrics(userId);
         if (isEmptyMetrics(metrics)) {
+            freelancer.updateReviewMetrics(
+                    new Expertise(0.0, 0.0, 0.0),
+                    new Collaboration(0.0, 0.0, 0.0),
+                    0.0
+            );
             return;
         }
 

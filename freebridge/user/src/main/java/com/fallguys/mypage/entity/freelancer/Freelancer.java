@@ -148,11 +148,13 @@ public class Freelancer {
     }
 
     public void updateExpertise(Expertise expertise) {
+        // Review scores must only be updated by the server-side review aggregation flow.
         if (expertise == null) throw new IllegalArgumentException("expertise is required");
         this.expertise = expertise;
     }
 
     public void updateCollaboration(Collaboration collaboration) {
+        // Review scores must only be updated by the server-side review aggregation flow.
         if (collaboration == null) throw new IllegalArgumentException("collaboration is required");
         this.collaboration = collaboration;
     }
@@ -249,6 +251,7 @@ public class Freelancer {
     */
 
     public void updateAverageRate(Double averageRate) {
+        // Review scores must only be updated by the server-side review aggregation flow.
         if (averageRate == null) return;
         if (averageRate < 0.0 || averageRate > 5.0) {
             throw new IllegalArgumentException("averageRate must be between 0.0 and 5.0");

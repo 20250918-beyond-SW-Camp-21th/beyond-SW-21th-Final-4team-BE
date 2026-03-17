@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.net.URLEncoder;
 
@@ -78,7 +79,10 @@ public class FreelancerPortfolioController {
 
         TemplateResource templateResource = resolveTemplateResource();
         ClassPathResource resource = new ClassPathResource(templateResource.path());
-        byte[] bytes = resource.getInputStream().readAllBytes();
+        byte[] bytes;
+        try (InputStream in = resource.getInputStream()) {
+            bytes = in.readAllBytes();
+        }
 
         return ResponseEntity.ok()
                 .contentType(templateResource.mediaType())
@@ -96,10 +100,17 @@ public class FreelancerPortfolioController {
             );
         }
 
-        return new TemplateResource(
-                "templates/freelancer-portfolio-template.pdf",
-                "freelancer-portfolio-template.pdf",
-                MediaType.APPLICATION_PDF
+        ClassPathResource pdf = new ClassPathResource("templates/freelancer-portfolio-template.pdf");
+        if (pdf.exists()) {
+            return new TemplateResource(
+                    "templates/freelancer-portfolio-template.pdf",
+                    "freelancer-portfolio-template.pdf",
+                    MediaType.APPLICATION_PDF
+            );
+        }
+
+        throw new IllegalStateException(
+                "Portfolio template not found: templates/freelancer-portfolio-template.docx or templates/freelancer-portfolio-template.pdf"
         );
     }
 

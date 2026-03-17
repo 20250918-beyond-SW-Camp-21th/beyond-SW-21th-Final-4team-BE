@@ -140,6 +140,11 @@ public class SharedMypageApiImpl implements SharedMypageApi {
         if (storedKeyOrUrl.startsWith("http://") || storedKeyOrUrl.startsWith("https://")) {
             return storedKeyOrUrl;
         }
-        return fileStorage.generatePresignedUrl(storedKeyOrUrl);
+        try {
+            return fileStorage.generatePresignedUrl(storedKeyOrUrl);
+        } catch (RuntimeException e) {
+            log.error("Failed to generate accessible freelancer avatar URL. key={}", storedKeyOrUrl, e);
+            return null;
+        }
     }
 }
