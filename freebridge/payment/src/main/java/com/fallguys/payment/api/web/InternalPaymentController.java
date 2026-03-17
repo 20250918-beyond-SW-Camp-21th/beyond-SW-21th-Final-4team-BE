@@ -48,7 +48,7 @@ public class InternalPaymentController {
 
         // employerId는 클라이언트 바디가 아닌 인증 토큰에서 추출 (임의 위조 방지)
         SubscriptionPaymentRequest secureRequest = new SubscriptionPaymentRequest(
-                user.getId(), request.getPlanType(), request.getAmount(), request.getBillingKey());
+                user.getId(), request.getPlanType(), request.getAmount(), request.getBillingKey(), request.getPaymentId());
         SubscriptionPaymentResponse response = subscriptionPaymentService.processPayment(secureRequest);
         ApiResponse<SubscriptionPaymentResponse> apiResponse = ApiResponse.ok(response);
         return ResponseEntity.status(apiResponse.httpStatus()).body(apiResponse);

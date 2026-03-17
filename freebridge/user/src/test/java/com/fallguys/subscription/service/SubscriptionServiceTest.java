@@ -70,7 +70,7 @@ class SubscriptionServiceTest {
     @DisplayName("플랜 변경: 동일한 플랜으로 요청하면 BusinessException이 발생한다")
     void changePlan_SamePlan_ThrowsException() {
         Long userId = 1L;
-        SubscriptionChangeRequest request = new SubscriptionChangeRequest("PRO", "billing-key");
+        SubscriptionChangeRequest request = new SubscriptionChangeRequest("PRO", "billing-key", null);
         when(externalSubscriptionPort.getCurrentPlan(userId)).thenReturn(PlanGrade.PRO);
 
         assertThatThrownBy(() -> subscriptionService.changePlan(userId, request))
@@ -83,7 +83,7 @@ class SubscriptionServiceTest {
     @DisplayName("플랜 변경: 유효하지 않은 플랜 값이면 BusinessException이 발생한다")
     void changePlan_InvalidPlanName_ThrowsException() {
         Long userId = 1L;
-        SubscriptionChangeRequest request = new SubscriptionChangeRequest("GOLD", null);
+        SubscriptionChangeRequest request = new SubscriptionChangeRequest("GOLD", null, null);
 
         assertThatThrownBy(() -> subscriptionService.changePlan(userId, request))
                 .isInstanceOf(BusinessException.class)
@@ -95,11 +95,11 @@ class SubscriptionServiceTest {
     @DisplayName("업그레이드: BASIC->PRO, 결제 요청 및 nextBillingDate 설정")
     void changePlan_Upgrade_BasicToPro_PaymentAndSchedule() {
         Long userId = 1L;
-        SubscriptionChangeRequest request = new SubscriptionChangeRequest("PRO", "billing-key-123");
+        SubscriptionChangeRequest request = new SubscriptionChangeRequest("PRO", null, "payment-123");
 
         when(externalSubscriptionPort.getCurrentPlan(userId)).thenReturn(PlanGrade.BASIC);
         when(externalSubscriptionPort.getNextBillingDate(userId)).thenReturn(null);
-        when(externalPaymentPort.requestSubscriptionPayment(anyLong(), any(), anyLong(), any()))
+        when(externalPaymentPort.verifyOneTimeSubscriptionPayment(anyLong(), any(), anyLong(), any()))
                 .thenReturn(new ExternalPaymentPort.PaymentResult(true, 1L, null, null));
 
         SubscriptionChangeResultResponse result = subscriptionService.changePlan(userId, request);
@@ -107,12 +107,11 @@ class SubscriptionServiceTest {
         assertThat(result.currentPlanGrade()).isEqualTo("PRO");
         assertThat(result.pendingPlanGrade()).isNull();
         assertThat(result.status()).isEqualTo("ACTIVE");
-        assertThat(result.nextBillingDate()).isNotNull();
+        assertThat(result.nextBillingDate()).isNull();
 
-        verify(externalPaymentPort).requestSubscriptionPayment(anyLong(), any(), anyLong(), any());
+        verify(externalPaymentPort).verifyOneTimeSubscriptionPayment(anyLong(), any(), anyLong(), any());
         verify(externalSubscriptionPort).changePlan(userId, PlanGrade.PRO);
-        verify(externalSubscriptionPort).saveBillingKey(userId, "billing-key-123");
-        verify(externalSubscriptionPort).setNextBillingDate(anyLong(), any(LocalDateTime.class));
+        verify(externalSubscriptionPort).setNextBillingDate(userId, null);
     }
 
     @Test
@@ -120,7 +119,7 @@ class SubscriptionServiceTest {
     void changePlan_Downgrade_PrimeToPro_ImmediateNoPayment() {
         Long userId = 1L;
         LocalDateTime mockDate = LocalDateTime.of(2026, 4, 1, 9, 0);
-        SubscriptionChangeRequest request = new SubscriptionChangeRequest("PRO", null);
+        SubscriptionChangeRequest request = new SubscriptionChangeRequest("PRO", null, null);
 
         when(externalSubscriptionPort.getCurrentPlan(userId)).thenReturn(PlanGrade.PRIME);
         when(externalSubscriptionPort.getNextBillingDate(userId)).thenReturn(mockDate);
@@ -130,17 +129,18 @@ class SubscriptionServiceTest {
         assertThat(result.currentPlanGrade()).isEqualTo("PRO");
         assertThat(result.pendingPlanGrade()).isNull();
         assertThat(result.status()).isEqualTo("ACTIVE");
-        assertThat(result.nextBillingDate()).isEqualTo(mockDate);
+        assertThat(result.nextBillingDate()).isNull();
 
         verify(externalSubscriptionPort).changePlan(userId, PlanGrade.PRO);
-        verify(externalPaymentPort, never()).requestSubscriptionPayment(anyLong(), any(), anyLong(), any());
+        verify(externalSubscriptionPort).setNextBillingDate(userId, null);
+        verify(externalPaymentPort, never()).verifyOneTimeSubscriptionPayment(anyLong(), any(), anyLong(), any());
     }
 
     @Test
     @DisplayName("다운그레이드: PRO->BASIC, changePlan으로 즉시 반영하고 nextBillingDate를 제거")
     void changePlan_Downgrade_ProToBasic_ImmediateAndClearBillingDate() {
         Long userId = 1L;
-        SubscriptionChangeRequest request = new SubscriptionChangeRequest("BASIC", null);
+        SubscriptionChangeRequest request = new SubscriptionChangeRequest("BASIC", null, null);
 
         when(externalSubscriptionPort.getCurrentPlan(userId)).thenReturn(PlanGrade.PRO);
         when(externalSubscriptionPort.getNextBillingDate(userId)).thenReturn(LocalDateTime.of(2026, 4, 1, 9, 0));
@@ -154,6 +154,6 @@ class SubscriptionServiceTest {
 
         verify(externalSubscriptionPort).changePlan(userId, PlanGrade.BASIC);
         verify(externalSubscriptionPort).setNextBillingDate(userId, null);
-        verify(externalPaymentPort, never()).requestSubscriptionPayment(anyLong(), any(), anyLong(), any());
+        verify(externalPaymentPort, never()).verifyOneTimeSubscriptionPayment(anyLong(), any(), anyLong(), any());
     }
 }

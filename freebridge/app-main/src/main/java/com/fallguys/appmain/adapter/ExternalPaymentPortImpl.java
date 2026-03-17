@@ -39,6 +39,25 @@ public class ExternalPaymentPortImpl implements ExternalPaymentPort {
     }
 
     @Override
+    public PaymentResult verifyOneTimeSubscriptionPayment(Long employerId, String planType, long amount, String paymentId) {
+        SubscriptionPaymentResult result = subscriptionPaymentQuery.verifyOneTimeSubscriptionPayment(
+                employerId, planType, amount, paymentId
+        );
+
+        if (result == null) {
+            log.error("[ExternalPaymentPortImpl] one-time subscription verify result is null. (employerId: {})", employerId);
+            return new PaymentResult(false, null, "PAYMENT_RESULT_NULL", "결제 모듈 응답이 비어 있습니다.");
+        }
+
+        return new PaymentResult(
+                result.success(),
+                result.billingId(),
+                result.errorCode(),
+                result.errorMessage()
+        );
+    }
+
+    @Override
     public LocalDateTime getNextBillingDate(Long employerId) {
         return subscriptionPaymentQuery.getNextBillingDate(employerId);
     }

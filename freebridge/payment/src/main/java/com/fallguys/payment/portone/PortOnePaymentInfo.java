@@ -92,6 +92,8 @@ public class PortOnePaymentInfo {
     public static class CustomDataInfo {
         private Long contractId;
         private Long employerId;
+        private String mode;
+        private String planType;
     }
 
     @Getter

@@ -85,7 +85,7 @@ class EmployerAccountServiceTest {
     void updateSubscription_Success() {
         // Given
         Long employerId = 1L;
-        UpdateSubscriptionRequestDto request = new UpdateSubscriptionRequestDto("PRIME");
+        UpdateSubscriptionRequestDto request = new UpdateSubscriptionRequestDto("PRIME","","");
 
         // When
         employerAccountService.updateSubscription(employerId, request);
@@ -99,7 +99,7 @@ class EmployerAccountServiceTest {
     void updateSubscription_LowercaseInput_Success() {
         // Given
         Long employerId = 1L;
-        UpdateSubscriptionRequestDto request = new UpdateSubscriptionRequestDto("prime");
+        UpdateSubscriptionRequestDto request = new UpdateSubscriptionRequestDto("prime","","");
 
         // When
         employerAccountService.updateSubscription(employerId, request);
