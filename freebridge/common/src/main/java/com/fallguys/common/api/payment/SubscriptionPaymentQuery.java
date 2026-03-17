@@ -64,4 +64,12 @@ public interface SubscriptionPaymentQuery {
      */
     SubscriptionUpgradeResult processSubscriptionUpgrade(
             Long employerId, String planType, long amount, String billingKey);
+
+    /**
+     * 현재 활성 billingKey 기준 다음 정기결제 예정일을 조회합니다.
+     *
+     * @param employerId 고용주 ID
+     * @return 다음 결제 예정일시, 없으면 null
+     */
+    java.time.LocalDateTime getNextBillingDate(Long employerId);
 }

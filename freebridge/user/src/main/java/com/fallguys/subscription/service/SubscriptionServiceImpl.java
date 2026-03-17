@@ -63,10 +63,6 @@ public class SubscriptionServiceImpl implements SubscriptionService {
             throw new BusinessException(ErrorCode.SUBSCRIPTION_SAME_PLAN);
         }
 
-        if (targetGrade == PlanGrade.BASIC) {
-            throw new BusinessException(ErrorCode.SUBSCRIPTION_CANCEL_REQUIRED);
-        }
-
         boolean isUpgrade = targetGrade.ordinal() > currentGrade.ordinal();
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime nextBillingDate = resolveNextBillingDate(userId, now);
@@ -103,40 +99,23 @@ public class SubscriptionServiceImpl implements SubscriptionService {
             );
         }
 
-        nextBillingDate = resolveOrComputeMonthlyBillingDate(userId, now);
+        externalSubscriptionPort.changePlan(userId, targetGrade);
 
-        externalSubscriptionPort.schedulePlanDowngrade(userId, targetGrade, nextBillingDate);
-
-        return new SubscriptionChangeResultResponse(
-                currentGrade.name(),
-                targetGrade.name(),
-                "CHANGE_RESERVED",
-                nextBillingDate,
-                "Downgrade reserved for next billing date."
-        );
-    }
-
-    @Override
-    @Transactional
-    public SubscriptionChangeResultResponse cancelSubscription(Long userId) {
-        validateUserId(userId);
-        LocalDateTime now = LocalDateTime.now();
-
-        PlanGrade currentPlan = externalSubscriptionPort.getCurrentPlan(userId);
-        if (currentPlan == PlanGrade.BASIC) {
-            throw new BusinessException(ErrorCode.SUBSCRIPTION_ALREADY_BASIC);
+        if (targetGrade == PlanGrade.BASIC) {
+            nextBillingDate = null;
+            externalSubscriptionPort.setNextBillingDate(userId, null);
+        } else {
+            nextBillingDate = resolveOrComputeMonthlyBillingDate(userId, now);
         }
 
-        LocalDateTime nextBillingDate = resolveOrComputeMonthlyBillingDate(userId, now);
-
-        externalSubscriptionPort.cancelSubscription(userId, nextBillingDate);
-
         return new SubscriptionChangeResultResponse(
-                currentPlan.name(),
-                PlanGrade.BASIC.name(),
-                "CANCEL_RESERVED",
+                targetGrade.name(),
+                null,
+                "ACTIVE",
                 nextBillingDate,
-                "Cancellation reserved for next billing date."
+                targetGrade == PlanGrade.BASIC
+                        ? "Plan changed to BASIC immediately."
+                        : "Downgrade applied immediately."
         );
     }
 

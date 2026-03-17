@@ -39,8 +39,8 @@ portone:
   channel-key: ${PORTONE_CHANNEL_KEY:test_channel_key}
   subscription:
     plan:
-      pro: ${PORTONE_SUBSCRIPTION_PLAN_PRO:19900}
-      prime: ${PORTONE_SUBSCRIPTION_PLAN_PRIME:39900}
+      pro: ${PORTONE_SUBSCRIPTION_PLAN_PRO:9900}
+      prime: ${PORTONE_SUBSCRIPTION_PLAN_PRIME:19900}
 
 fallguys:
   redis:

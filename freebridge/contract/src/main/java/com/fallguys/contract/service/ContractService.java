@@ -8,6 +8,8 @@ import com.fallguys.contract.api.web.PaginationInfo;
 import com.fallguys.contract.entity.Contract;
 import com.fallguys.contract.entity.ContractStatus;
 import com.fallguys.contract.repository.ContractRepository;
+import com.fallguys.mypage.repository.employer.EmployerRepository;
+import com.fallguys.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -18,7 +20,9 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.util.List;
 import java.util.stream.Collectors;
 
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -30,6 +34,9 @@ public class ContractService {
     private final ContractRepository contractRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final ContractPdfService contractPdfService;
+    private final UserRepository userRepository;
+    private final EmployerRepository employerRepository;
+
 
     public ContractResponse createContract(CreateContractRequest req, Long employerId) {
         Contract contract = new Contract();
@@ -67,6 +74,16 @@ public class ContractService {
 
         String pdfUrl = contractPdfService.generateContractPdf(saved);
         saved.setContractPdfUrl(pdfUrl);
+
+        // Feature 5: AI 계약서 법률 검토 (비동기 이벤트 발행)
+        try {
+            byte[] pdfBytes = contractPdfService.generateContractPdfBytes(saved);
+            saved.setAiLegalAdvice("AI가 계약서의 독소 조항과 법률 위반 사항을 분석하고 있습니다...");
+            eventPublisher.publishEvent(new com.fallguys.common.event.ContractAIAnalysisRequestedEvent(saved.getId(), pdfBytes));
+        } catch (Exception e) {
+            log.error("AI 계약서 분석용 PDF 생성 실패: contractId={}", saved.getContractId(), e);
+            saved.setAiLegalAdvice("AI 분석 준비에 실패했습니다.");
+        }
 
         saved = contractRepository.save(saved);
         return toResponse(saved);
@@ -118,6 +135,24 @@ public class ContractService {
         Contract contract = findByContractId(contractId);
         validateOwnership(contract, userId);
         return toResponse(contract);
+    }
+
+    public ContractResponse requestAiLegalReview(Long contractId, Long userId) {
+        Contract contract = findByContractId(contractId);
+        validateOwnership(contract, userId);
+
+        try {
+            byte[] pdfBytes = contractPdfService.generateContractPdfBytes(contract);
+            contract.setAiLegalAdvice("AI 법률 검토를 다시 진행하고 있습니다...");
+            Contract saved = contractRepository.save(contract);
+            eventPublisher.publishEvent(
+                    new com.fallguys.common.event.ContractAIAnalysisRequestedEvent(saved.getId(), pdfBytes)
+            );
+            return toResponse(saved);
+        } catch (Exception e) {
+            log.error("AI 법률 검토 재요청 실패: contractId={}", contractId, e);
+            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
+        }
     }
 
     public ContractResponse sign(Long contractId, SignContractRequest request, String role, Long userId) {
@@ -206,10 +241,27 @@ public class ContractService {
         }
     }
 
-    // TODO: 유저 모듈 완성되면 api 콜로 수정하기
-    private String getMockUserName(Long userId) {
-        if (userId == null) return null;
-        return "사용자 #" + userId;
+    private String getFreelancerName(Long userId) {
+        if (userId == null) {
+            return null;
+        }
+
+        return userRepository.findById(userId)
+                .map(user -> user.getName())
+                .orElse("사용자 #" + userId);
+    }
+
+    private String getEmployerDisplayName(Long employerId) {
+        if (employerId == null) {
+            return null;
+        }
+
+        return employerRepository.findByUserId(employerId)
+                .map(employer -> employer.getCompanyName())
+                .filter(name -> name != null && !name.isBlank())
+                .orElseGet(() -> userRepository.findById(employerId)
+                        .map(user -> user.getName())
+                        .orElse("사용자 #" + employerId));
     }
 
     private ContractResponse toResponse(Contract c) {
@@ -228,6 +280,7 @@ public class ContractService {
                 .contractPdfUrl(c.getContractPdfUrl())
                 .signedPdfUrl(c.getSignedPdfUrl())
                 .signedDate(c.getSignedDate())
+                .aiLegalAdvice(c.getAiLegalAdvice())
                 .jobDescription(c.getJobDescription())
                 .workLocation(c.getWorkLocation())
                 .workStartTime(c.getWorkStartTime())
@@ -245,8 +298,8 @@ public class ContractService {
                 .employerSignedDate(c.getEmployerSignedDate())
                 .freelancerSignature(c.getFreelancerSignature())
                 .freelancerSignedDate(c.getFreelancerSignedDate())
-                .freelancerName(getMockUserName(c.getFreelancerId()))
-                .employerName(getMockUserName(c.getEmployerId()))
+                .freelancerName(getFreelancerName(c.getFreelancerId()))
+                .employerName(getEmployerDisplayName(c.getEmployerId()))
                 .build();
     }
 
@@ -263,8 +316,8 @@ public class ContractService {
                 .budget(c.getBudget())
                 .employerSigned(c.getEmployerSignature() != null)
                 .freelancerSigned(c.getFreelancerSignature() != null)
-                .freelancerName(getMockUserName(c.getFreelancerId()))
-                .employerName(getMockUserName(c.getEmployerId()))
+                .freelancerName(getFreelancerName(c.getFreelancerId()))
+                .employerName(getEmployerDisplayName(c.getEmployerId()))
                 .build();
     }
 }

@@ -40,23 +40,5 @@ public interface ExternalSubscriptionPort {
 
     void setNextBillingDate(Long userId, LocalDateTime nextBillingDate);
 
-    /**
-     * 다운그레이드 예약 (즉시 변경 아님).
-     * 현재 결제 주기(당월) 말까지 기존 플랜을 유지하고,
-     * 다음 결제일부터 targetGrade로 전환합니다.
-     * (예: PRIME → PRO: 이번 달은 PRIME 유지, 다음 달부터 PRO 청구)
-     *
-     * @param userId       예약 대상 사용자의 고유 ID
-     * @param targetGrade  다음 결제일에 적용할 목표 플랜 등급
-     */
-    void schedulePlanDowngrade(Long userId, PlanGrade targetGrade, LocalDateTime effectiveDate);
-
-    /**
-     * 구독을 취소하고 BASIC 플랜으로 전환 요청을 처리합니다.
-     *
-     * @param userId 고용주 회원 식별자
-     */
-    void cancelSubscription(Long userId, LocalDateTime effectiveDate);
-
     void applyPendingSubscription(Long userId);
 }

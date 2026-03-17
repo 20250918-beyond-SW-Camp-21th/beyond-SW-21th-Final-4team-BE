@@ -41,6 +41,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -253,6 +254,7 @@ public class JobPostingServiceImpl implements JobPostingService {
         RecruitmentUser user = recruitmentUserReader.getFreelancerByIdOrThrow(userId);
         Long freelancerId = user.id();
 
+
         JobPosting jobPosting = getJobPostingOrThrow(jobPostingId);
         validateNotDeleted(jobPosting);
 
@@ -392,8 +394,23 @@ public class JobPostingServiceImpl implements JobPostingService {
         String cacheKey = "ai:reco:freelancers:" + jobPostingId;
         List<AiRecommendationResponseDTO> cached = readCache(cacheKey, new TypeReference<>() {});
         if (cached != null) {
+            log.info("Freelancer recommendation cache hit. jobPostingId={}, result={}", jobPostingId, summarizeRecommendationIds(cached));
             return cached;
         }
+
+        log.info(
+                "Freelancer recommendation requested. jobPostingId={}, employerId={}, techStackCount={}",
+                jobPostingId,
+                userId,
+                jobPosting.getTechStack() == null ? 0 : jobPosting.getTechStack().size()
+        );
+        log.debug(
+                "Freelancer recommendation request detail. jobPostingId={}, employerId={}, title={}, techStack={}",
+                jobPostingId,
+                userId,
+                maskSensitive(jobPosting.getTitle()),
+                maskSensitive(String.valueOf(jobPosting.getTechStack()))
+        );
 
         self.triggerFreelancerRecommendation(jobPostingId, userId);
 
@@ -421,6 +438,13 @@ public class JobPostingServiceImpl implements JobPostingService {
             if (jobPosting.getStatus() != Status.ACTIVE
                     || !EnumSet.of(JobPostingStatus.OPEN, JobPostingStatus.IN_PROGRESS)
                     .contains(jobPosting.getPostingStatus())) {
+                log.info(
+                        "Freelancer recommendation skipped. jobPostingId={}, employerId={}, status={}, postingStatus={}",
+                        jobPostingId,
+                        userId,
+                        jobPosting.getStatus(),
+                        jobPosting.getPostingStatus()
+                );
                 return;
             }
 
@@ -431,26 +455,65 @@ public class JobPostingServiceImpl implements JobPostingService {
                     AiRecommendationResponseDTO.class
             );
 
-            List<Long> freelancerIds = aiResults.stream()
+            log.info(
+                    "Freelancer recommendation AI raw result. jobPostingId={}, employerId={}, resultCount={}, result={}",
+                    jobPostingId,
+                    userId,
+                    aiResults == null ? 0 : aiResults.size(),
+                    summarizeRecommendationIds(aiResults)
+            );
+            log.debug(
+                    "Freelancer recommendation AI request detail. jobPostingId={}, employerId={}, title={}",
+                    jobPostingId,
+                    userId,
+                    maskSensitive(jobPosting.getTitle())
+            );
+
+            List<AiRecommendationResponseDTO> safeAiResults = orEmpty(aiResults);
+            List<Long> freelancerIds = safeAiResults.stream()
                     .map(AiRecommendationResponseDTO::id)
                     .filter(java.util.Objects::nonNull)
                     .distinct()
                     .toList();
-            Map<Long, RecruitmentUser> userMap;
+            log.info(
+                    "Freelancer recommendation candidate summary. jobPostingId={}, employerId={}, candidateCount={}, candidateIds={}",
+                    jobPostingId,
+                    userId,
+                    freelancerIds.size(),
+                    freelancerIds
+            );
+            Map<Long, RecruitmentUser> userMap = loadFreelancersByFreelancerIds(freelancerIds);
             try {
                 userMap = recruitmentUserReader.getFreelancersByFreelancerIdsOrThrow(freelancerIds);
             } catch (Exception e) {
                 log.warn("AI 추천 결과 보정 실패 - 프리랜서 일괄 조회 실패", e);
-                userMap = java.util.Collections.emptyMap();
+                userMap = loadFreelancersByFreelancerIds(freelancerIds);
             }
 
             Map<Long, RecruitmentUser> combinedUserMap = new LinkedHashMap<>(userMap);
-            List<Long> missingIds = aiResults.stream()
+            log.info(
+                    "Freelancer recommendation user lookup summary. jobPostingId={}, employerId={}, requestedCount={}, resolvedCount={}",
+                    jobPostingId,
+                    userId,
+                    freelancerIds.size(),
+                    userMap.size()
+            );
+
+            List<Long> missingIds = safeAiResults.stream()
                     .map(AiRecommendationResponseDTO::id)
                     .filter(java.util.Objects::nonNull)
                     .filter(id -> !combinedUserMap.containsKey(id))
                     .distinct()
                     .toList();
+            if (!missingIds.isEmpty()) {
+                log.warn(
+                        "Freelancer recommendation unresolved candidates after bulk lookup. jobPostingId={}, employerId={}, missingCount={}, missingIds={}",
+                        jobPostingId,
+                        userId,
+                        missingIds.size(),
+                        missingIds
+                );
+            }
             if (!missingIds.isEmpty()) {
                 try {
                     combinedUserMap.putAll(recruitmentUserReader.getFreelancersByFreelancerIdsOrThrow(missingIds));
@@ -465,22 +528,65 @@ public class JobPostingServiceImpl implements JobPostingService {
                     }
                 }
             }
+            log.info(
+                    "Freelancer recommendation final lookup summary. jobPostingId={}, employerId={}, resolvedCount={}, unresolvedCount={}",
+                    jobPostingId,
+                    userId,
+                    combinedUserMap.size(),
+                    Math.max(0, freelancerIds.size() - combinedUserMap.size())
+            );
 
             final Map<Long, RecruitmentUser> finalUserMap = combinedUserMap;
-            List<AiRecommendationResponseDTO> result = aiResults.stream().map(dto -> {
+            List<AiRecommendationResponseDTO> result = safeAiResults.stream().map(dto -> {
                 try {
                     RecruitmentUser f = finalUserMap.get(dto.id());
                     if (f == null) {
-                        return dto; 
+                        log.warn(
+                                "Freelancer recommendation candidate dropped. jobPostingId={}, employerId={}, freelancerId={}",
+                                jobPostingId,
+                                userId,
+                                dto.id()
+                        );
+                        return null;
                     }
                     List<String> userSkills = (f.skills() != null && !f.skills().trim().isEmpty())
                             ? java.util.Arrays.asList(f.skills().split(",")) 
                             : java.util.Collections.emptyList();
                     return dto.withFreelancerInfo(f.name(), userSkills, f.experience());
                 } catch (Exception e) {
-                    return dto;
+                    log.warn(
+                            "Freelancer recommendation enrichment failed. jobPostingId={}, employerId={}, freelancerId={}",
+                            jobPostingId,
+                            userId,
+                            dto.id(),
+                            e
+                    );
+                    return null;
                 }
             }).filter(Objects::nonNull).toList();
+
+            log.info(
+                    "Freelancer recommendation enriched result. jobPostingId={}, employerId={}, resultCount={}, result={}",
+                    jobPostingId,
+                    userId,
+                    result.size(),
+                    summarizeRecommendationIds(result)
+            );
+            if (safeAiResults.isEmpty()) {
+                log.warn(
+                        "Freelancer recommendation empty result reason. jobPostingId={}, employerId={}, reason=ai_returned_no_candidates",
+                        jobPostingId,
+                        userId
+                );
+            } else if (result.isEmpty()) {
+                log.warn(
+                        "Freelancer recommendation empty result reason. jobPostingId={}, employerId={}, reason=enrichment_or_lookup_removed_all_candidates, candidateCount={}, resolvedCount={}",
+                        jobPostingId,
+                        userId,
+                        freelancerIds.size(),
+                        combinedUserMap.size()
+                );
+            }
 
             String cacheKey = "ai:reco:freelancers:" + jobPostingId;
             writeCacheWithTtl(cacheKey, result, AI_RECOMMENDATION_CACHE_TTL);
@@ -494,13 +600,22 @@ public class JobPostingServiceImpl implements JobPostingService {
     @Override     // 프리랜서용: 캐싱 조회 전용
     public List<AiRecommendationResponseDTO> getRecommendedJobsForFreelancer(Long userId) {
         // Validation check to prevent triggering background task for bad userIds
-        recruitmentUserReader.getFreelancerByIdOrThrow(userId);
+        RecruitmentUser freelancer = recruitmentUserReader.getFreelancerByIdOrThrow(userId);
 
         String cacheKey = "ai:reco:jobs:" + userId;
         List<AiRecommendationResponseDTO> cached = readCache(cacheKey, new TypeReference<>() {});
         if (cached != null) {
+            log.info("Job recommendation cache hit. userId={}, result={}", userId, summarizeRecommendationIds(cached));
             return cached;
         }
+
+        log.info("Job recommendation requested. userId={}", userId);
+        log.debug(
+                "Job recommendation request detail. userId={}, skills={}, experience={}",
+                userId,
+                maskSensitive(freelancer.skills()),
+                maskSensitive(freelancer.experience())
+        );
 
         self.triggerJobRecommendation(userId);
 
@@ -530,11 +645,24 @@ public class JobPostingServiceImpl implements JobPostingService {
             String experience = (freelancer.experience() == null || freelancer.experience().isBlank())
                     ? "없음" : freelancer.experience().trim();
 
+            log.debug(
+                    "Job recommendation AI request detail. userId={}, rawSkills={}, rawExperience={}",
+                    userId,
+                    maskSensitive(skills),
+                    maskSensitive(experience)
+            );
+
             List<AiRecommendationResponseDTO> aiResults = recommendationEngine.recommendJobs(
                     userId,
                     skills,
                     experience,
                     AiRecommendationResponseDTO.class
+            );
+
+            log.info(
+                    "Job recommendation AI raw result. userId={}, result={}",
+                    userId,
+                    summarizeRecommendationIds(aiResults)
             );
 
             List<Long> jobIds = aiResults.stream().map(AiRecommendationResponseDTO::id).toList();
@@ -555,6 +683,12 @@ public class JobPostingServiceImpl implements JobPostingService {
                     return null;
                 }
             }).filter(Objects::nonNull).toList();
+
+            log.info(
+                    "Job recommendation filtered result. userId={}, result={}",
+                    userId,
+                    summarizeRecommendationIds(result)
+            );
 
             String cacheKey = "ai:reco:jobs:" + userId;
             writeCacheWithTtl(cacheKey, result, AI_RECOMMENDATION_CACHE_TTL);
@@ -952,6 +1086,68 @@ public class JobPostingServiceImpl implements JobPostingService {
         } catch (RuntimeException e) {
             log.warn("Failed to write mypage redis payload. key={}", key, e);
         }
+    }
+
+    private String summarizeRecommendationIds(List<AiRecommendationResponseDTO> recommendations) {
+        if (recommendations == null || recommendations.isEmpty()) {
+            return "[]";
+        }
+
+        return recommendations.stream()
+                .filter(Objects::nonNull)
+                .map(item -> "%s(%.2f)".formatted(
+                        String.valueOf(item.id()),
+                        item.matchScore() == null ? 0.0 : item.matchScore()
+                ))
+                .collect(java.util.stream.Collectors.joining(", ", "[", "]"));
+    }
+
+    private String maskSensitive(String value) {
+        if (value == null) {
+            return "null";
+        }
+
+        String normalized = value.replaceAll("\\s+", " ").trim();
+        if (normalized.isEmpty()) {
+            return normalized;
+        }
+
+        int minMask = 2;
+        int length = normalized.length();
+        int visiblePrefix = Math.min(2, Math.max(0, length - minMask));
+        int remainingAfterPrefix = length - visiblePrefix;
+        int visibleSuffix = remainingAfterPrefix > minMask
+                ? Math.min(2, remainingAfterPrefix - minMask)
+                : 0;
+        int maskedLength = Math.max(minMask, length - visiblePrefix - visibleSuffix);
+
+        String masked = normalized.substring(0, visiblePrefix)
+                + "*".repeat(Math.min(maskedLength, 8))
+                + (visibleSuffix > 0 ? normalized.substring(normalized.length() - visibleSuffix) : "");
+
+        return masked.length() > 24 ? masked.substring(0, 24) + "..." : masked;
+    }
+
+    private Map<Long, RecruitmentUser> loadFreelancersByFreelancerIds(Collection<Long> freelancerIds) {
+        if (freelancerIds == null || freelancerIds.isEmpty()) {
+            return Map.of();
+        }
+
+        Map<Long, RecruitmentUser> resolved = new LinkedHashMap<>();
+        for (Long freelancerId : freelancerIds) {
+            if (freelancerId == null || resolved.containsKey(freelancerId)) {
+                continue;
+            }
+            try {
+                resolved.put(
+                        freelancerId,
+                        recruitmentUserReader.getFreelancerByFreelancerIdOrThrow(freelancerId)
+                );
+            } catch (Exception e) {
+                log.warn("Freelancer recommendation lookup failed. freelancerId={}", freelancerId, e);
+            }
+        }
+        return resolved;
     }
 
     private <T> List<T> orEmpty(List<T> list) {

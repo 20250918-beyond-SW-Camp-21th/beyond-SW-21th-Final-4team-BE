@@ -3,6 +3,8 @@ package com.fallguys.mypage.service.freelancer;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerEvaluationSummaryDto;
 import com.fallguys.mypage.entity.freelancer.Freelancer;
 import com.fallguys.mypage.repository.freelancer.FreelancerRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.Query;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,6 +34,12 @@ class FreelancerReviewServiceTest {
     @Mock
     private FreelancerRepository freelancerRepository;
 
+    @Mock
+    private EntityManager entityManager;
+
+    @Mock
+    private Query query;
+
     @InjectMocks
     private FreelancerReviewService freelancerReviewService;
 
@@ -55,6 +63,7 @@ class FreelancerReviewServiceTest {
         );
 
         Freelancer mockFreelancer = mock(Freelancer.class);
+        given(mockFreelancer.getFreelancerId()).willReturn(userId);
         given(mockFreelancer.getTopPercentile()).willReturn(topPercentile);
         given(freelancerRepository.findByUserId(userId)).willReturn(Optional.of(mockFreelancer));
         given(redisTemplate.opsForValue()).willReturn(valueOperations);
@@ -83,18 +92,23 @@ class FreelancerReviewServiceTest {
         String redisKey = "freelancer:review:rates:" + userId;
 
         Freelancer mockFreelancer = mock(Freelancer.class);
+        given(mockFreelancer.getFreelancerId()).willReturn(userId);
         given(mockFreelancer.getTopPercentile()).willReturn(30);
         given(freelancerRepository.findByUserId(userId)).willReturn(Optional.of(mockFreelancer));
         given(redisTemplate.opsForValue()).willReturn(valueOperations);
         given(valueOperations.get(redisKey)).willReturn(null);
+        given(entityManager.createNativeQuery(anyString())).willReturn(query);
+        given(query.setParameter("freelancerId", userId)).willReturn(query);
+        given(query.getSingleResult()).willReturn(new Object[]{4.0, 5.0, 3.0, 5.0, 4.0, 2.0});
 
         // when
         FreelancerEvaluationSummaryDto result = freelancerReviewService.getReviewSummary(userId);
 
         // then
-        assertThat(result.averageRate()).isEqualTo(0.0);
-        assertThat(result.expertiseRate()).isEqualTo(0.0);
+        assertThat(result.averageRate()).isEqualTo(4.3);
+        assertThat(result.expertiseRate()).isEqualTo(4.0);
         assertThat(result.topPercentile()).isEqualTo(30);
+        verify(valueOperations).set(eq(redisKey), any(Map.class));
     }
 
     @Test
@@ -105,6 +119,7 @@ class FreelancerReviewServiceTest {
         String redisKey = "freelancer:review:rates:" + userId;
 
         Freelancer mockFreelancer = mock(Freelancer.class);
+        given(mockFreelancer.getFreelancerId()).willReturn(userId);
         given(mockFreelancer.getTopPercentile()).willReturn(20);
         given(freelancerRepository.findByUserId(userId)).willReturn(Optional.of(mockFreelancer));
         given(redisTemplate.opsForValue()).willReturn(valueOperations);
@@ -129,11 +144,7 @@ class FreelancerReviewServiceTest {
     void getReviewSummary_FreelancerNotFound_ReturnsFallback() {
         // given
         Long userId = 4L;
-        String redisKey = "freelancer:review:rates:" + userId;
-
         given(freelancerRepository.findByUserId(userId)).willReturn(Optional.empty());
-        given(redisTemplate.opsForValue()).willReturn(valueOperations);
-        given(valueOperations.get(redisKey)).willReturn(null);
 
         // when
         FreelancerEvaluationSummaryDto result = freelancerReviewService.getReviewSummary(userId);

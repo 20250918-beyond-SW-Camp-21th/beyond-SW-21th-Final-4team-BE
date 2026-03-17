@@ -7,8 +7,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum PlanType {
     FREE(0L),
-    PRO(19900L),
-    PRIME(39900L);
+    PRO(9900L),
+    PRIME(19900L);
 
     /** 월 구독료 (KRW) */
     private final long monthlyPrice;

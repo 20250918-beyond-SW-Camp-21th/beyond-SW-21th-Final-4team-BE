@@ -28,11 +28,13 @@ public class EmployerProfileService {
     private final EmployerRepository employerRepository;
     private final FileStorage fileStorage;
     private final ExternalUserApi externalUserApi;
+    private final EmployerReviewService employerReviewService;
 
     @Transactional(readOnly = true)
     public EmployerBasicProfileDto getProfile(Long userId) {
         Employer employer = employerRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 유저의 고용주 프로필을 찾을 수 없습니다."));
+        employerReviewService.getReputationSummary(userId);
 
         ExternalUserMyInfoResponse userInfo = null;
         try {
