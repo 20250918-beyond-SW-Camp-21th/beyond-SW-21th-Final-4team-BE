@@ -12,6 +12,9 @@ import com.fallguys.review.entity.FreelancerReview;
 import com.fallguys.review.entity.ReviewStatus;
 import com.fallguys.review.repository.EmployerReviewRepository;
 import com.fallguys.review.repository.FreelancerReviewRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.NoResultException;
+import jakarta.persistence.Query;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -43,6 +46,12 @@ class ReviewServiceImplTest {
     @Mock
     private ProjectExternalApi projectExternalApi;
 
+    @Mock
+    private EntityManager entityManager;
+
+    @Mock
+    private Query query;
+
     @InjectMocks
     private ReviewServiceImpl reviewService;
 
@@ -51,9 +60,12 @@ class ReviewServiceImplTest {
     void createEmployerReview_whenAlreadyExists_throwsBusinessException() {
         // given
         Long employerId = 1L;
-        EmployerReviewCreateRequest request = new EmployerReviewCreateRequest(10L, 20L, 5, 5, 5, 5, 5, 5, "desc");
+        Long inputFreelancerPk = 20L;
+        Long normalizedFreelancerUserId = 200L;
+        EmployerReviewCreateRequest request = new EmployerReviewCreateRequest(10L, inputFreelancerPk, 5, 5, 5, 5, 5, 5, "desc");
+        stubFreelancerIdentity(inputFreelancerPk, inputFreelancerPk, normalizedFreelancerUserId);
         when(employerReviewRepository.findByProjectIdAndEmployerIdAndFreelancerIdAndStatus(
-                request.projectId(), employerId, request.freelancerId(), ReviewStatus.ACTIVE
+                request.projectId(), employerId, normalizedFreelancerUserId, ReviewStatus.ACTIVE
         )).thenReturn(Optional.of(EmployerReview.builder().id(99L).build()));
 
         // when
@@ -64,13 +76,16 @@ class ReviewServiceImplTest {
     }
 
     @Test
-    @DisplayName("[TDD] 고용주 리뷰 생성 성공 시 저장된 리뷰 ID를 반환한다")
-    void createEmployerReview_success_returnsSavedId() {
+    @DisplayName("[TDD] 고용주 리뷰 생성 시 freelancer PK 입력은 userId로 정규화되어 저장된다")
+    void createEmployerReview_withFreelancerPk_normalizesToUserId() {
         // given
         Long employerId = 1L;
-        EmployerReviewCreateRequest request = new EmployerReviewCreateRequest(10L, 20L, 4, 4, 4, 4, 4, 4, "good");
+        Long inputFreelancerPk = 20L;
+        Long expectedUserId = 200L;
+        EmployerReviewCreateRequest request = new EmployerReviewCreateRequest(10L, inputFreelancerPk, 4, 4, 4, 4, 4, 4, "good");
+        stubFreelancerIdentity(inputFreelancerPk, inputFreelancerPk, expectedUserId);
         when(employerReviewRepository.findByProjectIdAndEmployerIdAndFreelancerIdAndStatus(
-                request.projectId(), employerId, request.freelancerId(), ReviewStatus.ACTIVE
+                request.projectId(), employerId, expectedUserId, ReviewStatus.ACTIVE
         )).thenReturn(Optional.empty());
         when(employerReviewRepository.save(any())).thenReturn(EmployerReview.builder().id(123L).build());
 
@@ -82,8 +97,56 @@ class ReviewServiceImplTest {
         ArgumentCaptor<EmployerReview> captor = ArgumentCaptor.forClass(EmployerReview.class);
         verify(employerReviewRepository, times(1)).save(captor.capture());
         assertEquals(employerId, captor.getValue().getEmployerId());
-        assertEquals(request.freelancerId(), captor.getValue().getFreelancerId());
+        assertEquals(expectedUserId, captor.getValue().getFreelancerId());
         verify(projectExternalApi, times(1)).completeProjectWithReview(any());
+    }
+
+    @Test
+    @DisplayName("[TDD] 고용주 리뷰 생성 시 이미 userId 입력이면 동일한 값으로 저장된다")
+    void createEmployerReview_withFreelancerUserId_keepsSameIdentity() {
+        // given
+        Long employerId = 1L;
+        Long freelancerUserId = 200L;
+        EmployerReviewCreateRequest request = new EmployerReviewCreateRequest(10L, freelancerUserId, 4, 4, 4, 4, 4, 4, "good");
+        stubFreelancerIdentity(freelancerUserId, freelancerUserId, freelancerUserId);
+        when(employerReviewRepository.findByProjectIdAndEmployerIdAndFreelancerIdAndStatus(
+                request.projectId(), employerId, freelancerUserId, ReviewStatus.ACTIVE
+        )).thenReturn(Optional.empty());
+        when(employerReviewRepository.save(any())).thenReturn(EmployerReview.builder().id(124L).build());
+
+        // when
+        Long reviewId = reviewService.createEmployerReview(employerId, request);
+
+        // then
+        assertEquals(124L, reviewId);
+        ArgumentCaptor<EmployerReview> captor = ArgumentCaptor.forClass(EmployerReview.class);
+        verify(employerReviewRepository).save(captor.capture());
+        assertEquals(freelancerUserId, captor.getValue().getFreelancerId());
+        verify(entityManager).createNativeQuery(any(String.class));
+        verify(query).setParameter("referenceId", freelancerUserId);
+    }
+
+    @Test
+    @DisplayName("[TDD] 고용주 리뷰 생성 시 freelancer 조회 결과가 없으면 입력값으로 폴백한다")
+    void createEmployerReview_whenFreelancerIdentityMissing_fallsBackToInputId() {
+        // given
+        Long employerId = 1L;
+        Long missingFreelancerId = 999L;
+        EmployerReviewCreateRequest request = new EmployerReviewCreateRequest(10L, missingFreelancerId, 4, 4, 4, 4, 4, 4, "good");
+        stubFreelancerIdentityNoResult(missingFreelancerId);
+        when(employerReviewRepository.findByProjectIdAndEmployerIdAndFreelancerIdAndStatus(
+                request.projectId(), employerId, missingFreelancerId, ReviewStatus.ACTIVE
+        )).thenReturn(Optional.empty());
+        when(employerReviewRepository.save(any())).thenReturn(EmployerReview.builder().id(125L).build());
+
+        // when
+        Long reviewId = reviewService.createEmployerReview(employerId, request);
+
+        // then
+        assertEquals(125L, reviewId);
+        ArgumentCaptor<EmployerReview> captor = ArgumentCaptor.forClass(EmployerReview.class);
+        verify(employerReviewRepository).save(captor.capture());
+        assertEquals(missingFreelancerId, captor.getValue().getFreelancerId());
     }
 
     @Test
@@ -91,9 +154,12 @@ class ReviewServiceImplTest {
     void createEmployerReview_duplicateSqlState_throwsBusinessException() {
         // given
         Long employerId = 1L;
-        EmployerReviewCreateRequest request = new EmployerReviewCreateRequest(10L, 20L, 3, 3, 3, 3, 3, 3, "dup");
+        Long inputFreelancerPk = 20L;
+        Long normalizedFreelancerUserId = 200L;
+        EmployerReviewCreateRequest request = new EmployerReviewCreateRequest(10L, inputFreelancerPk, 3, 3, 3, 3, 3, 3, "dup");
+        stubFreelancerIdentity(inputFreelancerPk, inputFreelancerPk, normalizedFreelancerUserId);
         when(employerReviewRepository.findByProjectIdAndEmployerIdAndFreelancerIdAndStatus(
-                request.projectId(), employerId, request.freelancerId(), ReviewStatus.ACTIVE
+                request.projectId(), employerId, normalizedFreelancerUserId, ReviewStatus.ACTIVE
         )).thenReturn(Optional.empty());
         DataIntegrityViolationException ex = new DataIntegrityViolationException(
                 "duplicate", new SQLException("duplicate key", "23505")
@@ -211,5 +277,17 @@ class ReviewServiceImplTest {
         // then
         assertEquals(ReviewStatus.DELETED, review.getStatus());
         assertEquals(true, review.getDeleted());
+    }
+
+    private void stubFreelancerIdentity(Long referenceId, Long freelancerPk, Long userId) {
+        when(entityManager.createNativeQuery(any(String.class))).thenReturn(query);
+        when(query.setParameter("referenceId", referenceId)).thenReturn(query);
+        when(query.getSingleResult()).thenReturn(new Object[]{freelancerPk, userId});
+    }
+
+    private void stubFreelancerIdentityNoResult(Long referenceId) {
+        when(entityManager.createNativeQuery(any(String.class))).thenReturn(query);
+        when(query.setParameter("referenceId", referenceId)).thenReturn(query);
+        when(query.getSingleResult()).thenThrow(new NoResultException());
     }
 }
