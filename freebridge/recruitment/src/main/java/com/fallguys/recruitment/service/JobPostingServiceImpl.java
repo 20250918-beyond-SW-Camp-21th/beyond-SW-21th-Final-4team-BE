@@ -810,6 +810,23 @@ public class JobPostingServiceImpl implements JobPostingService {
         });
     }
 
+    @Override
+    @Transactional
+    public void closeJobPosting(Long jobPostingId) {
+        JobPosting jobPosting = getJobPostingOrThrow(jobPostingId);
+        validateNotDeleted(jobPosting);
+
+        jobPosting.closeRecruitment();
+
+        runAfterCommitSafely(() -> {
+            Long employerId = jobPosting.getEmployerId();
+            evictEmployerSideCaches(employerId);
+            redisTemplate.delete(employerProjectsCacheKey(employerId));
+            refreshEmployerProjectStatsForMypage(employerId);
+            refreshEmployerProjectListForMypage(employerId);
+        });
+    }
+
     private void runAfterCommit(Runnable task) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
