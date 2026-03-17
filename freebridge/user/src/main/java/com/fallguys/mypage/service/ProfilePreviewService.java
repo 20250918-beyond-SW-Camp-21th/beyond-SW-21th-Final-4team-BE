@@ -1,5 +1,7 @@
 package com.fallguys.mypage.service;
 
+import com.fallguys.common.exception.BusinessException;
+import com.fallguys.common.exception.ErrorCode;
 import com.fallguys.mypage.api.shared.SharedMypageApi;
 import com.fallguys.mypage.api.web.dto.employer.response.EmployerProfilePreviewResponseDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerPreviewCareerDto;
@@ -86,7 +88,7 @@ public class ProfilePreviewService {
     public FreelancerProfilePreviewResponseDto getFreelancerPreview(Long freelancerId) {
         Freelancer freelancer = freelancerRepository.findById(freelancerId)
                 .or(() -> freelancerRepository.findByUserId(freelancerId))
-                .orElseThrow(() -> new IllegalArgumentException("Freelancer profile not found"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         ExternalUserResponse user = null;
         try {
@@ -114,9 +116,6 @@ public class ProfilePreviewService {
                 resume != null ? resume.getPhone() : null,
                 resume != null ? resume.getEmail() : null,
                 resume != null ? resume.getAddress() : null,
-                resume != null ? mapEducations(resume.getEducations()) : List.of(),
-                resume != null ? mapCareers(resume.getCareers()) : List.of(),
-                resume != null ? mapCertifications(resume.getCertifications()) : List.of(),
                 portfolio != null ? portfolio.getPortfolioFileUrl() : null,
                 portfolio != null ? portfolio.getPortfolioFileName() : null,
                 portfolio != null ? portfolio.getPortfolioLastUpdated() : null
