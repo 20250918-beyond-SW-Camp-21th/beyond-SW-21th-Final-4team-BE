@@ -62,14 +62,12 @@ class ContractQueryServiceTest {
     }
 
     @Test
-    @DisplayName("getContractInfo()는 비즈니스 계약번호로 계약 정보를 조회하여 반환한다")
-    void getContractInfo_returnsContractInfo() {
-        when(contractRepository.findById(1001L))
-                .thenReturn(Optional.empty());
+    @DisplayName("getContractInfoByContractId()는 비즈니스 계약번호로 계약 정보를 조회하여 반환한다")
+    void getContractInfoByContractId_returnsContractInfo() {
         when(contractRepository.findByContractId(1001L))
                 .thenReturn(Optional.of(contract));
 
-        ContractInfo result = contractQueryService.getContractInfo(1001L);
+        ContractInfo result = contractQueryService.getContractInfoByContractId(1001L);
 
         assertNotNull(result);
         assertEquals(1L, result.id());
@@ -82,17 +80,17 @@ class ContractQueryServiceTest {
         assertEquals(LocalDate.of(2024, 1, 1), result.startDate());
         assertEquals(LocalDate.of(2024, 12, 31), result.endDate());
         assertEquals(5000000L, result.budget());
-        verify(contractRepository).findById(1001L);
         verify(contractRepository).findByContractId(1001L);
+        verify(contractRepository, never()).findById(anyLong());
     }
 
     @Test
-    @DisplayName("getContractInfo()는 레거시 내부 PK가 들어온 경우 내부 PK로 fallback 조회한다")
-    void getContractInfo_fallsBackToInternalIdForLegacySettlementData() {
+    @DisplayName("getContractInfoById()는 내부 PK로 계약 정보를 조회하여 반환한다")
+    void getContractInfoById_returnsContractInfo() {
         when(contractRepository.findById(1L))
                 .thenReturn(Optional.of(contract));
 
-        ContractInfo result = contractQueryService.getContractInfo(1L);
+        ContractInfo result = contractQueryService.getContractInfoById(1L);
 
         assertNotNull(result);
         assertEquals(1L, result.id());
@@ -102,60 +100,81 @@ class ContractQueryServiceTest {
     }
 
     @Test
-    @DisplayName("getContractInfo()는 내부 PK와 비즈니스 계약번호가 충돌해도 내부 PK를 우선 조회한다")
-    void getContractInfo_prefersInternalPkToAvoidCollision() {
+    @DisplayName("조회 타입을 명시하면 내부 PK와 비즈니스 계약번호가 충돌해도 올바른 계약을 반환한다")
+    void explicitLookupApis_avoidCollisionBetweenInternalPkAndBusinessContractId() {
         Contract pkContract = new Contract();
         pkContract.setId(1001L);
         pkContract.setContractId(2001L);
         pkContract.setProjectName("PK 우선 계약");
 
-        when(contractRepository.findById(1001L))
-                .thenReturn(Optional.of(pkContract));
+        Contract businessContract = new Contract();
+        businessContract.setId(2L);
+        businessContract.setContractId(1001L);
+        businessContract.setProjectName("비즈니스 계약번호 계약");
 
-        ContractInfo result = contractQueryService.getContractInfo(1001L);
+        when(contractRepository.findById(1001L)).thenReturn(Optional.of(pkContract));
+        when(contractRepository.findByContractId(1001L)).thenReturn(Optional.of(businessContract));
 
-        assertNotNull(result);
-        assertEquals(1001L, result.id());
-        assertEquals(2001L, result.contractId());
+        ContractInfo idLookup = contractQueryService.getContractInfoById(1001L);
+        ContractInfo contractIdLookup = contractQueryService.getContractInfoByContractId(1001L);
+
+        assertNotNull(idLookup);
+        assertEquals(1001L, idLookup.id());
+        assertEquals(2001L, idLookup.contractId());
+        assertNotNull(contractIdLookup);
+        assertEquals(2L, contractIdLookup.id());
+        assertEquals(1001L, contractIdLookup.contractId());
         verify(contractRepository).findById(1001L);
-        verify(contractRepository, never()).findByContractId(1001L);
+        verify(contractRepository).findByContractId(1001L);
     }
 
     @Test
-    @DisplayName("getContractInfo()는 존재하지 않는 비즈니스 계약번호 조회 시 예외를 발생시킨다")
-    void getContractInfo_throwsExceptionWhenContractNotFound() {
-        when(contractRepository.findById(999L))
-                .thenReturn(Optional.empty());
+    @DisplayName("getContractInfoByContractId()는 존재하지 않는 비즈니스 계약번호 조회 시 예외를 발생시킨다")
+    void getContractInfoByContractId_throwsExceptionWhenContractNotFound() {
         when(contractRepository.findByContractId(999L))
                 .thenReturn(Optional.empty());
 
         RuntimeException exception = assertThrows(
                 RuntimeException.class,
-                () -> contractQueryService.getContractInfo(999L)
+                () -> contractQueryService.getContractInfoByContractId(999L)
         );
 
         assertTrue(exception.getMessage().contains("계약을 찾을 수 없습니다."));
     }
 
     @Test
-    @DisplayName("getContractInfo()는 모든 필드가 null인 경우에도 비즈니스 계약번호로 동작한다")
-    void getContractInfo_handlesNullFields() {
+    @DisplayName("getContractInfoById()는 존재하지 않는 내부 PK 조회 시 예외를 발생시킨다")
+    void getContractInfoById_throwsExceptionWhenContractNotFound() {
+        when(contractRepository.findById(999L))
+                .thenReturn(Optional.empty());
+
+        RuntimeException exception = assertThrows(
+                RuntimeException.class,
+                () -> contractQueryService.getContractInfoById(999L)
+        );
+
+        assertTrue(exception.getMessage().contains("계약을 찾을 수 없습니다."));
+        verify(contractRepository).findById(999L);
+        verify(contractRepository, never()).findByContractId(anyLong());
+    }
+
+    @Test
+    @DisplayName("getContractInfoByContractId()는 모든 필드가 null인 경우에도 비즈니스 계약번호로 동작한다")
+    void getContractInfoByContractId_handlesNullFields() {
         Contract emptyContract = new Contract();
         emptyContract.setId(2L);
         emptyContract.setContractId(1002L);
 
-        when(contractRepository.findById(1002L))
-                .thenReturn(Optional.empty());
         when(contractRepository.findByContractId(1002L))
                 .thenReturn(Optional.of(emptyContract));
 
-        ContractInfo result = contractQueryService.getContractInfo(1002L);
+        ContractInfo result = contractQueryService.getContractInfoByContractId(1002L);
 
         assertNotNull(result);
         assertEquals(2L, result.id());
         assertEquals(1002L, result.contractId());
         assertNull(result.projectName());
-        verify(contractRepository).findById(1002L);
         verify(contractRepository).findByContractId(1002L);
+        verify(contractRepository, never()).findById(anyLong());
     }
 }

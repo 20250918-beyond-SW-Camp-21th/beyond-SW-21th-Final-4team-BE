@@ -47,7 +47,7 @@ public class InvoiceBackfillRunner implements ApplicationRunner {
                 continue;
             }
             try {
-                ContractInfo contract = contractQuery.getContractInfo(settlement.getContractId());
+                ContractInfo contract = contractQuery.getContractInfoByContractId(settlement.getContractId());
                 String url = paymentInvoicePdfService.generateServiceFeeInvoice(settlement, contract);
                 settlement.setInvoicePdfUrl(url);
                 employerSettlementRepository.save(settlement);

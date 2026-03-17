@@ -7,11 +7,9 @@ import com.fallguys.common.exception.ErrorCode;
 import com.fallguys.contract.entity.Contract;
 import com.fallguys.contract.repository.ContractRepository;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -24,17 +22,29 @@ public class ContractQueryService implements ContractQuery {
         return contractRepository.existsByContractId(contractId);
     }
 
-    @Override 
-    public ContractInfo getContractInfo(Long contractId) {
-        Contract c = contractRepository.findById(contractId)
-                .orElseGet(() -> contractRepository.findByContractId(contractId)
-                        .map(contract -> {
-                            log.warn("Fallback business contractId lookup detected in ContractQuery.getContractInfo: requestedId={}, resolvedInternalId={}",
-                                    contractId, contract.getId());
-                            return contract;
-                        })
-                        .orElseThrow(() -> new BusinessException(ErrorCode.CONTRACT_NOT_FOUND)));
+    /**
+     * 내부 PK(id)로만 계약 정보를 조회한다.
+     */
+    @Override
+    public ContractInfo getContractInfoById(Long id) {
+        Contract c = contractRepository.findById(id)
+                .orElseThrow(() -> new BusinessException(ErrorCode.CONTRACT_NOT_FOUND));
 
+        return toContractInfo(c);
+    }
+
+    /**
+     * 비즈니스 계약번호(contractId)로만 계약 정보를 조회한다.
+     */
+    @Override
+    public ContractInfo getContractInfoByContractId(Long contractId) {
+        Contract c = contractRepository.findByContractId(contractId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.CONTRACT_NOT_FOUND));
+
+        return toContractInfo(c);
+    }
+
+    private ContractInfo toContractInfo(Contract c) {
         return new ContractInfo(
                 c.getId(),
                 c.getContractId(),
