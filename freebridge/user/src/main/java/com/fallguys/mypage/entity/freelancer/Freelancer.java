@@ -172,6 +172,10 @@ public class Freelancer {
         this.portfolioInfo = portfolioInfo;
     }
 
+    public void clearPortfolioInfo() {
+        this.portfolioInfo = null;
+    }
+
     public void updateNotificationSettings(Boolean requestNotificationEnabled, Boolean contractNotificationEnabled) {
         if (requestNotificationEnabled != null) this.requestNotificationEnabled = requestNotificationEnabled;
         if (contractNotificationEnabled != null) this.contractNotificationEnabled = contractNotificationEnabled;

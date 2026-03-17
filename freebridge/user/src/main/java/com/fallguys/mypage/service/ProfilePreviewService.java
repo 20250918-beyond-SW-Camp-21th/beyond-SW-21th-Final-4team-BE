@@ -1,5 +1,6 @@
 package com.fallguys.mypage.service;
 
+import com.fallguys.common.port.FileStorage;
 import com.fallguys.mypage.api.shared.SharedMypageApi;
 import com.fallguys.mypage.api.web.dto.employer.response.EmployerProfilePreviewResponseDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerPreviewCareerDto;
@@ -34,6 +35,7 @@ public class ProfilePreviewService {
     private final ResumeRepository resumeRepository;
     private final ExternalUserApi externalUserApi;
     private final SharedMypageApi sharedMypageApi;
+    private final FileStorage fileStorage;
 
     @Transactional(readOnly = true)
     public EmployerProfilePreviewResponseDto getEmployerPreview(Long employerId) {
@@ -78,7 +80,7 @@ public class ProfilePreviewService {
                 employer.getWebsiteUrl(),
                 userInfo != null ? userInfo.getPhone() : null,
                 employer.getDescription(),
-                employer.getLogoUrl()
+                toAccessibleUrl(employer.getLogoUrl())
         );
     }
 
@@ -103,7 +105,7 @@ public class ProfilePreviewService {
                 freelancer.getFreelancerId(),
                 freelancer.getUserId(),
                 user != null ? user.getName() : null,
-                freelancer.getAvatarUrl(),
+                toAccessibleUrl(freelancer.getAvatarUrl()),
                 freelancer.getJob(),
                 freelancer.getIntroduction(),
                 freelancer.getGrade() != null ? freelancer.getGrade().name() : null,
@@ -117,7 +119,7 @@ public class ProfilePreviewService {
                 resume != null ? mapEducations(resume.getEducations()) : List.of(),
                 resume != null ? mapCareers(resume.getCareers()) : List.of(),
                 resume != null ? mapCertifications(resume.getCertifications()) : List.of(),
-                portfolio != null ? portfolio.getPortfolioFileUrl() : null,
+                portfolio != null ? toAccessibleUrl(portfolio.getPortfolioFileUrl()) : null,
                 portfolio != null ? portfolio.getPortfolioFileName() : null,
                 portfolio != null ? portfolio.getPortfolioLastUpdated() : null
         );
@@ -171,5 +173,15 @@ public class ProfilePreviewService {
                         certification.getAcquisitionDate()
                 ))
                 .toList();
+    }
+
+    private String toAccessibleUrl(String storedKeyOrUrl) {
+        if (storedKeyOrUrl == null || storedKeyOrUrl.isBlank()) {
+            return null;
+        }
+        if (storedKeyOrUrl.startsWith("http://") || storedKeyOrUrl.startsWith("https://")) {
+            return storedKeyOrUrl;
+        }
+        return fileStorage.generatePresignedUrl(storedKeyOrUrl);
     }
 }
