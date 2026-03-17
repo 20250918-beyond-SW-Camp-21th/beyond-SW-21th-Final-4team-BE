@@ -227,6 +227,21 @@ class JobPostingServiceCoreTest {
     }
 
     @Test
+    @DisplayName("[TDD] 계약 활성화 후 공고 마감 처리 시 postingStatus가 CLOSED로 변경된다")
+    void closeJobPosting_setsPostingStatusClosed() {
+        Long postingId = 50L;
+        Long employerId = 5L;
+        JobPosting posting = posting(postingId, employerId, Status.ACTIVE);
+        ReflectionTestUtils.setField(posting, "postingStatus", JobPostingStatus.OPEN);
+
+        when(jobPostingRepo.findById(postingId)).thenReturn(Optional.of(posting));
+
+        service.closeJobPosting(postingId);
+
+        assertEquals(JobPostingStatus.CLOSED, posting.getPostingStatus());
+    }
+
+    @Test
     @DisplayName("[TDD] 프로젝트 매칭 프리랜서 목록 조회 시 소유자가 다르면 JOB_POSTING_FORBIDDEN 예외")
     void getMatchedFreelancers_forbiddenOwner_throws() {
         Long employerId = 5L;
