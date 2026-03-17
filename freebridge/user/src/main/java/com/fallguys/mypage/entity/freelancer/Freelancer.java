@@ -41,7 +41,7 @@ public class Freelancer {
 
     private Integer careerYears;
 
-    private Long wage; // 시급
+    private Long wage; // 월급
 
     @Embedded
     private WorkConditions workConditions;
