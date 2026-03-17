@@ -11,14 +11,16 @@ from langchain_core.prompts import ChatPromptTemplate
 
 router = APIRouter(prefix="", tags=["Analysis"])
 logger = logging.getLogger(__name__)
+MAX_PDF_BYTES = 10 * 1024 * 1024
 
-# --- Pydantic Models ---
 
 class ScoreDto(BaseModel):
     name: str = Field(description="항목 이름 (예: 전문성, 의사소통, 일정준수 등)")
     score: int = Field(ge=1, le=5, description="해당 항목의 평가 점수 (1~5점)")
 
 class FreelancerAiReputationReportDto(BaseModel):
+    grade: str = Field(description="종합 평판 등급 (예: 'S', 'A', 'B', 'C', 'D')")
+    positivityScore: int = Field(ge=0, le=100, description="리뷰 긍정 지수 (0~100점)")
     summary: str = Field(description="전체 평가를 종합한 2~3줄 요약 평판")
     strengths: List[str] = Field(description="리뷰에서 두드러지는 주요 강점 (최대 3개)")
     weaknesses: List[str] = Field(description="리뷰에서 두드러지는 주요 약점 또는 개선점 (최대 3개)")
@@ -34,7 +36,6 @@ class ReputationAnalysisResponse(BaseModel):
     positive_keywords: List[str] = Field(description="리뷰에서 추출된 긍정 키워드 리스트")
     negative_keywords: List[str] = Field(description="리뷰에서 추출된 부정 키워드 리스트")
 
-# --- Helper Functions ---
 
 _llm = None
 
@@ -93,28 +94,43 @@ def fetch_freelancer_reviews(freelancer_id: int):
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
-            # 기업이 프리랜서에게 남긴 리뷰 및 정량 점수 조회
             sql = """
                 SELECT description, language, framework, debugging, communication, schedule, dispute 
                 FROM employer_freelancer_reviews 
                 WHERE freelancer_id = %s AND status = 'ACTIVE' LIMIT 50
             """
             cursor.execute(sql, (freelancer_id,))
-            return cursor.fetchall()
+            rows = cursor.fetchall()
+            logger.info(
+                "Fetched freelancer reviews from DB. freelancer_id=%s row_count=%s",
+                freelancer_id,
+                len(rows),
+            )
+            return rows
     finally:
         conn.close()
 
-# --- Endpoints ---
 
 @router.get("/api/v1/analysis/freelancer/{freelancer_id}", response_model=FreelancerAiReputationReportDto)
 async def analyze_freelancer_reputation(freelancer_id: int):
     """(Feature 3) 특정 프리랜서의 DB 리뷰를 긁어 평판 분석"""
     try:
-        # non-blocking DB call
+        logger.info("Freelancer analysis requested. freelancer_id=%s", freelancer_id)
         rows = await run_in_threadpool(fetch_freelancer_reviews, freelancer_id)
+        logger.info(
+            "Freelancer analysis loaded rows. freelancer_id=%s row_count=%s",
+            freelancer_id,
+            len(rows),
+        )
 
         if not rows:
+            logger.info(
+                "Freelancer analysis returning empty report because no rows were found. freelancer_id=%s",
+                freelancer_id,
+            )
             return FreelancerAiReputationReportDto(
+                grade="D",
+                positivityScore=0,
                 summary="아직 충분한 리뷰가 등록되지 않았습니다.",
                 strengths=[],
                 weaknesses=[],
@@ -122,7 +138,6 @@ async def analyze_freelancer_reputation(freelancer_id: int):
                 softSkills=[]
             )
 
-        # 텍스트 합치기 및 제한
         review_texts = []
         detailed_scores = {"language": [], "framework": [], "debugging": [], "communication": [], "schedule": [], "dispute": []}
         
@@ -132,12 +147,17 @@ async def analyze_freelancer_reputation(freelancer_id: int):
             for key in detailed_scores.keys():
                 if row.get(key) is not None:
                     detailed_scores[key].append(row[key])
+        logger.info(
+            "Freelancer analysis prepared review payload. freelancer_id=%s review_text_count=%s score_counts=%s",
+            freelancer_id,
+            len(review_texts),
+            {key: len(scores) for key, scores in detailed_scores.items()},
+        )
         
         all_reviews = "\n- ".join(review_texts)
         all_reviews = f"- {all_reviews}"
         truncated_reviews = truncate_text(all_reviews, max_length=5000)
 
-        # Calculate averages for context
         avg_scores_context = "저장된 항목별 평균 원본 데이터 (1~5점):\n"
         for key, scores in detailed_scores.items():
             if scores:
@@ -149,10 +169,15 @@ async def analyze_freelancer_reputation(freelancer_id: int):
         
         prompt = ChatPromptTemplate.from_template("""
         당신은 IT 프리랜서 커리어 코치 및 전문 헤드헌터입니다.
-        아래는 특정 프리랜서가 과거 클라이언트들(기업)로부터 받은 리뷰 텍스트와 실제 DB에 저장된 각 항목별 정량적 통계 수치입니다.
-        AI는 1~5점의 세부 역량(technicalScores, softSkills)의 점수를 임의로 지어내지 말고, 주어진 [저장된 평균 원본 데이터]를 기반으로 반올림하여 ScoreDto를 출력해야 합니다 (모든 항목이 포함되지 않아도 되며, 대표 항목만 뽑아도 됩니다. 단, score 값은 1에서 5 사이여야 합니다).
-        또한 리뷰 텍스트들을 바탕으로 종합적인 평판을 요약해주고, 강점과 약점을 추출해 주세요.
-        
+        아래는 특정 프리랜서가 과거 클라이언트들(기업)로부터 받은 평가 텍스트와 실제 DB에 저장된 각 항목별 정량적 통계 수치입니다.
+
+        [지시사항]
+        1. [저장된 평균 원본 데이터]를 기반으로 `technicalScores` 및 `softSkills` 배열을 채워주세요. 절대 여기에 없는 가상의 평가 지표나 임의의 점수를 만들어내지 마세요.
+        2. 제공된 리뷰 텍스트를 종합하여, 프리랜서의 인성, 태도, 실력 등을 2~3줄로 명확하게 요약(`summary`)해 주세요.
+        3. `positivityScore`는 리뷰의 전체적인 긍정/부정 비율을 고려하여 0~100점 사이로 평가하세요.
+        4. `grade`는 `positivityScore`에 기반해 다음 기준을 엄격히 따르세요 (S: 95~100, A: 85~94, B: 70~84, C: 50~69, D: 0~49).
+        5. 리뷰에서 반복적으로 언급되는 칭찬 사항을 `strengths`에, 아쉬운 점이나 개선 요망 사항을 `weaknesses`에 최대 3개씩 간결하게(명사형 종결 등) 추출하세요.
+
         [저장된 평균 원본 데이터]
         {avg_scores}
 
@@ -162,6 +187,13 @@ async def analyze_freelancer_reputation(freelancer_id: int):
         """)
 
         result = await structured_llm.ainvoke(prompt.format(reviews=truncated_reviews, avg_scores=avg_scores_context))
+        logger.info(
+            "Freelancer analysis completed. freelancer_id=%s positivity_score=%s strengths_count=%s weaknesses_count=%s",
+            freelancer_id,
+            result.positivityScore,
+            len(result.strengths),
+            len(result.weaknesses),
+        )
         return result
 
     except Exception as e:
@@ -179,12 +211,10 @@ async def analyze_general_reputation(request: ReputationAnalysisRequest):
                 negative_keywords=[]
             )
 
-        # 리뷰 텍스트 전처리 (최대 개수 50개 / 길이 5000자 제한)
         reviews_to_analyze = request.reviews[:50]
         combined_text = "\n- ".join(reviews_to_analyze)
         truncated_text = truncate_text(f"- {combined_text}", max_length=5000)
 
-        # 평균 점수 계산 (컨텍스트로 제공)
         avg_score = sum(request.scores) / len(request.scores) if request.scores else 0.0
 
         llm = get_llm()
@@ -206,3 +236,88 @@ async def analyze_general_reputation(request: ReputationAnalysisRequest):
     except Exception as e:
         logger.exception("Error analyzing general reputation")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+class ContractAnalysisResponse(BaseModel):
+    summary: str = Field(description="계약서의 전반적인 요약")
+    toxic_clauses: List[str] = Field(description="프리랜서에게 불리할 수 있는 독소 조항 또는 위법 의심 사항 (없으면 빈 배열)")
+    recommendations: List[str] = Field(description="계약 체결 전 확인해야 할 권장 사항 또는 조언")
+
+import httpx
+from fastapi import UploadFile, File
+
+@router.post("/api/v1/analysis/contract", response_model=ContractAnalysisResponse)
+async def analyze_contract(file: UploadFile = File(...)):
+    """(Feature 5) 계약서 PDF 파일을 받아 Upstage Document Parse API를 거쳐 법률 위반/독소 조항 분석"""
+    try:
+        api_key = os.getenv("UPSTAGE_API_KEY")
+        if not api_key:
+            raise HTTPException(status_code=500, detail="UPSTAGE_API_KEY is missing")
+
+        if not file.filename.lower().endswith('.pdf'):
+            raise HTTPException(status_code=400, detail="Only PDF files are supported")
+
+        file.file.seek(0, 2)
+        file_size = file.file.tell()
+        if file_size <= 0:
+            raise HTTPException(status_code=400, detail="Empty PDF files are not supported")
+        if file_size > MAX_PDF_BYTES:
+            raise HTTPException(status_code=413, detail="PDF file is too large")
+
+        file.file.seek(0)
+        header = file.file.read(4)
+        if header != b"%PDF":
+            raise HTTPException(status_code=400, detail="Invalid PDF file")
+
+        file.file.seek(0)
+        file_content = await file.read()
+
+        parse_url = "https://api.upstage.ai/v1/document-ai/document-parse"
+        headers = {"Authorization": f"Bearer {api_key}"}
+        files = {"document": (file.filename, file_content, file.content_type)}
+        
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(parse_url, headers=headers, files=files)
+            
+        if response.status_code != 200:
+            logger.error(f"Upstage Document Parse API failed: {response.text}")
+            raise HTTPException(status_code=500, detail="Failed to parse document via Upstage API")
+
+        parse_result = response.json()
+        
+        parsed_text = ""
+        if "elements" in parse_result:
+            for element in parse_result["elements"]:
+                parsed_text += element.get("content", {}).get("html", "") or element.get("text", "") or ""
+                parsed_text += "\n"
+        elif "text" in parse_result:
+            parsed_text = parse_result["text"]
+        else:
+            parsed_text = str(parse_result)
+        
+        truncated_text = truncate_text(parsed_text, max_length=15000)
+        llm = get_llm()
+        structured_llm = llm.with_structured_output(ContractAnalysisResponse)
+
+        prompt = ChatPromptTemplate.from_template("""
+        당신은 노무사 및 IT 계약 법률 전문가입니다.
+        아래는 OCR/Document Parse 를 통해 추출된 프리랜서-기업 간 계약서 내용입니다.
+
+        [지시사항]
+        1. 계약서의 핵심 내용(계약금액, 기간, 주요 업무 등)을 2~3줄로 명확하고 전문적으로 요약(`summary`)해주세요.
+        2. 계약서 내용을 바탕으로 프리랜서 입장에서 불리할 수 있는 '독소 조항(위약금 과다, 지적재산권 일방 귀속, 대금 지급 지연 등)'이나 '근로기준법/하도급법 위반 의심 사항'을 찾아내어 `toxic_clauses`에 간결히 나열하세요. 만약 문제가 될 만한 조항이 전혀 없다면, 반드시 빈 배열(`[]`)을 반환하세요.
+        3. 체결 전 프리랜서가 추가로 협의하거나 확인하면 좋을 법적 조언을 `recommendations`에 최대 3개 작성하세요.
+
+        <contract_content>
+        {contract_content}
+        </contract_content>
+        """)
+
+        result = await structured_llm.ainvoke(prompt.format(contract_content=truncated_text))
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error parsing and analyzing contract PDF")
+        raise HTTPException(status_code=500, detail="Internal server error")
+

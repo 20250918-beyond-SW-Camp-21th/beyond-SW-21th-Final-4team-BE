@@ -407,7 +407,7 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
     public SubscriptionPaymentResult processSubscriptionPayment(
             Long employerId, String planType, long amount, String billingKey) {
 
-        SubscriptionPaymentRequest request = new SubscriptionPaymentRequest(employerId, planType, amount, billingKey);
+        SubscriptionPaymentRequest request = new SubscriptionPaymentRequest(employerId, planType, amount, billingKey, null);
         SubscriptionPaymentResponse response = processPayment(request);
 
         return new SubscriptionPaymentResult(
@@ -426,11 +426,117 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
      * <p>processPayment()를 통해 결제를 처리한 뒤, 저장된 BillingKey에서
      * nextBillingDate를 읽어 결합된 결과를 반환합니다.
      */
+
+    @Override
+    @Transactional
+    public SubscriptionPaymentResult verifyOneTimeSubscriptionPayment(
+            Long employerId, String planType, long amount, String paymentId) {
+
+        if (employerId == null || paymentId == null || paymentId.isBlank() || planType == null || planType.isBlank()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        PlanType targetPlanType;
+        try {
+            targetPlanType = PlanType.valueOf(planType.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        if (targetPlanType == PlanType.FREE) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        if (subscriptionBillingRepository.existsByTransactionId(paymentId)) {
+            SubscriptionBilling existing = subscriptionBillingRepository.findByTransactionId(paymentId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.PAYMENT_FAILED));
+
+            if (!existing.getEmployerId().equals(employerId)) {
+                throw new BusinessException(ErrorCode.SETTLEMENT_FORBIDDEN);
+            }
+
+            return toSubscriptionPaymentResult(existing);
+        }
+
+        PortOnePaymentInfo paymentInfo = portOneApiClient.getPayment(paymentId);
+        if (!paymentInfo.isPaid()) {
+            throw new BusinessException(ErrorCode.PAYMENT_FAILED);
+        }
+
+        if (paymentInfo.getTotalAmount() != targetPlanType.getMonthlyPrice()) {
+            throw new BusinessException(ErrorCode.PAYMENT_FAILED);
+        }
+
+        PortOnePaymentInfo.CustomDataInfo customData = paymentInfo.getCustomData();
+        if (customData == null
+                || customData.getEmployerId() == null
+                || !employerId.equals(customData.getEmployerId())
+                || customData.getPlanType() == null
+                || !targetPlanType.name().equalsIgnoreCase(customData.getPlanType())) {
+            throw new BusinessException(ErrorCode.PAYMENT_FAILED);
+        }
+
+        SubscriptionBilling billing = new SubscriptionBilling();
+        billing.setEmployerId(employerId);
+        billing.setPlanType(targetPlanType);
+        billing.setAmount(targetPlanType.getMonthlyPrice());
+        billing.setBillingDate(LocalDate.now());
+        billing.markPaid(paymentId);
+        try {
+            subscriptionBillingRepository.save(billing);
+        } catch (DataIntegrityViolationException e) {
+            SubscriptionBilling existing = subscriptionBillingRepository.findByTransactionId(paymentId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.PAYMENT_FAILED));
+
+            if (!existing.getEmployerId().equals(employerId)) {
+                throw new BusinessException(ErrorCode.SETTLEMENT_FORBIDDEN);
+            }
+
+            return toSubscriptionPaymentResult(existing);
+        }
+
+        try {
+            String invoiceUrl = paymentInvoicePdfService.generateSubscriptionInvoice(billing);
+            billing.setInvoicePdfUrl(invoiceUrl);
+            subscriptionBillingRepository.save(billing);
+        } catch (Exception e) {
+            log.error("subscription invoice generation failed: billingId={}, error={}", billing.getId(), e.getMessage());
+        }
+
+        Wallet revenueWallet = getOrCreatePlatformRevenueWallet();
+        revenueWallet.credit(targetPlanType.getMonthlyPrice());
+        walletRepository.save(revenueWallet);
+
+        walletTransactionRepository.save(new WalletTransaction(
+                revenueWallet.getId(),
+                TransactionType.CREDIT,
+                targetPlanType.getMonthlyPrice(),
+                TransactionReferenceType.SUBSCRIPTION_PAYMENT,
+                billing.getId(),
+                targetPlanType.name() + " subscription payment revenue",
+                revenueWallet.getBalance()
+        ));
+
+        return toSubscriptionPaymentResult(billing);
+    }
+
+    private SubscriptionPaymentResult toSubscriptionPaymentResult(SubscriptionBilling billing) {
+        return new SubscriptionPaymentResult(
+                SubscriptionBillingStatus.PAID.equals(billing.getStatus()),
+                billing.getId(),
+                billing.getPlanType().name(),
+                billing.getAmount(),
+                billing.getStatus().name(),
+                null,
+                null
+        );
+    }
+
     @Override
     public SubscriptionUpgradeResult processSubscriptionUpgrade(
             Long employerId, String planType, long amount, String billingKey) {
 
-        SubscriptionPaymentRequest request = new SubscriptionPaymentRequest(employerId, planType, amount, billingKey);
+        SubscriptionPaymentRequest request = new SubscriptionPaymentRequest(employerId, planType, amount, billingKey, null);
         SubscriptionPaymentResponse response = processPayment(request);
 
         LocalDateTime nextBillingDate = null;
@@ -452,5 +558,13 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
                 response.message(),
                 nextBillingDate
         );
+    }
+
+    @Override
+    public LocalDateTime getNextBillingDate(Long employerId) {
+        return billingKeyRepository
+                .findByEmployerIdAndActiveTrue(employerId)
+                .map(bk -> bk.getNextBillingDate().atTime(9, 0))
+                .orElse(null);
     }
 }

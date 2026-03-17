@@ -42,7 +42,7 @@ public class AdminSettlementService {
      */
     @Transactional
     public void generateSettlements(Long contractId) {
-        ContractInfo contract = contractQuery.getContractInfo(contractId);
+        ContractInfo contract = contractQuery.getContractInfoByContractId(contractId);
 
         List<EmployerSettlement> existing = employerSettlementRepository.findByContractId(contractId);
         if (!existing.isEmpty()) {

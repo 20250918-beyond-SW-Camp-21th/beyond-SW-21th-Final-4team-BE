@@ -8,4 +8,5 @@ import lombok.NoArgsConstructor;
 public class ChatRoomContractUpdateRequest {
 
     private Long contractId;
+    private Boolean overrideExisting;
 }

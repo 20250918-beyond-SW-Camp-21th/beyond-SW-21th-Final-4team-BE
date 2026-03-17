@@ -4,6 +4,7 @@ import com.fallguys.common.api.contract.ContractInfo;
 import com.fallguys.common.api.contract.ContractQuery;
 import com.fallguys.common.exception.BusinessException;
 import com.fallguys.common.exception.ErrorCode;
+import com.fallguys.contract.entity.Contract;
 import com.fallguys.contract.repository.ContractRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -18,14 +19,32 @@ public class ContractQueryService implements ContractQuery {
 
     @Override
     public boolean existsContract(Long contractId) {
-        return contractRepository.existsById(contractId);
+        return contractRepository.existsByContractId(contractId);
     }
 
+    /**
+     * 내부 PK(id)로만 계약 정보를 조회한다.
+     */
     @Override
-    public ContractInfo getContractInfo(Long contractId) {
-        var c = contractRepository.findById(contractId)
+    public ContractInfo getContractInfoById(Long id) {
+        Contract c = contractRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(ErrorCode.CONTRACT_NOT_FOUND));
 
+        return toContractInfo(c);
+    }
+
+    /**
+     * 비즈니스 계약번호(contractId)로만 계약 정보를 조회한다.
+     */
+    @Override
+    public ContractInfo getContractInfoByContractId(Long contractId) {
+        Contract c = contractRepository.findByContractId(contractId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.CONTRACT_NOT_FOUND));
+
+        return toContractInfo(c);
+    }
+
+    private ContractInfo toContractInfo(Contract c) {
         return new ContractInfo(
                 c.getId(),
                 c.getContractId(),

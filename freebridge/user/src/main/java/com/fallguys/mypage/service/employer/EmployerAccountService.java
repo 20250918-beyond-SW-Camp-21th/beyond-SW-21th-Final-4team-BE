@@ -1,21 +1,17 @@
 package com.fallguys.mypage.service.employer;
 
 import com.fallguys.mypage.api.web.dto.employer.response.EmployerSubscriptionResponseDto;
+import com.fallguys.subscription.api.request.SubscriptionChangeRequest;
+import com.fallguys.subscription.api.response.SubscriptionChangeResultResponse;
+import com.fallguys.subscription.service.SubscriptionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
 
 import com.fallguys.mypage.api.web.dto.employer.request.UpdateSubscriptionRequestDto;
-import com.fallguys.mypage.repository.employer.EmployerRepository;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.fallguys.mypage.entity.employer.Employer;
-import com.fallguys.mypage.entity.employer.Subscription;
 import com.fallguys.mypage.api.shared.SharedMypageApi;
 import com.fallguys.mypage.api.web.dto.employer.request.UpdatePasswordRequestDto;
 import com.fallguys.mypage.api.web.dto.employer.response.EmployerNotificationSettingsDto;
@@ -25,9 +21,8 @@ import com.fallguys.mypage.api.web.dto.employer.response.EmployerNotificationSet
 @RequiredArgsConstructor
 public class EmployerAccountService {
 
-    private final RedisTemplate<String, Object> redisTemplate;
-    private final EmployerRepository employerRepository;
     private final SharedMypageApi sharedMypageApi;
+    private final SubscriptionService subscriptionService;
 
     public void updatePassword(Long employerId, UpdatePasswordRequestDto request) {
         if (request == null || 
@@ -40,11 +35,18 @@ public class EmployerAccountService {
     }
 
     @Transactional
-    public void updateSubscription(Long userId, UpdateSubscriptionRequestDto request) {
+    public SubscriptionChangeResultResponse updateSubscription(Long userId, UpdateSubscriptionRequestDto request) {
         if (request == null || request.targetPlan() == null || request.targetPlan().isBlank()) {
             throw new IllegalArgumentException("변경할 구독 플랜 값이 필요합니다.");
         }
-        sharedMypageApi.updateSubscription(userId, request.targetPlan().toUpperCase());
+        return subscriptionService.changePlan(
+                userId,
+                new SubscriptionChangeRequest(
+                        request.targetPlan().toUpperCase(),
+                        request.billingKey(),
+                        request.paymentId()
+                )
+        );
     }
 
     public EmployerSubscriptionResponseDto getSubscription(Long userId) {

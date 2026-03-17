@@ -7,8 +7,8 @@ import lombok.Getter;
 public enum PlanGrade {
 
     BASIC(0, 12.0),
-    PRO(19900, 10.0),
-    PRIME(39900, 7.0);
+    PRO(9900, 10.0),
+    PRIME(19900, 7.0);
 
     private final int monthlyPrice;
     private final double feeRate;

@@ -15,6 +15,9 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.http.client.MultipartBodyBuilder;
+import org.springframework.http.MediaType;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.web.client.RestClientException;
 
 import java.util.List;
@@ -70,6 +73,43 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, (request, response) -> {
                     throw new AiServiceException("AI 계약 서비스가 오류 응답을 반환했습니다.");
+                })
+                .body(String.class);
+    }
+
+    @Override
+    public String analyzeContract(byte[] pdfBytes, String filename) {
+        if (pdfBytes == null || pdfBytes.length == 0) {
+            throw new IllegalArgumentException("pdfBytes must not be null or empty");
+        }
+        if (filename == null || filename.trim().isEmpty()) {
+            throw new IllegalArgumentException("filename must not be null or blank");
+        }
+        if (!filename.toLowerCase().endsWith(".pdf")) {
+            throw new IllegalArgumentException("filename must have .pdf extension");
+        }
+        
+        MultipartBodyBuilder builder = new MultipartBodyBuilder();
+        builder.part("file", new ByteArrayResource(pdfBytes) {
+            @Override
+            public String getFilename() {
+                return filename;
+            }
+        }, MediaType.APPLICATION_PDF);
+        
+        return restClient.post()
+                .uri(pythonUrl + "/api/v1/analysis/contract")
+                .contentType(MediaType.MULTIPART_FORM_DATA)
+                .body(builder.build())
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, (request, response) -> {
+                    String errorBody = new String(response.getBody().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                    log.warn(
+                            "AI 계약서 분석 요청 실패. status={}, body={}",
+                            response.getStatusCode(),
+                            truncateForLog(errorBody)
+                    );
+                    throw new AiServiceException("AI 계약서 분석 요청이 실패했습니다: " + response.getStatusCode());
                 })
                 .body(String.class);
     }

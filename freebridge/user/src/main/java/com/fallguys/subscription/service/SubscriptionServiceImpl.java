@@ -63,24 +63,20 @@ public class SubscriptionServiceImpl implements SubscriptionService {
             throw new BusinessException(ErrorCode.SUBSCRIPTION_SAME_PLAN);
         }
 
-        if (targetGrade == PlanGrade.BASIC) {
-            throw new BusinessException(ErrorCode.SUBSCRIPTION_CANCEL_REQUIRED);
-        }
-
         boolean isUpgrade = targetGrade.ordinal() > currentGrade.ordinal();
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime nextBillingDate = resolveNextBillingDate(userId, now);
 
         if (isUpgrade) {
-            if (request.billingKey() == null || request.billingKey().isBlank()) {
-                throw new BusinessException(ErrorCode.SUBSCRIPTION_BILLING_KEY_REQUIRED);
+            if (request.paymentId() == null || request.paymentId().isBlank()) {
+                throw new BusinessException(ErrorCode.SUBSCRIPTION_INVALID_REQUEST);
             }
 
-            ExternalPaymentPort.PaymentResult result = externalPaymentPort.requestSubscriptionPayment(
+            ExternalPaymentPort.PaymentResult result = externalPaymentPort.verifyOneTimeSubscriptionPayment(
                     userId,
                     targetGrade.name(),
                     targetGrade.getMonthlyPrice(),
-                    request.billingKey()
+                    request.paymentId()
             );
             if (!result.success()) {
                 log.warn("[Subscription] upgrade payment failed userId={}, code={}, msg={}",
@@ -89,54 +85,30 @@ public class SubscriptionServiceImpl implements SubscriptionService {
             }
 
             externalSubscriptionPort.changePlan(userId, targetGrade);
-            externalSubscriptionPort.saveBillingKey(userId, request.billingKey());
-
-            nextBillingDate = computeNextMonthlyBillingDate(now);
-            externalSubscriptionPort.setNextBillingDate(userId, nextBillingDate);
+            nextBillingDate = null;
+            externalSubscriptionPort.setNextBillingDate(userId, null);
 
             return new SubscriptionChangeResultResponse(
                     targetGrade.name(),
                     null,
                     "ACTIVE",
                     nextBillingDate,
-                    "Upgrade applied immediately. Billing runs on nextBillingDate."
+                    "Upgrade applied immediately."
             );
         }
 
-        nextBillingDate = resolveOrComputeMonthlyBillingDate(userId, now);
-
-        externalSubscriptionPort.schedulePlanDowngrade(userId, targetGrade, nextBillingDate);
+        externalSubscriptionPort.changePlan(userId, targetGrade);
+        nextBillingDate = null;
+        externalSubscriptionPort.setNextBillingDate(userId, null);
 
         return new SubscriptionChangeResultResponse(
-                currentGrade.name(),
                 targetGrade.name(),
-                "CHANGE_RESERVED",
+                null,
+                "ACTIVE",
                 nextBillingDate,
-                "Downgrade reserved for next billing date."
-        );
-    }
-
-    @Override
-    @Transactional
-    public SubscriptionChangeResultResponse cancelSubscription(Long userId) {
-        validateUserId(userId);
-        LocalDateTime now = LocalDateTime.now();
-
-        PlanGrade currentPlan = externalSubscriptionPort.getCurrentPlan(userId);
-        if (currentPlan == PlanGrade.BASIC) {
-            throw new BusinessException(ErrorCode.SUBSCRIPTION_ALREADY_BASIC);
-        }
-
-        LocalDateTime nextBillingDate = resolveOrComputeMonthlyBillingDate(userId, now);
-
-        externalSubscriptionPort.cancelSubscription(userId, nextBillingDate);
-
-        return new SubscriptionChangeResultResponse(
-                currentPlan.name(),
-                PlanGrade.BASIC.name(),
-                "CANCEL_RESERVED",
-                nextBillingDate,
-                "Cancellation reserved for next billing date."
+                targetGrade == PlanGrade.BASIC
+                        ? "Plan changed to BASIC immediately."
+                        : "Downgrade applied immediately."
         );
     }
 

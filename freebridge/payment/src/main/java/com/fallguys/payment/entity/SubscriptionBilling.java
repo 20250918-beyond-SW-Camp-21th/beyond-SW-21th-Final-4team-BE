@@ -35,7 +35,7 @@ public class SubscriptionBilling {
     private Long amount;
 
     // PortOne imp_uid for this payment
-    @Column(length = 100)
+    @Column(length = 100, unique = true)
     private String transactionId;
 
     @Enumerated(EnumType.STRING)

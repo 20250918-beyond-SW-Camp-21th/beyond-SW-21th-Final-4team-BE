@@ -10,6 +10,8 @@ import java.util.Optional;
 @Repository
 public interface ContractRepository extends JpaRepository<Contract, Long> {
 
+    boolean existsByContractId(Long contractId);
+
     Optional<Contract> findByContractId(Long contractId);
 
     List<Contract> findByEmployerIdOrderByIdDesc(Long employerId);

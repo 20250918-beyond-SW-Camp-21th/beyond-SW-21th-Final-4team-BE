@@ -132,7 +132,7 @@ public class EmployerSettlementService {
             throw new BusinessException(ErrorCode.SETTLEMENT_FORBIDDEN);
         }
 
-        ContractInfo contract = contractQuery.getContractInfo(e.getContractId());
+        ContractInfo contract = contractQuery.getContractInfoByContractId(e.getContractId());
 
         return new EmployerSettlementDetailResponse(
                 e.getId(), e.getContractId(), contract.projectName(), null,
@@ -151,7 +151,7 @@ public class EmployerSettlementService {
             throw new BusinessException(ErrorCode.SETTLEMENT_FORBIDDEN);
         }
         if (e.getInvoicePdfUrl() == null) {
-            ContractInfo contract = contractQuery.getContractInfo(e.getContractId());
+            ContractInfo contract = contractQuery.getContractInfoByContractId(e.getContractId());
             String key = paymentInvoicePdfService.generateServiceFeeInvoice(e, contract);
             e.setInvoicePdfUrl(key);
             employerSettlementRepository.save(e);
@@ -168,7 +168,7 @@ public class EmployerSettlementService {
             throw new BusinessException(ErrorCode.SETTLEMENT_FORBIDDEN);
         }
 
-        ContractInfo contract = contractQuery.getContractInfo(e.getContractId());
+        ContractInfo contract = contractQuery.getContractInfoByContractId(e.getContractId());
         String invoiceUrl = paymentInvoicePdfService.generateServiceFeeInvoice(e, contract);
         e.setInvoicePdfUrl(invoiceUrl);
         employerSettlementRepository.save(e);
@@ -225,7 +225,7 @@ public class EmployerSettlementService {
         }
 
         // 계약 정보 조회
-        ContractInfo contract = contractQuery.getContractInfo(contractId);
+        ContractInfo contract = contractQuery.getContractInfoByContractId(contractId);
 
         // 이 지점부터 외부 결제는 PAID 확정 — 내부 처리 실패 시 cancelPayment로 보상
         try {
@@ -348,18 +348,25 @@ public class EmployerSettlementService {
      */
     @Transactional
     public List<EmployerSettlement> createSettlementRecords(ContractInfo contract, String paymentId, Long employerId) {
+        Long contractPublicId = contract.contractId();
+
+        if (contractPublicId == null) {
+            log.error("계약 business contractId가 null입니다: internalId={}", contract.id());
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
         // 필수 계약 필드 null 검증 — null이면 NPE 대신 명확한 BusinessException을 던집니다.
         if (contract.budget() == null) {
-            log.error("계약 budget이 null입니다: contractId={}", contract.id());
+            log.error("계약 budget이 null입니다: contractId={}", contractPublicId);
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
         if (contract.startDate() == null || contract.endDate() == null) {
             log.error("계약 startDate/endDate가 null입니다: contractId={}, startDate={}, endDate={}",
-                    contract.id(), contract.startDate(), contract.endDate());
+                    contractPublicId, contract.startDate(), contract.endDate());
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
         if (contract.freelancerId() == null) {
-            log.error("계약 freelancerId가 null입니다: contractId={}", contract.id());
+            log.error("계약 freelancerId가 null입니다: contractId={}", contractPublicId);
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
 
@@ -402,7 +409,7 @@ public class EmployerSettlementService {
             LocalDate dueDate = buildDueDate(startDate, i - 1, paymentDay);
 
             EmployerSettlement es = new EmployerSettlement();
-            es.setContractId(contract.id());
+            es.setContractId(contractPublicId);
             es.setEmployerId(employerId);
             es.setFreelancerId(contract.freelancerId());
             es.setTransactionId((i == 1) ? paymentId : null);
@@ -422,7 +429,7 @@ public class EmployerSettlementService {
                 employerSettlementRepository.save(es);
             } catch (Exception e) {
                 log.error("서비스 수수료 인보이스 생성 실패: contractId={}, installment={}, error={}",
-                        contract.id(), i, e.getMessage());
+                        contractPublicId, i, e.getMessage());
             }
 
             // 대응하는 FreelancerSettlement 생성
@@ -433,7 +440,7 @@ public class EmployerSettlementService {
             long netAmount = billingAmount - fsPlatformFee - tax;
 
             FreelancerSettlement fs = new FreelancerSettlement();
-            fs.setContractId(contract.id());
+            fs.setContractId(contractPublicId);
             fs.setEmployerSettlementId(es.getId());
             fs.setFreelancerId(contract.freelancerId());
             fs.setTotalAmount(billingAmount);

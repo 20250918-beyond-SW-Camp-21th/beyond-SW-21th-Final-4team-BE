@@ -8,6 +8,7 @@ import com.fallguys.mypage.api.web.dto.employer.request.UpdateSubscriptionReques
 import com.fallguys.mypage.api.web.dto.employer.response.EmployerNotificationSettingsDto;
 import com.fallguys.common.security.CustomUserDetails;
 import com.fallguys.mypage.api.web.dto.employer.response.EmployerSubscriptionResponseDto;
+import com.fallguys.subscription.api.response.SubscriptionChangeResultResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -30,12 +31,12 @@ public class EmployerAccountController {
         return ApiResponse.ok(response);
     }
 
-    @Operation(summary = "구독 플랜 변경 신청", description = "프라임 멤버십 등 다른 플랜으로 변경을 요청합니다.")
+    @Operation(summary = "구독 플랜 변경 신청", description = "플랜 변경을 요청합니다. 업그레이드는 billingKey가 필요하며, 다운그레이드는 즉시 반영됩니다.")
     @PutMapping("/subscription")
-    public ApiResponse<Void> updateSubscription(@AuthenticationPrincipal CustomUserDetails userDetails,
-                                                @Valid @RequestBody UpdateSubscriptionRequestDto request) {
-        employerAccountService.updateSubscription(userDetails.getId(), request);
-        return ApiResponse.ok(null);
+    public ApiResponse<SubscriptionChangeResultResponse> updateSubscription(@AuthenticationPrincipal CustomUserDetails userDetails,
+                                                                            @Valid @RequestBody UpdateSubscriptionRequestDto request) {
+        SubscriptionChangeResultResponse response = employerAccountService.updateSubscription(userDetails.getId(), request);
+        return ApiResponse.ok(response);
     }
 
     @Operation(summary = "비밀번호 변경", description = "고용주 계정의 비밀번호를 변경합니다.")

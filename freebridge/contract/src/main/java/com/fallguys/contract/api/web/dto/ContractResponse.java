@@ -17,6 +17,9 @@ public class ContractResponse {
     private String projectName;
     private Long freelancerId;
     private Long employerId;
+    private String relatedJobId;
+    private String relatedApplicationId;
+    private String relatedProposalId;
     private LocalDate startDate;
     private LocalDate endDate;
     private String status;
@@ -26,6 +29,7 @@ public class ContractResponse {
     private String contractPdfUrl;
     private String signedPdfUrl;
     private LocalDateTime signedDate;
+    private String aiLegalAdvice;
 
     // 표준근로계약서 fields
     private String jobDescription;

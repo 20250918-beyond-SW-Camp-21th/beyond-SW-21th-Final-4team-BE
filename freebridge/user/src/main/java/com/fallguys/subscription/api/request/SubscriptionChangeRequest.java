@@ -12,6 +12,8 @@ public record SubscriptionChangeRequest(
         String targetPlanGrade,
 
         // PRO, PRIME 유료 플랜 변경 시 필수. BASIC 다운그레이드 시 null 허용.
-        String billingKey
+        String billingKey,
+
+        String paymentId
 ) {}
 

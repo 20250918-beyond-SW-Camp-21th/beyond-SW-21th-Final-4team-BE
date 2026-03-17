@@ -44,6 +44,9 @@ public interface SubscriptionPaymentQuery {
     SubscriptionPaymentResult processSubscriptionPayment(
             Long employerId, String planType, long amount, String billingKey);
 
+    SubscriptionPaymentResult verifyOneTimeSubscriptionPayment(
+            Long employerId, String planType, long amount, String paymentId);
+
     /**
      * 구독 업그레이드 시 결제를 처리하고, 결제 결과와 다음 결제일을 한 번에 반환합니다.
      *
@@ -64,4 +67,12 @@ public interface SubscriptionPaymentQuery {
      */
     SubscriptionUpgradeResult processSubscriptionUpgrade(
             Long employerId, String planType, long amount, String billingKey);
+
+    /**
+     * 현재 활성 billingKey 기준 다음 정기결제 예정일을 조회합니다.
+     *
+     * @param employerId 고용주 ID
+     * @return 다음 결제 예정일시, 없으면 null
+     */
+    java.time.LocalDateTime getNextBillingDate(Long employerId);
 }
