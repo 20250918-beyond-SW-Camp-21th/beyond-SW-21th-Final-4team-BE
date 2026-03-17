@@ -22,6 +22,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
@@ -58,6 +59,8 @@ class ChatMessageServiceTest {
                                 .build();
 
                 when(chatMessageRepository.save(any(ChatMessage.class))).thenReturn(savedMsg);
+                when(chatRoomRepository.updateMessageState(eq("room1"), eq("e1"), eq(savedMsg), anyList()))
+                                .thenReturn(true);
 
                 // when
                 ChatMessageResponse response = chatMessageService.sendMessage("room1", "e1", "안녕하세요", MessageType.TEXT,
@@ -68,6 +71,7 @@ class ChatMessageServiceTest {
 
                 // Redis Publisher 가 불렸는지 검증
                 verify(redisPublisher, times(1)).publish(any(), any());
+                verify(chatRoomRepository, times(1)).updateMessageState(eq("room1"), eq("e1"), eq(savedMsg), anyList());
 
                 // 안 읽은 메시지 수 캐시 증가가 불렸는지 검증 (수신자 f1에 대해)
                 verify(unreadMessageRedisRepository, times(1)).incrementUnreadCount("room1", "f1");
@@ -85,6 +89,7 @@ class ChatMessageServiceTest {
 
                 when(chatMessageRepository.findByRoomIdOrderByCreatedAtDesc(eq("room1"), any()))
                                 .thenReturn(List.of(msg2, msg1));
+                when(chatRoomRepository.clearUnreadCount("room1", "e1")).thenReturn(true);
 
                 // when
                 CursorPageResponse<ChatMessageResponse> response = chatMessageService

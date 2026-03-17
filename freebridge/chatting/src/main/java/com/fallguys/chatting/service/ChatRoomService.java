@@ -66,11 +66,14 @@ public class ChatRoomService {
             throw new IllegalArgumentException("채팅방에 참여하고 있지 않습니다.");
         }
 
-        room.resetUnreadCount(participantId);
+        if (!chatRoomRepository.clearUnreadCount(roomId, participantId)) {
+            throw new IllegalStateException("읽음 상태를 갱신할 수 없습니다: " + roomId);
+        }
         unreadMessageRedisRepository.resetUnreadCount(roomId, participantId);
 
-        ChatRoom savedRoom = chatRoomRepository.save(room);
-        return ChatRoomResponse.from(savedRoom, buildParticipantPresence(savedRoom));
+        ChatRoom refreshedRoom = chatRoomRepository.findById(roomId)
+                .orElseThrow(() -> new IllegalStateException("읽음 상태가 갱신된 채팅방을 다시 찾을 수 없습니다: " + roomId));
+        return ChatRoomResponse.from(refreshedRoom, buildParticipantPresence(refreshedRoom));
     }
 
     public ChatRoomResponse leaveChatRoom(String roomId, String participantId) {
