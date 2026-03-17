@@ -19,6 +19,9 @@ public record FreelancerProfilePreviewResponseDto(
         String phone,
         String email,
         String address,
+        List<FreelancerPreviewEducationDto> educations,
+        List<FreelancerPreviewCareerDto> careers,
+        List<FreelancerPreviewCertificationDto> certifications,
         String portfolioFileUrl,
         String portfolioFileName,
         LocalDateTime portfolioLastUpdated
