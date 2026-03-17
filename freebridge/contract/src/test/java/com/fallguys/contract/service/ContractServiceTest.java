@@ -51,6 +51,9 @@ class ContractServiceTest {
         createRequest = new CreateContractRequest();
         createRequest.setProjectName("테스트 프로젝트");
         createRequest.setFreelancerId(100L);
+        createRequest.setRelatedJobId("job-123");
+        createRequest.setRelatedApplicationId("app-456");
+        createRequest.setRelatedProposalId("proposal-789");
         createRequest.setStartDate(LocalDate.of(2024, 1, 1));
         createRequest.setEndDate(LocalDate.of(2024, 12, 31));
         createRequest.setBudget(5000000L);
@@ -102,6 +105,9 @@ class ContractServiceTest {
             assertEquals("테스트 프로젝트", response.getProjectName());
             assertEquals(100L, response.getFreelancerId());
             assertEquals(200L, response.getEmployerId());
+            assertEquals("job-123", response.getRelatedJobId());
+            assertEquals("app-456", response.getRelatedApplicationId());
+            assertEquals("proposal-789", response.getRelatedProposalId());
             assertEquals(5000000L, response.getBudget());
             assertEquals("WAITING_SIGNATURE", response.getStatus());
         }

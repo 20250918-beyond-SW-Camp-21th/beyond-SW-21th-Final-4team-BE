@@ -23,6 +23,12 @@ public class CreateContractRequest {
 
     private String freelancerName;     // 계약서 PDF에 표시될 프리랜서 이름
 
+    private String relatedJobId;
+
+    private String relatedApplicationId;
+
+    private String relatedProposalId;
+
     @NotNull(message = "계약 시작일은 필수입니다.")
     private LocalDate startDate;
 

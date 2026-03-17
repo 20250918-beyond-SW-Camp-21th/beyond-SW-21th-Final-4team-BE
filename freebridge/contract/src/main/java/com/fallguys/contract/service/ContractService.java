@@ -43,6 +43,9 @@ public class ContractService {
         contract.setProjectName(req.getProjectName());
         contract.setFreelancerId(req.getFreelancerId());
         contract.setEmployerId(employerId);
+        contract.setRelatedJobId(req.getRelatedJobId());
+        contract.setRelatedApplicationId(req.getRelatedApplicationId());
+        contract.setRelatedProposalId(req.getRelatedProposalId());
         contract.setStartDate(req.getStartDate());
         contract.setEndDate(req.getEndDate());
         contract.setBudget(req.getBudget());
@@ -271,6 +274,9 @@ public class ContractService {
                 .projectName(c.getProjectName())
                 .freelancerId(c.getFreelancerId())
                 .employerId(c.getEmployerId())
+                .relatedJobId(c.getRelatedJobId())
+                .relatedApplicationId(c.getRelatedApplicationId())
+                .relatedProposalId(c.getRelatedProposalId())
                 .startDate(c.getStartDate())
                 .endDate(c.getEndDate())
                 .status(c.getStatus() != null ? c.getStatus().name() : null)
@@ -310,6 +316,9 @@ public class ContractService {
                 .projectName(c.getProjectName())
                 .freelancerId(c.getFreelancerId())
                 .employerId(c.getEmployerId())
+                .relatedJobId(c.getRelatedJobId())
+                .relatedApplicationId(c.getRelatedApplicationId())
+                .relatedProposalId(c.getRelatedProposalId())
                 .startDate(c.getStartDate())
                 .endDate(c.getEndDate())
                 .status(c.getStatus() != null ? c.getStatus().name() : null)

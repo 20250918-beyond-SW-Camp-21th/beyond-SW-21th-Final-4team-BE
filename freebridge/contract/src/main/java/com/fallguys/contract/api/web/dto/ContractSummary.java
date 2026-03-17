@@ -14,6 +14,9 @@ public class ContractSummary {
     private String projectName;
     private Long freelancerId;
     private Long employerId;
+    private String relatedJobId;
+    private String relatedApplicationId;
+    private String relatedProposalId;
     private LocalDate startDate;
     private LocalDate endDate;
     private String status;
