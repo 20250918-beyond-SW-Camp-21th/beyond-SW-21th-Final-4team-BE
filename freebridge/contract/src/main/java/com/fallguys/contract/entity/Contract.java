@@ -30,6 +30,15 @@ public class Contract {
     private Long freelancerId;
     private Long employerId;
 
+    @Column(length = 100)
+    private String relatedJobId;
+
+    @Column(length = 100)
+    private String relatedApplicationId;
+
+    @Column(length = 100)
+    private String relatedProposalId;
+
     private LocalDate startDate;
     private LocalDate endDate;
 

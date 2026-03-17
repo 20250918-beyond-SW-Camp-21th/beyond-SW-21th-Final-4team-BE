@@ -3,6 +3,7 @@ package com.fallguys.contract.api.web.dto;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -22,6 +23,15 @@ public class CreateContractRequest {
     private Long freelancerId;
 
     private String freelancerName;     // 계약서 PDF에 표시될 프리랜서 이름
+
+    @Size(max = 100, message = "relatedJobId는 100자를 초과할 수 없습니다.")
+    private String relatedJobId;
+
+    @Size(max = 100, message = "relatedApplicationId는 100자를 초과할 수 없습니다.")
+    private String relatedApplicationId;
+
+    @Size(max = 100, message = "relatedProposalId는 100자를 초과할 수 없습니다.")
+    private String relatedProposalId;
 
     @NotNull(message = "계약 시작일은 필수입니다.")
     private LocalDate startDate;

@@ -74,7 +74,11 @@ public class ChatRoomController {
             @PathVariable String roomId,
             @RequestBody ChatRoomContractUpdateRequest request) {
         String userId = extractUserId(authHeader);
-        ChatRoomResponse response = chatRoomService.updateRoomContract(roomId, userId, request.getContractId());
+        ChatRoomResponse response = chatRoomService.updateRoomContract(
+                roomId,
+                userId,
+                request.getContractId(),
+                Boolean.TRUE.equals(request.getOverrideExisting()));
         return ResponseEntity.ok(response);
     }
 
