@@ -85,6 +85,18 @@ def _describe_matches(matches):
     ]
 
 
+def _match_score_or_zero(match):
+    score = getattr(match, "matchScore", None)
+    try:
+        return float(score) if score is not None else 0.0
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _sort_matches_by_score(matches):
+    return sorted(matches, key=_match_score_or_zero, reverse=True)
+
+
 def mask_profile(value, visible=2, limit=24):
     if value is None:
         return None
@@ -217,7 +229,9 @@ async def get_job_recommendations(req: RecommendationRequest):
                 context=all_context,
             )
         )
-        filtered_matches = _filter_matches_by_allowed_ids(result.matches, allowed_ids)
+        filtered_matches = _sort_matches_by_score(
+            _filter_matches_by_allowed_ids(result.matches, allowed_ids)
+        )
         logger.info(
             "Employer recommendation result. job_id=%s allowed_count=%s raw_count=%s filtered_count=%s",
             req.jobId,
@@ -382,21 +396,27 @@ async def get_freelancer_recommendations(req: FreelancerRecommendRequest):
                     for doc, score in scored_docs
                 ],
             )
-            if overlapping_docs:
-                docs = [
-                    doc
-                    for doc, _ in sorted(
-                        scored_docs,
-                        key=lambda item: item[1],
-                        reverse=True,
-                    )
-                    if _ > 0
-                ]
-                logger.debug(
-                    "Freelancer recommendation overlap-filtered docs. freelancer_id=%s docs=%s",
+            if not overlapping_docs:
+                logger.info(
+                    "프리랜서 추천 스킬 overlap 결과가 0건이라 빈 결과를 반환합니다. freelancer_id=%s",
                     req.freelancerId,
-                    _describe_docs(docs),
                 )
+                return {"success": True, "data": []}
+
+            docs = [
+                doc
+                for doc, overlap_score in sorted(
+                    scored_docs,
+                    key=lambda item: item[1],
+                    reverse=True,
+                )
+                if overlap_score > 0
+            ]
+            logger.debug(
+                "Freelancer recommendation overlap-filtered docs. freelancer_id=%s docs=%s",
+                req.freelancerId,
+                _describe_docs(docs),
+            )
 
         allowed_ids = {
             ref_id
@@ -410,7 +430,9 @@ async def get_freelancer_recommendations(req: FreelancerRecommendRequest):
 
         formatted_prompt = prompt.format(skills=req.skills, experience=experience, context=context)
         result = await structured_llm.ainvoke(formatted_prompt)
-        filtered_matches = _filter_matches_by_allowed_ids(result.matches, allowed_ids)
+        filtered_matches = _sort_matches_by_score(
+            _filter_matches_by_allowed_ids(result.matches, allowed_ids)
+        )
         logger.info(
             "Freelancer recommendation result. freelancer_id=%s allowed_count=%s raw_count=%s filtered_count=%s",
             req.freelancerId,
