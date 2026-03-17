@@ -43,6 +43,8 @@ public interface JobPostingService {
 
     void completeProject(Long projectId, Long userId);
 
+    void closeJobPosting(Long jobPostingId);
+
     void refreshEmployerProjectStatsCache(Long employerId);
 
     void triggerFreelancerRecommendation(Long jobPostingId, Long userId);

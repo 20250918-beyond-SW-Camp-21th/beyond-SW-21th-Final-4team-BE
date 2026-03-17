@@ -109,4 +109,11 @@ public class JobPosting extends BaseEntity {
     public boolean isRecruitmentFull() {
         return this.matchedHeadcount >= this.headcount;
     }
+
+    public void closeRecruitment() {
+        if (this.postingStatus == JobPostingStatus.COMPLETED) {
+            return;
+        }
+        this.postingStatus = JobPostingStatus.CLOSED;
+    }
 }
