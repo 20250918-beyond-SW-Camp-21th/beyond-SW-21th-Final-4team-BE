@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.listener.ChannelTopic;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -62,19 +63,15 @@ public class ChatMessageService {
         // 2. MongoDB 저장
         ChatMessage savedMessage = chatMessageRepository.save(chatMessage);
 
-        // 3. 채팅방 마지막 메시지 정보 업데이트
-        room.updateLastMessage(savedMessage);
-
-        // 4. 발송자를 제외한 상대방의 안 읽은 캐시 수 증가 (스트림 내부 횟수 오류 수정)
-        room.incrementUnreadCountForOthers(senderId); // 객체의 카운트 상태 1번만 업데이트
-
-        room.getParticipants().stream()
+        List<String> unreadRecipients = room.getParticipants().stream()
                 .filter(participantId -> !participantId.equals(senderId))
-                .forEach(participantId -> {
-                    unreadMessageRedisRepository.incrementUnreadCount(roomId, participantId);
-                });
+                .toList();
 
-        chatRoomRepository.save(room);
+        if (!chatRoomRepository.updateMessageState(roomId, senderId, savedMessage, unreadRecipients)) {
+            throw new IllegalStateException("메시지 상태를 채팅방에 반영할 수 없습니다: " + roomId);
+        }
+
+        unreadRecipients.forEach(participantId -> unreadMessageRedisRepository.incrementUnreadCount(roomId, participantId));
 
         // 5. Response DTO 생성
         ChatMessageResponse response = ChatMessageResponse.from(savedMessage);
@@ -108,13 +105,16 @@ public class ChatMessageService {
 
         ChatMessage savedMessage = chatMessageRepository.save(chatMessage);
 
-        room.updateLastMessage(savedMessage);
-        room.incrementUnreadCountForOthers(participantId);
-        room.getParticipants().stream()
+        List<String> unreadRecipients = room.getParticipants().stream()
                 .filter(roomParticipantId -> !roomParticipantId.equals(participantId))
-                .forEach(roomParticipantId -> unreadMessageRedisRepository.incrementUnreadCount(room.getId(), roomParticipantId));
+                .toList();
 
-        chatRoomRepository.save(room);
+        if (!chatRoomRepository.updateMessageState(room.getId(), participantId, savedMessage, unreadRecipients)) {
+            throw new IllegalStateException("퇴장 메시지 상태를 채팅방에 반영할 수 없습니다: " + room.getId());
+        }
+
+        unreadRecipients
+                .forEach(roomParticipantId -> unreadMessageRedisRepository.incrementUnreadCount(room.getId(), roomParticipantId));
 
         ChatMessageResponse response = ChatMessageResponse.from(savedMessage);
         redisPublisher.publish(channelTopic, response);
@@ -135,6 +135,11 @@ public class ChatMessageService {
             log.warn("권한 없는 사용자의 이전 메시지 조회 시도 - roomId: {}, userId: {}", roomId, userId);
             throw new IllegalArgumentException("채팅방에 접근할 권한이 없습니다.");
         }
+
+        if (!chatRoomRepository.clearUnreadCount(roomId, userId)) {
+            throw new IllegalStateException("읽음 상태를 갱신할 수 없습니다: " + roomId);
+        }
+        unreadMessageRedisRepository.resetUnreadCount(roomId, userId);
 
         org.springframework.data.domain.Sort sort = org.springframework.data.domain.Sort.by(
                 org.springframework.data.domain.Sort.Order.desc("createdAt"),

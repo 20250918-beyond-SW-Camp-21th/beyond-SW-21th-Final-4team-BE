@@ -3,6 +3,7 @@ package com.fallguys.chatting.service;
 import com.fallguys.chatting.api.web.dto.response.ChatRoomResponse;
 import com.fallguys.chatting.domain.ChatRoom;
 import com.fallguys.chatting.repository.ChatRoomRepository;
+import com.fallguys.chatting.repository.UnreadMessageRedisRepository;
 import com.fallguys.common.api.contract.ContractQuery;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +24,7 @@ public class ChatRoomService {
     private final ChatPresenceService chatPresenceService;
     private final ChatMessageService chatMessageService;
     private final ContractQuery contractQuery;
+    private final UnreadMessageRedisRepository unreadMessageRedisRepository;
 
     /**
      * 1:1 채팅방 생성 (이미 방이 존재할 경우 기존 방을 반환하는 로직은 추후 추가)
@@ -53,6 +55,25 @@ public class ChatRoomService {
         return rooms.stream()
                 .map(room -> ChatRoomResponse.from(room, buildParticipantPresence(room)))
                 .toList();
+    }
+
+    public ChatRoomResponse markRoomAsRead(String roomId, String participantId) {
+        ChatRoom room = chatRoomRepository.findById(roomId)
+                .orElseThrow(() -> new IllegalArgumentException("채팅방을 찾을 수 없습니다: " + roomId));
+
+        if (!room.isParticipant(participantId)) {
+            log.warn("권한 없는 사용자의 채팅방 읽음 처리 시도 - roomId: {}, participantId: {}", roomId, participantId);
+            throw new IllegalArgumentException("채팅방에 참여하고 있지 않습니다.");
+        }
+
+        if (!chatRoomRepository.clearUnreadCount(roomId, participantId)) {
+            throw new IllegalStateException("읽음 상태를 갱신할 수 없습니다: " + roomId);
+        }
+        unreadMessageRedisRepository.resetUnreadCount(roomId, participantId);
+
+        ChatRoom refreshedRoom = chatRoomRepository.findById(roomId)
+                .orElseThrow(() -> new IllegalStateException("읽음 상태가 갱신된 채팅방을 다시 찾을 수 없습니다: " + roomId));
+        return ChatRoomResponse.from(refreshedRoom, buildParticipantPresence(refreshedRoom));
     }
 
     public ChatRoomResponse leaveChatRoom(String roomId, String participantId) {
