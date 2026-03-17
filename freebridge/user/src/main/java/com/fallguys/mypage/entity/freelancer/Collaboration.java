@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Collaboration {
-    private Integer communication;
-    private Integer scheduleAdherence;
-    private Integer dispute;
+    private Double communication;
+    private Double scheduleAdherence;
+    private Double dispute;
 }

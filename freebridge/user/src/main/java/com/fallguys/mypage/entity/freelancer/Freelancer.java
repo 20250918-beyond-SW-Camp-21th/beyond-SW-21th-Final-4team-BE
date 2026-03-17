@@ -157,6 +157,16 @@ public class Freelancer {
         this.collaboration = collaboration;
     }
 
+    public void updateReviewMetrics(Expertise expertise, Collaboration collaboration, Double averageRate) {
+        if (expertise != null) {
+            this.expertise = expertise;
+        }
+        if (collaboration != null) {
+            this.collaboration = collaboration;
+        }
+        updateAverageRate(averageRate);
+    }
+
     public void updatePortfolioInfo(PortfolioInfo portfolioInfo) {
         if (portfolioInfo == null) throw new IllegalArgumentException("portfolioInfo is required");
         this.portfolioInfo = portfolioInfo;
