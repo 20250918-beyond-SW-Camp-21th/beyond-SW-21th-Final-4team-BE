@@ -16,6 +16,9 @@ import java.time.LocalDate;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -46,12 +49,25 @@ class ContractQueryServiceTest {
     }
 
     @Test
-    @DisplayName("getContractInfo()는 계약 정보를 ContractInfo로 변환하여 반환한다")
+    @DisplayName("existsContract()는 비즈니스 계약번호로만 계약 존재 여부를 확인한다")
+    void existsContract_checksBusinessContractIdOnly() {
+        when(contractRepository.existsByContractId(1001L))
+                .thenReturn(true);
+
+        boolean result = contractQueryService.existsContract(1001L);
+
+        assertTrue(result);
+        verify(contractRepository).existsByContractId(1001L);
+        verify(contractRepository, never()).existsById(anyLong());
+    }
+
+    @Test
+    @DisplayName("getContractInfo()는 비즈니스 계약번호로 계약 정보를 조회하여 반환한다")
     void getContractInfo_returnsContractInfo() {
-        when(contractRepository.findById(1L))
+        when(contractRepository.findByContractId(1001L))
                 .thenReturn(Optional.of(contract));
 
-        ContractInfo result = contractQueryService.getContractInfo(1L);
+        ContractInfo result = contractQueryService.getContractInfo(1001L);
 
         assertNotNull(result);
         assertEquals(1L, result.id());
@@ -67,9 +83,9 @@ class ContractQueryServiceTest {
     }
 
     @Test
-    @DisplayName("getContractInfo()는 존재하지 않는 계약 조회 시 예외를 발생시킨다")
+    @DisplayName("getContractInfo()는 존재하지 않는 비즈니스 계약번호 조회 시 예외를 발생시킨다")
     void getContractInfo_throwsExceptionWhenContractNotFound() {
-        when(contractRepository.findById(999L))
+        when(contractRepository.findByContractId(999L))
                 .thenReturn(Optional.empty());
 
         RuntimeException exception = assertThrows(
@@ -81,19 +97,20 @@ class ContractQueryServiceTest {
     }
 
     @Test
-    @DisplayName("getContractInfo()는 모든 필드가 null인 경우에도 동작한다")
+    @DisplayName("getContractInfo()는 모든 필드가 null인 경우에도 비즈니스 계약번호로 동작한다")
     void getContractInfo_handlesNullFields() {
         Contract emptyContract = new Contract();
         emptyContract.setId(2L);
+        emptyContract.setContractId(1002L);
 
-        when(contractRepository.findById(2L))
+        when(contractRepository.findByContractId(1002L))
                 .thenReturn(Optional.of(emptyContract));
 
-        ContractInfo result = contractQueryService.getContractInfo(2L);
+        ContractInfo result = contractQueryService.getContractInfo(1002L);
 
         assertNotNull(result);
         assertEquals(2L, result.id());
-        assertNull(result.contractId());
+        assertEquals(1002L, result.contractId());
         assertNull(result.projectName());
     }
 }

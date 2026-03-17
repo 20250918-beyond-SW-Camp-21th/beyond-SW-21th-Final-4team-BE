@@ -3,6 +3,7 @@ package com.fallguys.chatting.service;
 import com.fallguys.chatting.api.web.dto.response.ChatRoomResponse;
 import com.fallguys.chatting.domain.ChatRoom;
 import com.fallguys.chatting.repository.ChatRoomRepository;
+import com.fallguys.chatting.repository.UnreadMessageRedisRepository;
 import com.fallguys.common.api.contract.ContractQuery;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +24,7 @@ public class ChatRoomService {
     private final ChatPresenceService chatPresenceService;
     private final ChatMessageService chatMessageService;
     private final ContractQuery contractQuery;
+    private final UnreadMessageRedisRepository unreadMessageRedisRepository;
 
     /**
      * 1:1 채팅방 생성 (이미 방이 존재할 경우 기존 방을 반환하는 로직은 추후 추가)
@@ -55,6 +57,25 @@ public class ChatRoomService {
                 .toList();
     }
 
+    public ChatRoomResponse markRoomAsRead(String roomId, String participantId) {
+        ChatRoom room = chatRoomRepository.findById(roomId)
+                .orElseThrow(() -> new IllegalArgumentException("채팅방을 찾을 수 없습니다: " + roomId));
+
+        if (!room.isParticipant(participantId)) {
+            log.warn("권한 없는 사용자의 채팅방 읽음 처리 시도 - roomId: {}, participantId: {}", roomId, participantId);
+            throw new IllegalArgumentException("채팅방에 참여하고 있지 않습니다.");
+        }
+
+        if (!chatRoomRepository.clearUnreadCount(roomId, participantId)) {
+            throw new IllegalStateException("읽음 상태를 갱신할 수 없습니다: " + roomId);
+        }
+        unreadMessageRedisRepository.resetUnreadCount(roomId, participantId);
+
+        ChatRoom refreshedRoom = chatRoomRepository.findById(roomId)
+                .orElseThrow(() -> new IllegalStateException("읽음 상태가 갱신된 채팅방을 다시 찾을 수 없습니다: " + roomId));
+        return ChatRoomResponse.from(refreshedRoom, buildParticipantPresence(refreshedRoom));
+    }
+
     public ChatRoomResponse leaveChatRoom(String roomId, String participantId) {
         ChatRoom room = chatRoomRepository.findById(roomId)
                 .orElseThrow(() -> new IllegalArgumentException("채팅방을 찾을 수 없습니다: " + roomId));
@@ -73,7 +94,8 @@ public class ChatRoomService {
         return ChatRoomResponse.from(savedRoom, buildParticipantPresence(savedRoom));
     }
 
-    public ChatRoomResponse updateRoomContract(String roomId, String participantId, Long contractId) {
+    public ChatRoomResponse updateRoomContract(String roomId, String participantId, Long contractId,
+            boolean overrideExisting) {
         ChatRoom room = chatRoomRepository.findById(roomId)
                 .orElseThrow(() -> new IllegalArgumentException("채팅방을 찾을 수 없습니다: " + roomId));
 
@@ -89,7 +111,7 @@ public class ChatRoomService {
             log.warn("계약 ID 없이 채팅방 계약 연결 시도 - roomId: {}, participantId: {}", roomId, participantId);
             throw new IllegalArgumentException("연결할 계약 ID가 필요합니다.");
         }
-        if (room.getContractId() != null && !room.getContractId().equals(contractId)) {
+        if (room.getContractId() != null && !room.getContractId().equals(contractId) && !overrideExisting) {
             log.warn(
                     "기존 계약이 연결된 채팅방 덮어쓰기 시도 - roomId: {}, participantId: {}, currentContractId: {}, requestedContractId: {}",
                     roomId,
@@ -97,6 +119,14 @@ public class ChatRoomService {
                     room.getContractId(),
                     contractId);
             throw new IllegalArgumentException("이미 계약이 연결된 채팅방입니다. 기존 계약을 덮어쓸 수 없습니다.");
+        }
+        if (room.getContractId() != null && !room.getContractId().equals(contractId) && overrideExisting) {
+            log.info(
+                    "명시적 계약 재연결 수행 - roomId: {}, participantId: {}, previousContractId: {}, requestedContractId: {}",
+                    roomId,
+                    participantId,
+                    room.getContractId(),
+                    contractId);
         }
 
         if (!contractQuery.existsContract(contractId)) {

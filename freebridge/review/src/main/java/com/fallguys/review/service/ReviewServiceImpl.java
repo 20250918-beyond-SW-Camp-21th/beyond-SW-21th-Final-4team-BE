@@ -12,6 +12,8 @@ import com.fallguys.review.entity.FreelancerReview;
 import com.fallguys.review.entity.ReviewStatus;
 import com.fallguys.review.repository.EmployerReviewRepository;
 import com.fallguys.review.repository.FreelancerReviewRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.Query;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -42,6 +44,7 @@ public class ReviewServiceImpl implements ReviewService {
     private final ProjectExternalApi projectExternalApi;
     private final RedisTemplate<String, Object> redisTemplate;
     private final ApplicationEventPublisher eventPublisher;
+    private final EntityManager entityManager;
 
     @Override
     public Page<FreelancerReview> getEmployerReceivedReviews(Long employerId, Pageable pageable) {
@@ -64,23 +67,15 @@ public class ReviewServiceImpl implements ReviewService {
     @Override
     @Transactional
     public Long createEmployerReview(Long employerId, EmployerReviewCreateRequest request) {
-        // 1. 중복 리뷰 체크 로직
-        employerReviewRepository
-                .findByProjectIdAndEmployerIdAndFreelancerIdAndStatus(
-                        request.projectId(),
-                        employerId,
-                        request.freelancerId(),
-                        ReviewStatus.ACTIVE
-                )
-                .ifPresent(review -> {
-                    throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-                });
+        FreelancerIdentity freelancerIdentity = resolveFreelancerIdentity(request.freelancerId());
+        Long normalizedFreelancerUserId = freelancerIdentity.userId();
 
-        // 2. 리뷰 엔티티 생성
+        assertNoDuplicateEmployerReview(request.projectId(), employerId, normalizedFreelancerUserId);
+
         EmployerReview review = EmployerReview.builder()
                 .projectId(request.projectId())
                 .employerId(employerId)
-                .freelancerId(request.freelancerId())
+                .freelancerId(normalizedFreelancerUserId)
                 .language(request.language())
                 .framework(request.framework())
                 .debugging(request.debugging())
@@ -94,12 +89,12 @@ public class ReviewServiceImpl implements ReviewService {
             EmployerReview savedReview = employerReviewRepository.save(review);
             Long reviewId = savedReview.getId();
 
-            runAfterCommitSafely(() -> invalidateFreelancerReviewCaches(request.freelancerId()));
+            runAfterCommitSafely(() -> invalidateFreelancerReviewCaches(freelancerIdentity));
 
             projectExternalApi.completeProjectWithReview(
                     new ProjectExternalApi.ProjectCompletionData(
                             savedReview.getProjectId(),
-                            savedReview.getFreelancerId(),
+                            request.freelancerId(),
                             savedReview.getDescription(),
                             savedReview.getCommunication() != null ? savedReview.getCommunication() : 0,
                             savedReview.getDebugging() != null ? savedReview.getDebugging() : 0,
@@ -138,7 +133,8 @@ public class ReviewServiceImpl implements ReviewService {
                 request.dispute(),
                 request.description()
         );
-        runAfterCommitSafely(() -> invalidateFreelancerReviewCaches(review.getFreelancerId()));
+        FreelancerIdentity freelancerIdentity = resolveFreelancerIdentity(review.getFreelancerId());
+        runAfterCommitSafely(() -> invalidateFreelancerReviewCaches(freelancerIdentity));
     }
 
     @Override
@@ -151,7 +147,8 @@ public class ReviewServiceImpl implements ReviewService {
                 )
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INPUT_VALUE));
         review.softDelete();
-        runAfterCommitSafely(() -> invalidateFreelancerReviewCaches(review.getFreelancerId()));
+        FreelancerIdentity freelancerIdentity = resolveFreelancerIdentity(review.getFreelancerId());
+        runAfterCommitSafely(() -> invalidateFreelancerReviewCaches(freelancerIdentity));
     }
 
     @Override
@@ -267,17 +264,76 @@ public class ReviewServiceImpl implements ReviewService {
         deleteRedisValue(EMPLOYER_REVIEW_RATES_KEY_PREFIX + employerId);
     }
 
-    private void invalidateFreelancerReviewCaches(Long freelancerId) {
-        deleteRedisValue(FREELANCER_REVIEW_RATES_KEY_PREFIX + freelancerId);
-        deleteRedisValue("freelancer:review:ai_report:" + freelancerId);
+    private void invalidateFreelancerReviewCaches(FreelancerIdentity freelancerIdentity) {
+        deleteRedisValue(FREELANCER_REVIEW_RATES_KEY_PREFIX + freelancerIdentity.freelancerPk());
+        deleteRedisValue(FREELANCER_REVIEW_RATES_KEY_PREFIX + freelancerIdentity.userId());
+        deleteRedisValue("freelancer:review:ai_report:" + freelancerIdentity.freelancerPk());
+        deleteRedisValue("freelancer:review:ai_report:" + freelancerIdentity.userId());
 
         try {
             eventPublisher.publishEvent(
-                    new com.fallguys.common.event.ReputationUpdateRequestedEvent(freelancerId)
+                    new com.fallguys.common.event.ReputationUpdateRequestedEvent(freelancerIdentity.freelancerPk())
             );
         } catch (RuntimeException e) {
-            log.warn("Failed to publish reputation update event. freelancerId={}", freelancerId, e);
+            log.warn("Failed to publish reputation update event. freelancerId={}", freelancerIdentity.freelancerPk(), e);
         }
+    }
+
+    private void assertNoDuplicateEmployerReview(Long projectId, Long employerId, Long freelancerId) {
+        employerReviewRepository
+                .findByProjectIdAndEmployerIdAndFreelancerIdAndStatus(
+                        projectId,
+                        employerId,
+                        freelancerId,
+                        ReviewStatus.ACTIVE
+                )
+                .ifPresent(review -> {
+                    throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+                });
+    }
+
+    private FreelancerIdentity resolveFreelancerIdentity(Long freelancerReferenceId) {
+        if (freelancerReferenceId == null) {
+            return new FreelancerIdentity(null, null);
+        }
+
+        try {
+            Query query = entityManager.createNativeQuery("""
+                    SELECT freelancer_id, user_id
+                    FROM freelancer
+                    WHERE freelancer_id = :referenceId
+                       OR user_id = :referenceId
+                    LIMIT 1
+                    """);
+            query.setParameter("referenceId", freelancerReferenceId);
+            Object singleResult = query.getSingleResult();
+            if (singleResult instanceof Object[] row && row.length >= 2) {
+                Long freelancerPk = toLong(row[0]);
+                Long userId = toLong(row[1]);
+                return new FreelancerIdentity(
+                        freelancerPk != null ? freelancerPk : freelancerReferenceId,
+                        userId != null ? userId : freelancerReferenceId
+                );
+            }
+        } catch (RuntimeException e) {
+            log.debug("Failed to resolve freelancer identity. freelancerReferenceId={}", freelancerReferenceId, e);
+        }
+
+        return new FreelancerIdentity(freelancerReferenceId, freelancerReferenceId);
+    }
+
+    private Long toLong(Object value) {
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        if (value instanceof String text) {
+            try {
+                return Long.parseLong(text);
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
     }
 
 
@@ -312,5 +368,8 @@ public class ReviewServiceImpl implements ReviewService {
             current = current.getCause();
         }
         return false;
+    }
+
+    private record FreelancerIdentity(Long freelancerPk, Long userId) {
     }
 }

@@ -59,6 +59,15 @@ public class ChatRoomController {
         return ResponseEntity.ok(rooms);
     }
 
+    @PostMapping("/{roomId}/read")
+    public ResponseEntity<ChatRoomResponse> markRoomAsRead(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable String roomId) {
+        String userId = extractUserId(authHeader);
+        ChatRoomResponse response = chatRoomService.markRoomAsRead(roomId, userId);
+        return ResponseEntity.ok(response);
+    }
+
     @PostMapping("/{roomId}/leave")
     public ResponseEntity<ChatRoomResponse> leaveRoom(
             @RequestHeader("Authorization") String authHeader,
@@ -74,7 +83,11 @@ public class ChatRoomController {
             @PathVariable String roomId,
             @RequestBody ChatRoomContractUpdateRequest request) {
         String userId = extractUserId(authHeader);
-        ChatRoomResponse response = chatRoomService.updateRoomContract(roomId, userId, request.getContractId());
+        ChatRoomResponse response = chatRoomService.updateRoomContract(
+                roomId,
+                userId,
+                request.getContractId(),
+                Boolean.TRUE.equals(request.getOverrideExisting()));
         return ResponseEntity.ok(response);
     }
 
