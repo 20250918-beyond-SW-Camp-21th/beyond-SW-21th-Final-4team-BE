@@ -26,11 +26,11 @@ public class ContractQueryService implements ContractQuery {
 
     @Override 
     public ContractInfo getContractInfo(Long contractId) {
-        Contract c = contractRepository.findByContractId(contractId)
-                .orElseGet(() -> contractRepository.findById(contractId)
+        Contract c = contractRepository.findById(contractId)
+                .orElseGet(() -> contractRepository.findByContractId(contractId)
                         .map(contract -> {
-                            log.warn("Legacy internal contract PK lookup detected in ContractQuery.getContractInfo: requestedId={}, resolvedContractNo={}",
-                                    contractId, contract.getContractId());
+                            log.warn("Fallback business contractId lookup detected in ContractQuery.getContractInfo: requestedId={}, resolvedInternalId={}",
+                                    contractId, contract.getId());
                             return contract;
                         })
                         .orElseThrow(() -> new BusinessException(ErrorCode.CONTRACT_NOT_FOUND)));

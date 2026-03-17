@@ -1,9 +1,10 @@
 package com.fallguys.chatting.service;
 
 import com.fallguys.chatting.domain.ChatRoom;
-import com.fallguys.chatting.api.web.dto.request.ChatRoomCreateRequest;
 import com.fallguys.chatting.api.web.dto.response.ChatRoomResponse;
 import com.fallguys.chatting.repository.ChatRoomRepository;
+import com.fallguys.chatting.repository.UnreadMessageRedisRepository;
+import com.fallguys.common.api.contract.ContractQuery;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -13,6 +14,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -24,18 +26,25 @@ class ChatRoomServiceTest {
     @Mock
     private ChatRoomRepository chatRoomRepository;
 
+    @Mock
+    private ChatPresenceService chatPresenceService;
+
+    @Mock
+    private ChatMessageService chatMessageService;
+
+    @Mock
+    private ContractQuery contractQuery;
+
+    @Mock
+    private UnreadMessageRedisRepository unreadMessageRedisRepository;
+
     @InjectMocks
-    private ChatRoomService chatRoomService; // 구현 전이므로 이후 컴파일 에러 발생 예상
+    private ChatRoomService chatRoomService;
 
     @Test
     @DisplayName("채팅방을 성공적으로 생성한다")
     void createChatRoom_Success() {
         // given
-        ChatRoomCreateRequest request = new ChatRoomCreateRequest();
-        // 실제로는 ReflectionTestUtils나 protected setter/constructor를 사용하여 필드 주입
-        // 이 예시에서는 리플렉션으로 가정하거나 DTO에 @Builder나 생성자가 필요함.
-        // 임시로 Mocking 시뮬레이션
-
         ChatRoom savedRoom = ChatRoom.builder()
                 .id("room1")
                 .participants(List.of("e1", "f1"))
@@ -43,11 +52,12 @@ class ChatRoomServiceTest {
                 .relatedJobId("job1")
                 .build();
 
+        when(chatRoomRepository.findRoomByContractAndParticipants(null, List.of("e1", "f1"))).thenReturn(Optional.empty());
         when(chatRoomRepository.save(any(ChatRoom.class))).thenReturn(savedRoom);
 
         // when
         ChatRoomResponse response = chatRoomService.createChatRoom(List.of("e1", "f1"),
-                Map.of("e1", "Employer A", "f1", "Freelancer B"), "job1", null, null);
+                Map.of("e1", "Employer A", "f1", "Freelancer B"), "job1", null, null, null);
 
         // then
         assertThat(response).isNotNull();

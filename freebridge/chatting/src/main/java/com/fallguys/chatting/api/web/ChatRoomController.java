@@ -47,7 +47,8 @@ public class ChatRoomController {
                 request.getParticipantNames(),
                 request.getRelatedJobId(),
                 request.getRelatedApplicationId(),
-                request.getRelatedProposalId());
+                request.getRelatedProposalId(),
+                request.getContractId());
         return ResponseEntity.ok(response);
     }
 
