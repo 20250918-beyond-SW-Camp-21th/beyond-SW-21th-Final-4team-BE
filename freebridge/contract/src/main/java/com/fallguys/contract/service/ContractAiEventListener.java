@@ -41,14 +41,14 @@ public class ContractAiEventListener {
             }
 
             log.info(
-                    "Contract AI analysis started. contractId={}, externalContractId={}, pdfBytes={}",
+                    "계약 AI 분석을 시작합니다. contractId={}, externalContractId={}, pdfBytes={}",
                     event.contractId(),
                     contract.getContractId(),
                     pdfBytes.length
             );
             String aiResultJson = contractEngine.analyzeContract(pdfBytes, "contract_" + contract.getContractId() + ".pdf");
             log.info(
-                    "Contract AI analysis response received. contractId={}, externalContractId={}, responseLength={}, elapsedMs={}",
+                    "계약 AI 분석 응답을 수신했습니다. contractId={}, externalContractId={}, responseLength={}, elapsedMs={}",
                     event.contractId(),
                     contract.getContractId(),
                     aiResultJson != null ? aiResultJson.length() : 0,
@@ -83,7 +83,7 @@ public class ContractAiEventListener {
 
             saveAiLegalAdvice(event.contractId(), finalAdvice);
             log.info(
-                    "Contract AI analysis finished. contractId={}, elapsedMs={}",
+                    "계약 AI 분석이 완료되었습니다. contractId={}, elapsedMs={}",
                     event.contractId(),
                     Duration.between(startedAt, Instant.now()).toMillis()
             );
@@ -93,7 +93,7 @@ public class ContractAiEventListener {
             try {
                 saveAiLegalAdvice(event.contractId(), "AI 분석 중 오류가 발생했습니다.");
             } catch (Exception innerE) {
-                log.error("Failed to persist AI error message for contractId: {}", event.contractId(), innerE);
+                log.error("계약 AI 오류 메시지 저장에 실패했습니다. contractId={}", event.contractId(), innerE);
             }
         }
     }
@@ -105,7 +105,7 @@ public class ContractAiEventListener {
         contract.setAiLegalAdvice(advice);
         contractRepository.save(contract);
         log.info(
-                "Contract AI advice persisted. contractId={}, adviceLength={}",
+                "계약 AI 자문을 저장했습니다. contractId={}, adviceLength={}",
                 contractId,
                 advice != null ? advice.length() : 0
         );

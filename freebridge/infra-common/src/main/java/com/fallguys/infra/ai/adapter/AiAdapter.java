@@ -101,7 +101,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
         
         Instant requestedAt = Instant.now();
         log.info(
-                "Calling Python contract analysis API. filename={}, pdfBytes={}, pythonUrl={}",
+                "Python 계약 분석 API를 호출합니다. filename={}, pdfBytes={}, pythonUrl={}",
                 filename,
                 pdfBytes.length,
                 pythonUrl
@@ -123,7 +123,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                 })
                 .body(String.class);
         log.info(
-                "Python contract analysis API completed. filename={}, responseLength={}, elapsedMs={}",
+                "Python 계약 분석 API 호출이 완료되었습니다. filename={}, responseLength={}, elapsedMs={}",
                 filename,
                 responseBody != null ? responseBody.length() : 0,
                 Duration.between(requestedAt, Instant.now()).toMillis()

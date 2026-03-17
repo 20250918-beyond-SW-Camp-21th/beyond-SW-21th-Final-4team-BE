@@ -95,8 +95,6 @@ def fetch_freelancer_reviews(freelancer_id: int):
     conn = get_db_connection()
     try:
         started_at = time.perf_counter()
-        started_at = time.perf_counter()
-        started_at = time.perf_counter()
         with conn.cursor() as cursor:
             sql = """
                 SELECT description, language, framework, debugging, communication, schedule, dispute 
@@ -105,10 +103,12 @@ def fetch_freelancer_reviews(freelancer_id: int):
             """
             cursor.execute(sql, (freelancer_id,))
             rows = cursor.fetchall()
+            elapsed = time.perf_counter() - started_at
             logger.info(
-                "Fetched freelancer reviews from DB. freelancer_id=%s row_count=%s",
+                "DB에서 프리랜서 리뷰를 조회했습니다. freelancer_id=%s row_count=%s elapsed_ms=%s",
                 freelancer_id,
                 len(rows),
+                round(elapsed * 1000),
             )
             return rows
     finally:
@@ -185,9 +185,9 @@ async def analyze_freelancer_reputation(freelancer_id: int):
         [저장된 평균 원본 데이터]
         {avg_scores}
 
-        <reviews>
+        <리뷰>
         {reviews}
-        </reviews>
+        </리뷰>
         """)
 
         result = await structured_llm.ainvoke(prompt.format(reviews=truncated_reviews, avg_scores=avg_scores_context))
@@ -229,9 +229,9 @@ async def analyze_general_reputation(request: ReputationAnalysisRequest):
         제공된 리뷰를 바탕으로 종합적인 요약을 제공하고, 주된 긍정 키워드와 부정 키워드를 추출해주세요.
         전체 평균 점수(요약에 참고): {avg_score:.1f}/5.0
         
-        <reviews>
+        <리뷰>
         {reviews}
-        </reviews>
+        </리뷰>
         """)
 
         result = await structured_llm.ainvoke(prompt.format(avg_score=avg_score, reviews=truncated_text))
@@ -276,7 +276,7 @@ async def analyze_contract(file: UploadFile = File(...)):
         file.file.seek(0)
         file_content = await file.read()
         logger.info(
-            "Contract analysis request received. filename=%s size=%s content_type=%s",
+            "계약 분석 요청을 수신했습니다. filename=%s size=%s content_type=%s",
             file.filename,
             len(file_content),
             file.content_type,
@@ -290,7 +290,7 @@ async def analyze_contract(file: UploadFile = File(...)):
         async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.post(parse_url, headers=headers, files=files)
         logger.info(
-            "Upstage contract parse completed. filename=%s status=%s elapsed_ms=%s",
+            "Upstage 계약서 파싱이 완료되었습니다. filename=%s status=%s elapsed_ms=%s",
             file.filename,
             response.status_code,
             round((time.perf_counter() - parse_started_at) * 1000),
@@ -325,15 +325,15 @@ async def analyze_contract(file: UploadFile = File(...)):
         2. 계약서 내용을 바탕으로 프리랜서 입장에서 불리할 수 있는 '독소 조항(위약금 과다, 지적재산권 일방 귀속, 대금 지급 지연 등)'이나 '근로기준법/하도급법 위반 의심 사항'을 찾아내어 `toxic_clauses`에 간결히 나열하세요. 만약 문제가 될 만한 조항이 전혀 없다면, 반드시 빈 배열(`[]`)을 반환하세요.
         3. 체결 전 프리랜서가 추가로 협의하거나 확인하면 좋을 법적 조언을 `recommendations`에 최대 3개 작성하세요.
 
-        <contract_content>
+        <계약서_내용>
         {contract_content}
-        </contract_content>
+        </계약서_내용>
         """)
 
         llm_started_at = time.perf_counter()
         result = await structured_llm.ainvoke(prompt.format(contract_content=truncated_text))
         logger.info(
-            "Contract analysis LLM completed. filename=%s parsed_text_length=%s truncated_text_length=%s elapsed_ms=%s total_elapsed_ms=%s",
+            "계약 분석 LLM 처리가 완료되었습니다. filename=%s parsed_text_length=%s truncated_text_length=%s elapsed_ms=%s total_elapsed_ms=%s",
             file.filename,
             len(parsed_text),
             len(truncated_text),

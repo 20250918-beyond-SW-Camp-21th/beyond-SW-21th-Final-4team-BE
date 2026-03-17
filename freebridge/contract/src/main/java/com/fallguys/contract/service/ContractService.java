@@ -83,7 +83,7 @@ public class ContractService {
             byte[] pdfBytes = contractPdfService.generateContractPdfBytes(saved);
             saved.setAiLegalAdvice("AI가 계약서의 독소 조항과 법률 위반 사항을 분석하고 있습니다...");
             log.info(
-                    "Publishing contract AI analysis request. contractId={}, externalContractId={}, pdfBytes={}",
+                    "계약 AI 분석 요청 이벤트를 발행합니다. contractId={}, externalContractId={}, pdfBytes={}",
                     saved.getId(),
                     saved.getContractId(),
                     pdfBytes.length
@@ -155,7 +155,7 @@ public class ContractService {
             contract.setAiLegalAdvice("AI 법률 검토를 다시 진행하고 있습니다...");
             Contract saved = contractRepository.save(contract);
             log.info(
-                    "Re-publishing contract AI analysis request. contractId={}, externalContractId={}, userId={}, pdfBytes={}",
+                    "계약 AI 분석 요청 이벤트를 다시 발행합니다. contractId={}, externalContractId={}, userId={}, pdfBytes={}",
                     saved.getId(),
                     saved.getContractId(),
                     userId,
