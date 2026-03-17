@@ -4,11 +4,14 @@ import com.fallguys.common.api.contract.ContractInfo;
 import com.fallguys.common.api.contract.ContractQuery;
 import com.fallguys.common.exception.BusinessException;
 import com.fallguys.common.exception.ErrorCode;
+import com.fallguys.contract.entity.Contract;
 import com.fallguys.contract.repository.ContractRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -23,8 +26,14 @@ public class ContractQueryService implements ContractQuery {
 
     @Override 
     public ContractInfo getContractInfo(Long contractId) {
-        var c = contractRepository.findByContractId(contractId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.CONTRACT_NOT_FOUND));
+        Contract c = contractRepository.findByContractId(contractId)
+                .orElseGet(() -> contractRepository.findById(contractId)
+                        .map(contract -> {
+                            log.warn("Legacy internal contract PK lookup detected in ContractQuery.getContractInfo: requestedId={}, resolvedContractNo={}",
+                                    contractId, contract.getContractId());
+                            return contract;
+                        })
+                        .orElseThrow(() -> new BusinessException(ErrorCode.CONTRACT_NOT_FOUND)));
 
         return new ContractInfo(
                 c.getId(),
