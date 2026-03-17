@@ -14,6 +14,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.transaction.event.TransactionPhase;
 
+import java.time.Duration;
+import java.time.Instant;
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -27,6 +30,7 @@ public class ContractAiEventListener {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleContractAIAnalysisRequestedEvent(ContractAIAnalysisRequestedEvent event) {
         log.info("비동기 AI 계약서 분석 시작 - contractId: {}", event.contractId());
+        Instant startedAt = Instant.now();
         try {
             Contract contract = contractRepository.findById(event.contractId())
                     .orElseThrow(() -> new IllegalArgumentException("Contract not found for id: " + event.contractId()));
@@ -36,7 +40,20 @@ public class ContractAiEventListener {
                 throw new IllegalArgumentException("Missing PDF bytes for contractId: " + event.contractId());
             }
 
+            log.info(
+                    "Contract AI analysis started. contractId={}, externalContractId={}, pdfBytes={}",
+                    event.contractId(),
+                    contract.getContractId(),
+                    pdfBytes.length
+            );
             String aiResultJson = contractEngine.analyzeContract(pdfBytes, "contract_" + contract.getContractId() + ".pdf");
+            log.info(
+                    "Contract AI analysis response received. contractId={}, externalContractId={}, responseLength={}, elapsedMs={}",
+                    event.contractId(),
+                    contract.getContractId(),
+                    aiResultJson != null ? aiResultJson.length() : 0,
+                    Duration.between(startedAt, Instant.now()).toMillis()
+            );
             
             JsonNode root = objectMapper.readTree(aiResultJson);
             StringBuilder adviceBuilder = new StringBuilder();
@@ -65,6 +82,11 @@ public class ContractAiEventListener {
             }
 
             saveAiLegalAdvice(event.contractId(), finalAdvice);
+            log.info(
+                    "Contract AI analysis finished. contractId={}, elapsedMs={}",
+                    event.contractId(),
+                    Duration.between(startedAt, Instant.now()).toMillis()
+            );
             log.info("비동기 AI 계약서 분석 완료 및 저장 - contractId: {}", event.contractId());
         } catch (Exception e) {
             log.error("AI 계약서 분석 실패 - contractId: {}", event.contractId(), e);
@@ -82,5 +104,10 @@ public class ContractAiEventListener {
                 .orElseThrow(() -> new IllegalArgumentException("Contract not found for id: " + contractId));
         contract.setAiLegalAdvice(advice);
         contractRepository.save(contract);
+        log.info(
+                "Contract AI advice persisted. contractId={}, adviceLength={}",
+                contractId,
+                advice != null ? advice.length() : 0
+        );
     }
 }

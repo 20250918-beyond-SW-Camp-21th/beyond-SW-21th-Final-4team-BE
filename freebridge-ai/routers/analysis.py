@@ -1,5 +1,6 @@
 import os
 import ssl
+import time
 from typing import List
 from pydantic import BaseModel, Field
 import pymysql
@@ -93,6 +94,9 @@ def get_db_connection():
 def fetch_freelancer_reviews(freelancer_id: int):
     conn = get_db_connection()
     try:
+        started_at = time.perf_counter()
+        started_at = time.perf_counter()
+        started_at = time.perf_counter()
         with conn.cursor() as cursor:
             sql = """
                 SELECT description, language, framework, debugging, communication, schedule, dispute 
@@ -249,6 +253,7 @@ from fastapi import UploadFile, File
 async def analyze_contract(file: UploadFile = File(...)):
     """(Feature 5) 계약서 PDF 파일을 받아 Upstage Document Parse API를 거쳐 법률 위반/독소 조항 분석"""
     try:
+        started_at = time.perf_counter()
         api_key = os.getenv("UPSTAGE_API_KEY")
         if not api_key:
             raise HTTPException(status_code=500, detail="UPSTAGE_API_KEY is missing")
@@ -270,13 +275,26 @@ async def analyze_contract(file: UploadFile = File(...)):
 
         file.file.seek(0)
         file_content = await file.read()
+        logger.info(
+            "Contract analysis request received. filename=%s size=%s content_type=%s",
+            file.filename,
+            len(file_content),
+            file.content_type,
+        )
 
         parse_url = "https://api.upstage.ai/v1/document-ai/document-parse"
         headers = {"Authorization": f"Bearer {api_key}"}
         files = {"document": (file.filename, file_content, file.content_type)}
         
+        parse_started_at = time.perf_counter()
         async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.post(parse_url, headers=headers, files=files)
+        logger.info(
+            "Upstage contract parse completed. filename=%s status=%s elapsed_ms=%s",
+            file.filename,
+            response.status_code,
+            round((time.perf_counter() - parse_started_at) * 1000),
+        )
             
         if response.status_code != 200:
             logger.error(f"Upstage Document Parse API failed: {response.text}")
@@ -312,7 +330,16 @@ async def analyze_contract(file: UploadFile = File(...)):
         </contract_content>
         """)
 
+        llm_started_at = time.perf_counter()
         result = await structured_llm.ainvoke(prompt.format(contract_content=truncated_text))
+        logger.info(
+            "Contract analysis LLM completed. filename=%s parsed_text_length=%s truncated_text_length=%s elapsed_ms=%s total_elapsed_ms=%s",
+            file.filename,
+            len(parsed_text),
+            len(truncated_text),
+            round((time.perf_counter() - llm_started_at) * 1000),
+            round((time.perf_counter() - started_at) * 1000),
+        )
         return result
 
     except HTTPException:
