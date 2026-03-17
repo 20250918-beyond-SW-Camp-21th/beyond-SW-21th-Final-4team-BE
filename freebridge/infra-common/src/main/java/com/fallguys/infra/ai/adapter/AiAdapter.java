@@ -20,6 +20,8 @@ import org.springframework.http.MediaType;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.web.client.RestClientException;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -97,7 +99,15 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
             }
         }, MediaType.APPLICATION_PDF);
         
-        return restClient.post()
+        Instant requestedAt = Instant.now();
+        log.info(
+                "Python 계약 분석 API를 호출합니다. filename={}, pdfBytes={}, pythonUrl={}",
+                filename,
+                pdfBytes.length,
+                pythonUrl
+        );
+
+        String responseBody = restClient.post()
                 .uri(pythonUrl + "/api/v1/analysis/contract")
                 .contentType(MediaType.MULTIPART_FORM_DATA)
                 .body(builder.build())
@@ -112,6 +122,13 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                     throw new AiServiceException("AI 계약서 분석 요청이 실패했습니다: " + response.getStatusCode());
                 })
                 .body(String.class);
+        log.info(
+                "Python 계약 분석 API 호출이 완료되었습니다. filename={}, responseLength={}, elapsedMs={}",
+                filename,
+                responseBody != null ? responseBody.length() : 0,
+                Duration.between(requestedAt, Instant.now()).toMillis()
+        );
+        return responseBody;
     }
 
     @Override
