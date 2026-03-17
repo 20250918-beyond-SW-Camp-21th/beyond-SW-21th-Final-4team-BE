@@ -9,5 +9,7 @@ public record UpdateSubscriptionRequestDto(
         @Pattern(regexp = "^(?i)(BASIC|PRO|PRIME)$", message = "유효하지 않은 플랜 값입니다. (BASIC, PRO, PRIME)")
         String targetPlan,
 
-        String billingKey
+        String billingKey,
+
+        String paymentId
 ) {}

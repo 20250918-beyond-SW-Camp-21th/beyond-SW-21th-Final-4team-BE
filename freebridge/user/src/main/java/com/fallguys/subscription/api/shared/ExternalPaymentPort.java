@@ -19,6 +19,8 @@ public interface  ExternalPaymentPort {
      */
     PaymentResult requestSubscriptionPayment(Long employerId, String planType, long amount, String billingKey);
 
+    PaymentResult verifyOneTimeSubscriptionPayment(Long employerId, String planType, long amount, String paymentId);
+
     /**
      * 특정 고용주의 다음 정기결제 예정일을 조회합니다.
      * payment 모듈 내의 BillingKey 정보를 바탕으로 조회합니다.

@@ -44,6 +44,9 @@ public interface SubscriptionPaymentQuery {
     SubscriptionPaymentResult processSubscriptionPayment(
             Long employerId, String planType, long amount, String billingKey);
 
+    SubscriptionPaymentResult verifyOneTimeSubscriptionPayment(
+            Long employerId, String planType, long amount, String paymentId);
+
     /**
      * 구독 업그레이드 시 결제를 처리하고, 결제 결과와 다음 결제일을 한 번에 반환합니다.
      *

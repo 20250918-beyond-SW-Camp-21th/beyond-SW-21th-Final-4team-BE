@@ -13,4 +13,5 @@ public class SubscriptionPaymentRequest {
     private String planType;
     private Long amount;
     private String billingKey;
+    private String paymentId;
 }
