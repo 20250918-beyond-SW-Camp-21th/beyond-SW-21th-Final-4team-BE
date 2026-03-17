@@ -455,15 +455,7 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
                 throw new BusinessException(ErrorCode.SETTLEMENT_FORBIDDEN);
             }
 
-            return new SubscriptionPaymentResult(
-                    SubscriptionBillingStatus.PAID.equals(existing.getStatus()),
-                    existing.getId(),
-                    existing.getPlanType().name(),
-                    existing.getAmount(),
-                    existing.getStatus().name(),
-                    null,
-                    null
-            );
+            return toSubscriptionPaymentResult(existing);
         }
 
         PortOnePaymentInfo paymentInfo = portOneApiClient.getPayment(paymentId);
@@ -490,7 +482,18 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
         billing.setAmount(targetPlanType.getMonthlyPrice());
         billing.setBillingDate(LocalDate.now());
         billing.markPaid(paymentId);
-        subscriptionBillingRepository.save(billing);
+        try {
+            subscriptionBillingRepository.save(billing);
+        } catch (DataIntegrityViolationException e) {
+            SubscriptionBilling existing = subscriptionBillingRepository.findByTransactionId(paymentId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.PAYMENT_FAILED));
+
+            if (!existing.getEmployerId().equals(employerId)) {
+                throw new BusinessException(ErrorCode.SETTLEMENT_FORBIDDEN);
+            }
+
+            return toSubscriptionPaymentResult(existing);
+        }
 
         try {
             String invoiceUrl = paymentInvoicePdfService.generateSubscriptionInvoice(billing);
@@ -514,8 +517,12 @@ public class SubscriptionPaymentService implements SubscriptionPaymentQuery {
                 revenueWallet.getBalance()
         ));
 
+        return toSubscriptionPaymentResult(billing);
+    }
+
+    private SubscriptionPaymentResult toSubscriptionPaymentResult(SubscriptionBilling billing) {
         return new SubscriptionPaymentResult(
-                true,
+                SubscriptionBillingStatus.PAID.equals(billing.getStatus()),
                 billing.getId(),
                 billing.getPlanType().name(),
                 billing.getAmount(),
