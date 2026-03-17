@@ -2,10 +2,16 @@ package com.fallguys.mypage.service;
 
 import com.fallguys.mypage.api.shared.SharedMypageApi;
 import com.fallguys.mypage.api.web.dto.employer.response.EmployerProfilePreviewResponseDto;
+import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerPreviewCareerDto;
+import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerPreviewCertificationDto;
+import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerPreviewEducationDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerProfilePreviewResponseDto;
 import com.fallguys.mypage.entity.employer.Employer;
 import com.fallguys.mypage.entity.freelancer.Freelancer;
 import com.fallguys.mypage.entity.freelancer.PortfolioInfo;
+import com.fallguys.mypage.entity.resume.Career;
+import com.fallguys.mypage.entity.resume.Certification;
+import com.fallguys.mypage.entity.resume.Education;
 import com.fallguys.mypage.entity.resume.Resume;
 import com.fallguys.mypage.repository.employer.EmployerRepository;
 import com.fallguys.mypage.repository.freelancer.FreelancerRepository;
@@ -32,7 +38,29 @@ public class ProfilePreviewService {
     @Transactional(readOnly = true)
     public EmployerProfilePreviewResponseDto getEmployerPreview(Long employerId) {
         Employer employer = employerRepository.findById(employerId)
-                .orElseThrow(() -> new IllegalArgumentException("Employer profile not found"));
+                .or(() -> employerRepository.findByUserId(employerId))
+                .orElse(null);
+
+        if (employer == null) {
+            ExternalUserResponse user = null;
+            try {
+                user = sharedMypageApi.getUserById(employerId);
+            } catch (Exception ignored) {
+            }
+
+            return new EmployerProfilePreviewResponseDto(
+                    null,
+                    employerId,
+                    user != null ? user.getName() : "기업 정보 없음",
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null
+            );
+        }
 
         ExternalUserMyInfoResponse userInfo = null;
         try {
@@ -57,10 +85,18 @@ public class ProfilePreviewService {
     @Transactional(readOnly = true)
     public FreelancerProfilePreviewResponseDto getFreelancerPreview(Long freelancerId) {
         Freelancer freelancer = freelancerRepository.findById(freelancerId)
+                .or(() -> freelancerRepository.findByUserId(freelancerId))
                 .orElseThrow(() -> new IllegalArgumentException("Freelancer profile not found"));
 
-        ExternalUserResponse user = sharedMypageApi.getUserById(freelancer.getUserId());
+        ExternalUserResponse user = null;
+        try {
+            user = sharedMypageApi.getUserById(freelancer.getUserId());
+        } catch (Exception ignored) {
+        }
         Resume resume = resumeRepository.findByFreelancerId(freelancerId).orElse(null);
+        if (resume == null) {
+            resume = resumeRepository.findByUserId(freelancer.getUserId()).orElse(null);
+        }
         PortfolioInfo portfolio = freelancer.getPortfolioInfo();
 
         return new FreelancerProfilePreviewResponseDto(
@@ -78,9 +114,62 @@ public class ProfilePreviewService {
                 resume != null ? resume.getPhone() : null,
                 resume != null ? resume.getEmail() : null,
                 resume != null ? resume.getAddress() : null,
+                resume != null ? mapEducations(resume.getEducations()) : List.of(),
+                resume != null ? mapCareers(resume.getCareers()) : List.of(),
+                resume != null ? mapCertifications(resume.getCertifications()) : List.of(),
                 portfolio != null ? portfolio.getPortfolioFileUrl() : null,
                 portfolio != null ? portfolio.getPortfolioFileName() : null,
                 portfolio != null ? portfolio.getPortfolioLastUpdated() : null
         );
+    }
+
+    private List<FreelancerPreviewEducationDto> mapEducations(List<Education> educations) {
+        if (educations == null || educations.isEmpty()) {
+            return List.of();
+        }
+
+        return educations.stream()
+                .map(education -> new FreelancerPreviewEducationDto(
+                        education.getSchoolType(),
+                        education.getSchoolName(),
+                        education.getMajor(),
+                        education.getEduStatus() != null ? education.getEduStatus().name() : null,
+                        education.getEntranceDate(),
+                        education.getGraduationDate()
+                ))
+                .toList();
+    }
+
+    private List<FreelancerPreviewCareerDto> mapCareers(List<Career> careers) {
+        if (careers == null || careers.isEmpty()) {
+            return List.of();
+        }
+
+        return careers.stream()
+                .map(career -> new FreelancerPreviewCareerDto(
+                        career.getCompanyName(),
+                        career.getDepartment(),
+                        career.getPosition(),
+                        career.getJobType(),
+                        career.getEmploymentType(),
+                        career.getStartDate(),
+                        career.getEndDate(),
+                        career.getDescription()
+                ))
+                .toList();
+    }
+
+    private List<FreelancerPreviewCertificationDto> mapCertifications(List<Certification> certifications) {
+        if (certifications == null || certifications.isEmpty()) {
+            return List.of();
+        }
+
+        return certifications.stream()
+                .map(certification -> new FreelancerPreviewCertificationDto(
+                        certification.getName(),
+                        certification.getIssuer(),
+                        certification.getAcquisitionDate()
+                ))
+                .toList();
     }
 }
