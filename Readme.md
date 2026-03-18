@@ -64,6 +64,11 @@ FreeBridge는 이 문제를 해결하기 위해 **계약 기반의 통합 관리
 
 <img width="4409" height="2384" alt="image" src="https://github.com/user-attachments/assets/4586d765-3d1c-42f7-8ec2-a6b30c5d1d6c" />
 
+---
+
+## ERD
+<img width="1607" height="1012" alt="image" src="https://github.com/user-attachments/assets/dee6f299-198a-431e-b86b-4707ded687ad" />
+
 
 ---
 
