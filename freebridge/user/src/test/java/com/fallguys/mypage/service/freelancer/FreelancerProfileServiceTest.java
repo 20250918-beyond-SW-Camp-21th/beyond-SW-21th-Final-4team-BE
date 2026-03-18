@@ -1,5 +1,6 @@
 package com.fallguys.mypage.service.freelancer;
 
+import com.fallguys.common.ai.port.RecommendationEngine;
 import com.fallguys.common.exception.BusinessException;
 import com.fallguys.common.exception.ErrorCode;
 import com.fallguys.common.port.FileStorage;
@@ -46,6 +47,9 @@ class FreelancerProfileServiceTest {
 
     @Mock
     private SharedMypageApi sharedMypageApi;
+
+    @Mock
+    private RecommendationEngine recommendationEngine;
 
     @BeforeEach
     void setUp() {

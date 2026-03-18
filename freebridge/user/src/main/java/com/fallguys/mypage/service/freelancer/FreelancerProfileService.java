@@ -1,5 +1,6 @@
-    package com.fallguys.mypage.service.freelancer;
+package com.fallguys.mypage.service.freelancer;
 
+import com.fallguys.common.ai.port.RecommendationEngine;
 import com.fallguys.common.exception.BusinessException;
 import com.fallguys.common.exception.ErrorCode;
 import com.fallguys.common.port.FileStorage;
@@ -31,6 +32,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -43,6 +45,7 @@ public class FreelancerProfileService {
     private final FileStorage fileStorage;
     private final SharedMypageApi sharedMypageApi;
     private final FreelancerReviewService freelancerReviewService;
+    private final RecommendationEngine recommendationEngine;
     private final FreelancerProjectService freelancerProjectService;
 
     private static final long MAX_AVATAR_BYTES = 5 * 1024 * 1024; // 프로필 이미지 최대 허용 크기 5MB
@@ -155,6 +158,57 @@ public class FreelancerProfileService {
             freelancer.updateWorkConditions(workConditions);
         }
 
+        boolean hasExpertise = request.expertiseProgramming() != null
+                || request.expertiseFramework() != null
+                || request.expertiseProblemSolving() != null;
+
+        if (hasExpertise) {
+            Expertise existing = freelancer.getExpertise();
+            Double programming = request.expertiseProgramming() != null
+                    ? request.expertiseProgramming().doubleValue()
+                    : existing != null ? existing.getProgramming() : null;
+            Double framework = request.expertiseFramework() != null
+                    ? request.expertiseFramework().doubleValue()
+                    : existing != null ? existing.getFramework() : null;
+            Double problemSolving = request.expertiseProblemSolving() != null
+                    ? request.expertiseProblemSolving().doubleValue()
+                    : existing != null ? existing.getProblemSolving() : null;
+            Expertise expertise = new Expertise(
+                    programming,
+                    framework,
+                    problemSolving
+            );
+            freelancer.updateExpertise(expertise);
+        }
+
+        boolean hasCollaboration = request.collaborationCommunication() != null
+                || request.collaborationScheduleAdherence() != null
+                || request.collaborationDispute() != null;
+
+        if (hasCollaboration) {
+            Collaboration existing = freelancer.getCollaboration();
+            Double communication = request.collaborationCommunication() != null
+                    ? request.collaborationCommunication().doubleValue()
+                    : existing != null ? existing.getCommunication() : null;
+            Double scheduleAdherence = request.collaborationScheduleAdherence() != null
+                    ? request.collaborationScheduleAdherence().doubleValue()
+                    : existing != null ? existing.getScheduleAdherence() : null;
+            Double dispute = request.collaborationDispute() != null
+                    ? request.collaborationDispute().doubleValue()
+                    : existing != null ? existing.getDispute() : null;
+            Collaboration collaboration = new Collaboration(
+                    communication,
+                    scheduleAdherence,
+                    dispute
+            );
+            freelancer.updateCollaboration(collaboration);
+        }
+
+        if (request.averageRating() != null) {
+            freelancer.updateAverageRate(request.averageRating());
+        }
+
+        runAfterCommitSafely(() -> syncFreelancerProfileToAi(freelancer));
     }
 
     @Transactional
@@ -232,6 +286,74 @@ public class FreelancerProfileService {
     private Freelancer findByUserIdOrThrow(Long userId) {
         return freelancerRepository.findByUserId(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    private void runAfterCommitSafely(Runnable task) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    try {
+                        task.run();
+                    } catch (RuntimeException e) {
+                        log.warn("AI sync failed in runAfterCommitSafely", e);
+                    }
+                }
+            });
+            return;
+        }
+
+        try {
+            task.run();
+        } catch (RuntimeException e) {
+            log.warn("AI sync failed in runAfterCommitSafely", e);
+        }
+    }
+
+    private void syncFreelancerProfileToAi(Freelancer freelancer) {
+        recommendationEngine.syncToAiServer(
+                freelancer.getFreelancerId(),
+                freelancer.getFreelancerId(),
+                "new_profile",
+                buildFreelancerProfileAiContent(freelancer),
+                Optional.ofNullable(freelancer.getStatus()).map(Enum::name).orElse("POTENTIAL")
+        );
+    }
+
+    private String buildFreelancerProfileAiContent(Freelancer freelancer) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("Job: ").append(Optional.ofNullable(freelancer.getJob()).orElse("")).append('\n');
+        builder.append("Introduction: ").append(Optional.ofNullable(freelancer.getIntroduction()).orElse("")).append('\n');
+        builder.append("Skills: ").append(String.join(", ", Optional.ofNullable(freelancer.getSkills()).orElseGet(java.util.List::of))).append('\n');
+        builder.append("Career Years: ").append(Optional.ofNullable(freelancer.getCareerYears()).orElse(0)).append('\n');
+        builder.append("Wage: ").append(Optional.ofNullable(freelancer.getWage()).orElse(0L)).append('\n');
+        builder.append("Grade: ").append(Optional.ofNullable(freelancer.getGrade()).map(Enum::name).orElse("")).append('\n');
+        builder.append("Status: ").append(Optional.ofNullable(freelancer.getStatus()).map(Enum::name).orElse("POTENTIAL")).append('\n');
+        builder.append("Expertise Average Rate: ").append(
+                Optional.ofNullable(calculateExpertiseAverage(freelancer.getExpertise()))
+                        .map(Object::toString)
+                        .orElse("")
+        ).append('\n');
+        builder.append("Collaboration Average Rate: ").append(
+                Optional.ofNullable(calculateCollaborationAverage(freelancer.getCollaboration()))
+                        .map(Object::toString)
+                        .orElse("")
+        ).append('\n');
+        builder.append("Average Rate: ").append(
+                Optional.ofNullable(freelancer.getAverageRate())
+                        .map(Object::toString)
+                        .orElse("")
+        ).append('\n');
+
+        WorkConditions workConditions = freelancer.getWorkConditions();
+        if (workConditions != null) {
+            builder.append("Work Type: ").append(Optional.ofNullable(workConditions.getConditionsType()).orElse("")).append('\n');
+            builder.append("Available Start Date: ").append(Optional.ofNullable(workConditions.getStartDate()).map(Object::toString).orElse("")).append('\n');
+            builder.append("Work Style: ").append(Optional.ofNullable(workConditions.getWorkStyle()).orElse("")).append('\n');
+            builder.append("Work Location: ").append(Optional.ofNullable(workConditions.getLocation()).orElse("")).append('\n');
+        }
+
+        return builder.toString();
     }
 
     private String getExtension(String filename) {
