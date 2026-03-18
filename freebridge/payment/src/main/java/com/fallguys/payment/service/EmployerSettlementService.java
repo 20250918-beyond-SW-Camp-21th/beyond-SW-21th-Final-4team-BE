@@ -346,10 +346,11 @@ public class EmployerSettlementService {
 
     /**
      * 계약 정산 레코드 생성 (AdminSettlementService에서도 사용)
+     * 결제 가능 계약 검증은 verifyContractPayment에서 수행하며,
+     * 관리자 수동 복구 경로는 COMPLETED 계약도 허용해야 하므로 여기서는 수행하지 않는다.
      */
     @Transactional
     public List<EmployerSettlement> createSettlementRecords(ContractInfo contract, String paymentId, Long employerId) {
-        validatePayableContract(contract, employerId);
         Long contractPublicId = contract.contractId();
 
         if (contractPublicId == null) {
