@@ -79,7 +79,8 @@ public class S3FileStorage implements FileStorage {
     }
 
     private String buildAttachmentContentDisposition(String fileName) {
-        String normalized = (fileName == null || fileName.isBlank()) ? "attachment" : fileName.trim();
+        String sanitizedFileName = fileName == null ? "" : fileName.replaceAll("\\p{Cntrl}", "");
+        String normalized = sanitizedFileName.isBlank() ? "attachment" : sanitizedFileName.trim();
         String asciiFallback = normalized
                 .replace("\\", "_")
                 .replace("\"", "_")
