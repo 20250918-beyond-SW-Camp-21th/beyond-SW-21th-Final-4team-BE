@@ -1,5 +1,6 @@
 package com.fallguys.user.service;
 
+import com.fallguys.common.ai.port.RecommendationEngine;
 import com.fallguys.user.api.web.dto.request.PasswordUpdateRequest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -45,6 +46,8 @@ class UserServiceValidationTest {
     private StringRedisTemplate redisTemplate;
     @Mock
     private RedisTokenService redisTokenService;
+    @Mock
+    private RecommendationEngine recommendationEngine;
 
     @BeforeEach
     void setUp() {
