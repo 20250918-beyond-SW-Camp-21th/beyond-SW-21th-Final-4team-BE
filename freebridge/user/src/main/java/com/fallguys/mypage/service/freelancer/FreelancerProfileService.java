@@ -11,12 +11,14 @@ import com.fallguys.mypage.api.web.dto.freelancer.response.CrmAlertsDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.ExpertiseDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerBasicProfileDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerProfileResponseDto;
+import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerProjectStatusStatsDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.FreelancerStatsDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.PortfolioInfoDto;
 import com.fallguys.mypage.api.web.dto.freelancer.response.WorkConditionsDto;
 import com.fallguys.mypage.entity.freelancer.Collaboration;
 import com.fallguys.mypage.entity.freelancer.Expertise;
 import com.fallguys.mypage.entity.freelancer.Freelancer;
+import com.fallguys.mypage.entity.freelancer.FreelancerStatus;
 import com.fallguys.mypage.entity.freelancer.PortfolioInfo;
 import com.fallguys.mypage.entity.freelancer.WorkConditions;
 import com.fallguys.mypage.repository.freelancer.FreelancerRepository;
@@ -44,6 +46,14 @@ public class FreelancerProfileService {
     private final SharedMypageApi sharedMypageApi;
     private final FreelancerReviewService freelancerReviewService;
     private final RecommendationEngine recommendationEngine;
+    private final FreelancerProjectService freelancerProjectService;
+
+    private static final int MIN_APPLICATIONS_FOR_PORTFOLIO_IMPROVEMENT = 5;
+    private static final double PORTFOLIO_SUCCESS_RATIO_THRESHOLD = 0.2;
+    private static final int MIN_COMPLETED_PROJECTS_FOR_RATE_BUMP = 2;
+    private static final double MIN_AVERAGE_RATE_FOR_BUMP = 4.0;
+    private static final int IN_PROGRESS_BURNOUT_THRESHOLD = 3;
+    private static final int MIN_COMPLETED_PROJECTS_FOR_CHURN_WARNING = 1;
 
     private static final long MAX_AVATAR_BYTES = 5 * 1024 * 1024; // 프로필 이미지 최대 허용 크기 5MB
 
@@ -83,7 +93,8 @@ public class FreelancerProfileService {
                 portfolioInfo.getPortfolioLastUpdated()
         );
 
-        CrmAlertsDto crmAlerts = new CrmAlertsDto(null, null, null);
+        FreelancerProjectStatusStatsDto projectStats = freelancerProjectService.getProjectStats(freelancer.getFreelancerId());
+        CrmAlertsDto crmAlerts = buildCrmAlerts(freelancer, projectStats);
 
         FreelancerBasicProfileDto basicProfile = new FreelancerBasicProfileDto(
                 toAccessibleUrl(freelancer.getAvatarUrl()),
@@ -473,6 +484,78 @@ public class FreelancerProfileService {
         }
 
         return count == 0 ? null : total / count;
+    }
+
+    private CrmAlertsDto buildCrmAlerts(Freelancer freelancer, FreelancerProjectStatusStatsDto projectStats) {
+        int appliedProjects = safeInt(projectStats.appliedProjects());
+        int inProgressProjects = safeInt(projectStats.inProgressProjects());
+        int completedProjects = safeInt(projectStats.completedProjects());
+
+        boolean isOnboardingNeeded = freelancer.getStatus() == FreelancerStatus.POTENTIAL
+                && hasMultipleIncompleteProfileSections(freelancer);
+        boolean isApplyEncouraged = !isOnboardingNeeded
+                && (freelancer.getStatus() == FreelancerStatus.POTENTIAL
+                || freelancer.getStatus() == FreelancerStatus.CONTRACT_EXPIRED)
+                && inProgressProjects == 0
+                && appliedProjects == 0
+                && isProfileBasicallyComplete(freelancer);
+        boolean isPortfolioImproveNeeded = appliedProjects >= MIN_APPLICATIONS_FOR_PORTFOLIO_IMPROVEMENT
+                && ((double) (inProgressProjects + completedProjects) / appliedProjects) < PORTFOLIO_SUCCESS_RATIO_THRESHOLD;
+        boolean isRateBumpEligible = completedProjects >= MIN_COMPLETED_PROJECTS_FOR_RATE_BUMP
+                && safeDouble(freelancer.getAverageRate()) >= MIN_AVERAGE_RATE_FOR_BUMP;
+        boolean isBurnoutWarning = inProgressProjects >= IN_PROGRESS_BURNOUT_THRESHOLD;
+        boolean isChurnWarning = completedProjects >= MIN_COMPLETED_PROJECTS_FOR_CHURN_WARNING
+                && freelancer.getStatus() != FreelancerStatus.LEFT
+                && inProgressProjects == 0
+                && appliedProjects == 0;
+
+        return new CrmAlertsDto(
+                isOnboardingNeeded,
+                isApplyEncouraged,
+                isPortfolioImproveNeeded,
+                isRateBumpEligible,
+                isBurnoutWarning,
+                isChurnWarning
+        );
+    }
+
+    private boolean hasMultipleIncompleteProfileSections(Freelancer freelancer) {
+        int incompleteCount = 0;
+        if (!hasText(freelancer.getJob())) {
+            incompleteCount++;
+        }
+        if (!hasEnoughSkills(freelancer)) {
+            incompleteCount++;
+        }
+        if (!hasText(freelancer.getIntroduction())) {
+            incompleteCount++;
+        }
+        if (freelancer.getPortfolioInfo() == null) {
+            incompleteCount++;
+        }
+        return incompleteCount >= 2;
+    }
+
+    private boolean isProfileBasicallyComplete(Freelancer freelancer) {
+        return hasText(freelancer.getJob())
+                && hasEnoughSkills(freelancer)
+                && hasText(freelancer.getIntroduction());
+    }
+
+    private boolean hasEnoughSkills(Freelancer freelancer) {
+        return freelancer.getSkills() != null && freelancer.getSkills().size() >= 2;
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
+    }
+
+    private int safeInt(Integer value) {
+        return value == null ? 0 : value;
+    }
+
+    private double safeDouble(Double value) {
+        return value == null ? 0.0 : value;
     }
 }
 

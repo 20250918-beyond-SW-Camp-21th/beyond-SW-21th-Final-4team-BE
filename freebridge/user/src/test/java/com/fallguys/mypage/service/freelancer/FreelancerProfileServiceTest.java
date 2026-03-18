@@ -102,9 +102,9 @@ class FreelancerProfileServiceTest {
         assertThat(result.basicProfile().workConditions().availableStartDate())
                 .isEqualTo(futureStartDate);
         assertThat(result.basicProfile().crmAlerts()).isNotNull();
-        assertThat(result.basicProfile().crmAlerts().rateBumpEligible()).isFalse();
-        assertThat(result.basicProfile().crmAlerts().burnoutRisk()).isFalse();
-        assertThat(result.basicProfile().crmAlerts().churnRisk()).isFalse();
+        assertThat(result.basicProfile().crmAlerts().isRateBumpEligible()).isFalse();
+        assertThat(result.basicProfile().crmAlerts().isBurnoutWarning()).isFalse();
+        assertThat(result.basicProfile().crmAlerts().isChurnWarning()).isFalse();
         assertThat(result.stats().statContact()).isEqualTo(0);
         assertThat(result.stats().statChat()).isEqualTo(0);
         assertThat(result.stats().statContract()).isEqualTo(0);
