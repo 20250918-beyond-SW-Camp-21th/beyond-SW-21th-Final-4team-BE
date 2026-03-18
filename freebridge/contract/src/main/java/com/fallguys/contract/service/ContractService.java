@@ -82,6 +82,12 @@ public class ContractService {
         try {
             byte[] pdfBytes = contractPdfService.generateContractPdfBytes(saved);
             saved.setAiLegalAdvice("AI가 계약서의 독소 조항과 법률 위반 사항을 분석하고 있습니다...");
+            log.info(
+                    "계약 AI 분석 요청 이벤트를 발행합니다. contractId={}, externalContractId={}, pdfBytes={}",
+                    saved.getId(),
+                    saved.getContractId(),
+                    pdfBytes.length
+            );
             eventPublisher.publishEvent(new com.fallguys.common.event.ContractAIAnalysisRequestedEvent(saved.getId(), pdfBytes));
         } catch (Exception e) {
             log.error("AI 계약서 분석용 PDF 생성 실패: contractId={}", saved.getContractId(), e);
@@ -148,6 +154,13 @@ public class ContractService {
             byte[] pdfBytes = contractPdfService.generateContractPdfBytes(contract);
             contract.setAiLegalAdvice("AI 법률 검토를 다시 진행하고 있습니다...");
             Contract saved = contractRepository.save(contract);
+            log.info(
+                    "계약 AI 분석 요청 이벤트를 다시 발행합니다. contractId={}, externalContractId={}, userId={}, pdfBytes={}",
+                    saved.getId(),
+                    saved.getContractId(),
+                    userId,
+                    pdfBytes.length
+            );
             eventPublisher.publishEvent(
                     new com.fallguys.common.event.ContractAIAnalysisRequestedEvent(saved.getId(), pdfBytes)
             );

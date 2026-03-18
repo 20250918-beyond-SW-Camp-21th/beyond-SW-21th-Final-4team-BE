@@ -1,5 +1,6 @@
 package com.fallguys.user.service;
 
+import com.fallguys.common.port.FileStorage;
 import com.fallguys.mypage.entity.freelancer.Freelancer;
 import com.fallguys.mypage.repository.freelancer.FreelancerRepository;
 import com.fallguys.user.api.shared.ExternalFreelancerSearchApi;
@@ -8,6 +9,7 @@ import com.fallguys.user.api.shared.response.ExternalFreelancerSearchResponse;
 import com.fallguys.user.entity.User;
 import com.fallguys.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -20,12 +22,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ExternalFreelancerSearchApiImpl implements ExternalFreelancerSearchApi {
 
     private final FreelancerRepository freelancerRepository;
     private final UserRepository userRepository;
+    private final FileStorage fileStorage;
 
     @Override
     @Transactional(readOnly = true)
@@ -80,9 +84,24 @@ public class ExternalFreelancerSearchApiImpl implements ExternalFreelancerSearch
                 freelancer.getCareerYears(),
                 freelancer.getWage(),
                 freelancer.getIntroduction(),
-                freelancer.getAvatarUrl(),
+                toAccessibleUrl(freelancer.getAvatarUrl()),
                 freelancer.getSkills() == null ? List.of() : freelancer.getSkills(),
                 freelancer.getGrade() == null ? null : freelancer.getGrade().name()
         );
+    }
+
+    private String toAccessibleUrl(String storedKeyOrUrl) {
+        if (storedKeyOrUrl == null || storedKeyOrUrl.isBlank()) {
+            return null;
+        }
+        if (storedKeyOrUrl.startsWith("http://") || storedKeyOrUrl.startsWith("https://")) {
+            return storedKeyOrUrl;
+        }
+        try {
+            return fileStorage.generatePresignedUrl(storedKeyOrUrl);
+        } catch (RuntimeException e) {
+            log.error("Failed to generate freelancer avatar URL. key={}", storedKeyOrUrl, e);
+            return null;
+        }
     }
 }

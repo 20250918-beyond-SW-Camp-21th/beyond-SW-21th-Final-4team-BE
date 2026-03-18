@@ -41,7 +41,7 @@ public class Freelancer {
 
     private Integer careerYears;
 
-    private Long wage; // 시급
+    private Long wage; // 월급
 
     @Embedded
     private WorkConditions workConditions;
@@ -148,18 +148,34 @@ public class Freelancer {
     }
 
     public void updateExpertise(Expertise expertise) {
+        // Review scores must only be updated by the server-side review aggregation flow.
         if (expertise == null) throw new IllegalArgumentException("expertise is required");
         this.expertise = expertise;
     }
 
     public void updateCollaboration(Collaboration collaboration) {
+        // Review scores must only be updated by the server-side review aggregation flow.
         if (collaboration == null) throw new IllegalArgumentException("collaboration is required");
         this.collaboration = collaboration;
+    }
+
+    public void updateReviewMetrics(Expertise expertise, Collaboration collaboration, Double averageRate) {
+        if (expertise != null) {
+            this.expertise = expertise;
+        }
+        if (collaboration != null) {
+            this.collaboration = collaboration;
+        }
+        updateAverageRate(averageRate);
     }
 
     public void updatePortfolioInfo(PortfolioInfo portfolioInfo) {
         if (portfolioInfo == null) throw new IllegalArgumentException("portfolioInfo is required");
         this.portfolioInfo = portfolioInfo;
+    }
+
+    public void clearPortfolioInfo() {
+        this.portfolioInfo = null;
     }
 
     public void updateNotificationSettings(Boolean requestNotificationEnabled, Boolean contractNotificationEnabled) {
@@ -235,6 +251,7 @@ public class Freelancer {
     */
 
     public void updateAverageRate(Double averageRate) {
+        // Review scores must only be updated by the server-side review aggregation flow.
         if (averageRate == null) return;
         if (averageRate < 0.0 || averageRate > 5.0) {
             throw new IllegalArgumentException("averageRate must be between 0.0 and 5.0");

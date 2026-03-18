@@ -20,6 +20,8 @@ import org.springframework.http.MediaType;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.web.client.RestClientException;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -45,7 +47,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
         org.springframework.http.client.SimpleClientHttpRequestFactory factory =
                 new org.springframework.http.client.SimpleClientHttpRequestFactory();
         factory.setConnectTimeout((int) java.time.Duration.ofSeconds(5).toMillis());
-        factory.setReadTimeout((int) java.time.Duration.ofSeconds(30).toMillis());
+        factory.setReadTimeout((int) java.time.Duration.ofSeconds(90).toMillis());
         this.restClient = RestClient.builder().requestFactory(factory).build();
         this.objectMapper = objectMapper;
         this.taskExecutor = taskExecutor;
@@ -97,7 +99,15 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
             }
         }, MediaType.APPLICATION_PDF);
         
-        return restClient.post()
+        Instant requestedAt = Instant.now();
+        log.info(
+                "Python 계약 분석 API를 호출합니다. filename={}, pdfBytes={}, pythonUrl={}",
+                filename,
+                pdfBytes.length,
+                pythonUrl
+        );
+
+        String responseBody = restClient.post()
                 .uri(pythonUrl + "/api/v1/analysis/contract")
                 .contentType(MediaType.MULTIPART_FORM_DATA)
                 .body(builder.build())
@@ -112,6 +122,13 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
                     throw new AiServiceException("AI 계약서 분석 요청이 실패했습니다: " + response.getStatusCode());
                 })
                 .body(String.class);
+        log.info(
+                "Python 계약 분석 API 호출이 완료되었습니다. filename={}, responseLength={}, elapsedMs={}",
+                filename,
+                responseBody != null ? responseBody.length() : 0,
+                Duration.between(requestedAt, Instant.now()).toMillis()
+        );
+        return responseBody;
     }
 
     @Override
@@ -157,12 +174,13 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
     }
 
     @Override
-    public <T> List<T> recommendFreelancers(Long jobId, String title, String description, Class<T> responseType) {
+    public <T> List<T> recommendFreelancers(Long jobId, String title, String description, String skills, Class<T> responseType) {
         try {
             String requestBody = objectMapper.writeValueAsString(Map.of(
                     "jobId", jobId,
                     "title", title,
-                    "description", description
+                    "description", description,
+                    "skills", skills == null ? "" : skills
             ));
 
             String rawJson = restClient.post()

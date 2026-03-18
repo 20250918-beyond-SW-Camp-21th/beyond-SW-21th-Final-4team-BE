@@ -26,7 +26,11 @@ import java.util.UUID;
 public class FreelancerPortfolioService {
 
     private static final long MAX_PORTFOLIO_BYTES = 20 * 1024 * 1024; // 20MB
-    private static final Set<String> ALLOWED_TYPES = Set.of("application/pdf");
+    private static final Set<String> ALLOWED_TYPES = Set.of(
+            "application/pdf",
+            "application/x-pdf",
+            "application/octet-stream"
+    );
 
     private final FreelancerRepository freelancerRepository;
     private final FileStorage fileStorage;
@@ -38,7 +42,7 @@ public class FreelancerPortfolioService {
         if (info == null) {
             return new PortfolioInfoDto(null, null, null);
         }
-        return new PortfolioInfoDto(info.getPortfolioFileUrl(), info.getPortfolioFileName(), info.getPortfolioLastUpdated());
+        return new PortfolioInfoDto(toAccessibleUrl(info.getPortfolioFileUrl()), info.getPortfolioFileName(), info.getPortfolioLastUpdated());
     }
 
     @Transactional
@@ -52,7 +56,8 @@ public class FreelancerPortfolioService {
         }
 
         String contentType = file.getContentType();
-        if (contentType == null || !ALLOWED_TYPES.contains(contentType.toLowerCase())) {
+        String extension = getExtension(file.getOriginalFilename()).toLowerCase();
+        if (contentType == null || !ALLOWED_TYPES.contains(contentType.toLowerCase()) || !".pdf".equals(extension)) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
 
@@ -64,7 +69,6 @@ public class FreelancerPortfolioService {
             }
 
             Freelancer freelancer = findByUserIdOrThrow(userId);
-            String extension = getExtension(file.getOriginalFilename());
             uploadKey = "freelancers/portfolio/" + UUID.randomUUID() + extension;
             String uploadedKey = fileStorage.upload(fileBytes, uploadKey, contentType);
             String previousKey = freelancer.getPortfolioInfo() != null
@@ -88,7 +92,7 @@ public class FreelancerPortfolioService {
             PortfolioInfo info = new PortfolioInfo(uploadedKey, file.getOriginalFilename(), LocalDateTime.now());
             freelancer.updatePortfolioInfo(info);
 
-            if (previousKey != null && !previousKey.isBlank() && !previousKey.equals(uploadedKey)) {
+            if (isStoredKey(previousKey) && !previousKey.equals(uploadedKey)) {
                 TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                     @Override
                     public void afterCommit() {
@@ -101,7 +105,7 @@ public class FreelancerPortfolioService {
                 });
             }
 
-            return new PortfolioInfoDto(info.getPortfolioFileUrl(), info.getPortfolioFileName(), info.getPortfolioLastUpdated());
+            return new PortfolioInfoDto(toAccessibleUrl(info.getPortfolioFileUrl()), info.getPortfolioFileName(), info.getPortfolioLastUpdated());
         } catch (BusinessException e) {
             throw e;
         } catch (IOException e) {
@@ -110,6 +114,41 @@ public class FreelancerPortfolioService {
         } catch (RuntimeException e) {
             log.error("S3 업로드 실패 - userId: {}, key: {}", userId, uploadKey, e);
             throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public String getPortfolioDownloadUrl(Long userId) {
+        Freelancer freelancer = findByUserIdOrThrow(userId);
+        PortfolioInfo info = freelancer.getPortfolioInfo();
+        if (info == null || info.getPortfolioFileUrl() == null || info.getPortfolioFileUrl().isBlank()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        return toAccessibleUrl(info.getPortfolioFileUrl());
+    }
+
+    @Transactional
+    public void deletePortfolio(Long userId) {
+        Freelancer freelancer = findByUserIdOrThrow(userId);
+        PortfolioInfo info = freelancer.getPortfolioInfo();
+        if (info == null || info.getPortfolioFileUrl() == null || info.getPortfolioFileUrl().isBlank()) {
+            return;
+        }
+
+        String previousKey = info.getPortfolioFileUrl();
+        freelancer.clearPortfolioInfo();
+
+        if (isStoredKey(previousKey)) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    try {
+                        fileStorage.deleteByKey(previousKey);
+                    } catch (Exception ex) {
+                        log.error("S3 portfolio delete failed. key: {}", previousKey, ex);
+                    }
+                }
+            });
         }
     }
 
@@ -130,5 +169,22 @@ public class FreelancerPortfolioService {
             return false;
         }
         return bytes[0] == '%' && bytes[1] == 'P' && bytes[2] == 'D' && bytes[3] == 'F';
+    }
+
+    private String toAccessibleUrl(String storedKeyOrUrl) {
+        if (storedKeyOrUrl == null || storedKeyOrUrl.isBlank()) {
+            return null;
+        }
+        if (storedKeyOrUrl.startsWith("http://") || storedKeyOrUrl.startsWith("https://")) {
+            return storedKeyOrUrl;
+        }
+        return fileStorage.generatePresignedUrl(storedKeyOrUrl);
+    }
+
+    private boolean isStoredKey(String storedKeyOrUrl) {
+        return storedKeyOrUrl != null
+                && !storedKeyOrUrl.isBlank()
+                && !storedKeyOrUrl.startsWith("http://")
+                && !storedKeyOrUrl.startsWith("https://");
     }
 }

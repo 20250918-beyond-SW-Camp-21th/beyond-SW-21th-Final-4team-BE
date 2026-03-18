@@ -93,7 +93,7 @@ public class SubscriptionServiceImpl implements SubscriptionService {
                     null,
                     "ACTIVE",
                     nextBillingDate,
-                    "Upgrade applied immediately."
+                    "플랜 업그레이드가 완료되었습니다."
             );
         }
 
@@ -107,8 +107,7 @@ public class SubscriptionServiceImpl implements SubscriptionService {
                 "ACTIVE",
                 nextBillingDate,
                 targetGrade == PlanGrade.BASIC
-                        ? "Plan changed to BASIC immediately."
-                        : "Downgrade applied immediately."
+                        ? "기본 플랜으로 변경되었습니다." : "플랜이 변경되었습니다."
         );
     }
 
