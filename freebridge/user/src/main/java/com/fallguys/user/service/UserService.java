@@ -2,6 +2,7 @@ package com.fallguys.user.service;
 
 import com.fallguys.common.ai.port.RecommendationEngine;
 import com.fallguys.common.event.EmailVerifiedEvent;
+import com.fallguys.common.event.RecommendationBackfillRequestedEvent;
 import com.fallguys.user.api.web.dto.request.LoginRequestDto;
 import com.fallguys.user.api.web.dto.request.PasswordUpdateRequest;
 import com.fallguys.user.api.web.dto.request.EmailNotificationSettingDto;
@@ -28,6 +29,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -52,6 +54,7 @@ public class UserService {
     private final StringRedisTemplate redisTemplate;
     private final RedisTokenService redisTokenService;
     private final RecommendationEngine recommendationEngine;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     @Async
     @EventListener
@@ -206,6 +209,7 @@ public class UserService {
 
         log.info("로그인 성공 - userId: {}", user.getId());
 
+        applicationEventPublisher.publishEvent(new RecommendationBackfillRequestedEvent(user.getId()));
         return LoginResponseDto.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
