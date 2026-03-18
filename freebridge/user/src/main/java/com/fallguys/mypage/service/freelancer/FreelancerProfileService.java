@@ -48,6 +48,13 @@ public class FreelancerProfileService {
     private final RecommendationEngine recommendationEngine;
     private final FreelancerProjectService freelancerProjectService;
 
+    private static final int MIN_APPLICATIONS_FOR_PORTFOLIO_IMPROVEMENT = 5;
+    private static final double PORTFOLIO_SUCCESS_RATIO_THRESHOLD = 0.2;
+    private static final int MIN_COMPLETED_PROJECTS_FOR_RATE_BUMP = 2;
+    private static final double MIN_AVERAGE_RATE_FOR_BUMP = 4.0;
+    private static final int IN_PROGRESS_BURNOUT_THRESHOLD = 3;
+    private static final int MIN_COMPLETED_PROJECTS_FOR_CHURN_WARNING = 1;
+
     private static final long MAX_AVATAR_BYTES = 5 * 1024 * 1024; // 프로필 이미지 최대 허용 크기 5MB
 
     @Transactional
@@ -492,11 +499,12 @@ public class FreelancerProfileService {
                 && inProgressProjects == 0
                 && appliedProjects == 0
                 && isProfileBasicallyComplete(freelancer);
-        boolean isPortfolioImproveNeeded = appliedProjects >= 5
-                && ((double) (inProgressProjects + completedProjects) / appliedProjects) < 0.2;
-        boolean isRateBumpEligible = completedProjects >= 2 && safeDouble(freelancer.getAverageRate()) >= 4.0;
-        boolean isBurnoutWarning = inProgressProjects >= 3;
-        boolean isChurnWarning = completedProjects >= 1
+        boolean isPortfolioImproveNeeded = appliedProjects >= MIN_APPLICATIONS_FOR_PORTFOLIO_IMPROVEMENT
+                && ((double) (inProgressProjects + completedProjects) / appliedProjects) < PORTFOLIO_SUCCESS_RATIO_THRESHOLD;
+        boolean isRateBumpEligible = completedProjects >= MIN_COMPLETED_PROJECTS_FOR_RATE_BUMP
+                && safeDouble(freelancer.getAverageRate()) >= MIN_AVERAGE_RATE_FOR_BUMP;
+        boolean isBurnoutWarning = inProgressProjects >= IN_PROGRESS_BURNOUT_THRESHOLD;
+        boolean isChurnWarning = completedProjects >= MIN_COMPLETED_PROJECTS_FOR_CHURN_WARNING
                 && freelancer.getStatus() != FreelancerStatus.LEFT
                 && inProgressProjects == 0
                 && appliedProjects == 0;
