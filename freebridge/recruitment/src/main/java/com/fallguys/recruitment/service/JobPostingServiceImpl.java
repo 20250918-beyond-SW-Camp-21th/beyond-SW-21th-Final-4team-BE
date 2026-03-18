@@ -70,7 +70,7 @@ public class JobPostingServiceImpl implements JobPostingService {
     private static final DateTimeFormatter ISO_SECONDS_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
     private static final Duration AI_RECOMMENDATION_CACHE_TTL = Duration.ofHours(24);
     private static final Duration AI_RECOMMENDATION_LOCK_TTL = Duration.ofMinutes(10);
-    private static final Duration AI_RECOMMENDATION_WAIT_TIMEOUT = Duration.ofSeconds(10);
+    private static final Duration AI_RECOMMENDATION_WAIT_TIMEOUT = Duration.ofSeconds(20);
     private static final Duration AI_RECOMMENDATION_WAIT_INTERVAL = Duration.ofMillis(200);
     private static final int AI_RECOMMENDATION_WARM_UP_LIMIT = 3;
     private static final String JOB_RECOMMENDATION_CACHE_KEY_PREFIX = "ai:reco:jobs:v2:";
@@ -395,6 +395,19 @@ public class JobPostingServiceImpl implements JobPostingService {
                 .collect(java.util.stream.Collectors.joining(", "));
     }
 
+    private String normalizeRecommendationSearchText(String value) {
+        if (value == null) {
+            return "";
+        }
+
+        String trimmed = value.trim();
+        if (trimmed.isBlank() || "\uC5C6\uC74C".equals(trimmed)) {
+            return "";
+        }
+
+        return trimmed;
+    }
+
     private boolean hasFreelancerSkillOverlap(List<String> jobTechStack, String freelancerSkills) {
         java.util.Set<String> requiredSkills = orEmpty(jobTechStack).stream()
                 .filter(Objects::nonNull)
@@ -691,6 +704,9 @@ public class JobPostingServiceImpl implements JobPostingService {
                     ? "없음" : freelancer.skills().trim();
             String experience = (freelancer.experience() == null || freelancer.experience().isBlank())
                     ? "없음" : freelancer.experience().trim();
+
+            skills = normalizeRecommendationSearchText(skills);
+            experience = normalizeRecommendationSearchText(experience);
 
             log.debug(
                     "Job recommendation AI request detail. userId={}, rawSkills={}, rawExperience={}",
