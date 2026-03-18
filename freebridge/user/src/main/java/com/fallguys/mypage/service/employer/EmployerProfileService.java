@@ -4,7 +4,9 @@ import com.fallguys.common.port.FileStorage;
 import com.fallguys.mypage.api.web.dto.employer.request.EmployerProfileUpdateRequestDto;
 import com.fallguys.mypage.api.web.dto.employer.response.CrmAlertsResponseDto;
 import com.fallguys.mypage.api.web.dto.employer.response.EmployerBasicProfileDto;
+import com.fallguys.mypage.api.web.dto.employer.response.EmployerProjectStatsResponseDto;
 import com.fallguys.mypage.entity.employer.Employer;
+import com.fallguys.mypage.entity.employer.EmployerStatus;
 import com.fallguys.mypage.entity.employer.Scale;
 import com.fallguys.mypage.entity.employer.Subscription;
 import com.fallguys.mypage.repository.employer.EmployerRepository;
@@ -31,6 +33,7 @@ public class EmployerProfileService {
     private final FileStorage fileStorage;
     private final ExternalUserApi externalUserApi;
     private final EmployerReviewService employerReviewService;
+    private final EmployerProjectService employerProjectService;
 
     @Transactional(readOnly = true)
     public EmployerBasicProfileDto getProfile(Long userId) {
@@ -240,8 +243,39 @@ public class EmployerProfileService {
                 .orElseThrow(() -> new IllegalArgumentException("해당 유저의 고용주 프로필을 찾을 수 없습니다."));
 
         // BASIC 구독 플랜인 경우 업셀 대상으로 간주
-        boolean isPremiumUpsellEligible = (employer.getSubscription() == Subscription.BASIC);
+        EmployerProjectStatsResponseDto projectStats = employerProjectService.getProjectStats(employer.getEmployerId());
 
-        return new CrmAlertsResponseDto(isPremiumUpsellEligible);
+        int totalProjects = safeInt(projectStats.totalProjects());
+        int activeApplicants = safeInt(projectStats.activeApplicants());
+        int contractedFreelancers = safeInt(projectStats.contractedFreelancers());
+
+        boolean isFirstJobEncouraged =
+                (employer.getStatus() == EmployerStatus.POTENTIAL || employer.getStatus() == EmployerStatus.ACTIVE)
+                        && totalProjects == 0;
+        boolean hasPendingApplicants = activeApplicants > 0;
+        boolean isContractConversionNeeded = activeApplicants >= 3 && contractedFreelancers == 0;
+        boolean isRehiringRecommended = contractedFreelancers >= 1 && activeApplicants == 0 && totalProjects >= 1;
+        boolean isSubscriptionAttentionNeeded = employer.getPendingSubscription() != null
+                || (employer.getSubscription() != Subscription.BASIC && employer.getNextBillingDate() != null);
+        boolean isPremiumUpsellEligible = employer.getSubscription() == Subscription.BASIC
+                && (activeApplicants >= 5 || totalProjects >= 2);
+        boolean isPrimeUpsellEligible = employer.getSubscription() == Subscription.PRO
+                && (contractedFreelancers >= 2 || totalProjects >= 3);
+        String upsellTarget = isPrimeUpsellEligible ? "PRIME" : isPremiumUpsellEligible ? "PRO" : null;
+
+        return new CrmAlertsResponseDto(
+                isFirstJobEncouraged,
+                hasPendingApplicants,
+                isContractConversionNeeded,
+                isRehiringRecommended,
+                isSubscriptionAttentionNeeded,
+                isPremiumUpsellEligible,
+                isPrimeUpsellEligible,
+                upsellTarget
+        );
+    }
+
+    private int safeInt(Integer value) {
+        return value == null ? 0 : value;
     }
 }
