@@ -46,6 +46,12 @@ class ContractServiceTest {
     private CreateContractRequest createRequest;
     private Contract savedContract;
 
+    private SignContractRequest signRequest(String signature) {
+        SignContractRequest request = new SignContractRequest();
+        request.setSignature(signature);
+        return request;
+    }
+
     @BeforeEach
     void setUp() {
         createRequest = new CreateContractRequest();
@@ -170,6 +176,8 @@ class ContractServiceTest {
             assertNotNull(response.getEmployerSignature());
             assertEquals("data:image/png;base64,abc123", response.getEmployerSignature());
             assertNotNull(response.getEmployerSignedDate());
+            assertTrue(Boolean.TRUE.equals(response.getEmployerSigned()));
+            assertFalse(Boolean.TRUE.equals(response.getFreelancerSigned()));
         }
 
         @Test
@@ -370,7 +378,7 @@ class ContractServiceTest {
             when(contractRepository.save(any(Contract.class)))
                     .thenAnswer(invocation -> invocation.getArgument(0));
 
-            ContractResponse response = contractService.sign(1001L, "free_sig", "FREELANCER", 100L);
+            ContractResponse response = contractService.sign(1001L, signRequest("free_sig"), "FREELANCER", 100L);
 
             assertNotNull(response.getFreelancerSignature());
             assertEquals("free_sig", response.getFreelancerSignature());
@@ -389,7 +397,7 @@ class ContractServiceTest {
             when(contractPdfService.generateSignedPdf(any(Contract.class)))
                     .thenReturn("/pdfs/contracts/1001_signed.pdf");
 
-            ContractResponse response = contractService.sign(1001L, "free_sig", "FREELANCER", 100L);
+            ContractResponse response = contractService.sign(1001L, signRequest("free_sig"), "FREELANCER", 100L);
 
             assertEquals("IN_PROGRESS", response.getStatus());
             assertNotNull(response.getSignedDate());
@@ -408,7 +416,7 @@ class ContractServiceTest {
             when(contractPdfService.generateSignedPdf(any(Contract.class)))
                     .thenReturn("/pdfs/contracts/1001_signed.pdf");
 
-            ContractResponse response = contractService.sign(1001L, "free_sig", "FREELANCER", 100L);
+            ContractResponse response = contractService.sign(1001L, signRequest("free_sig"), "FREELANCER", 100L);
 
             verify(contractPdfService).generateSignedPdf(any(Contract.class));
             assertEquals("/pdfs/contracts/1001_signed.pdf", response.getSignedPdfUrl());
@@ -427,7 +435,7 @@ class ContractServiceTest {
             when(contractPdfService.generateSignedPdf(any(Contract.class)))
                     .thenReturn("/pdfs/contracts/1001_signed.pdf");
 
-            contractService.sign(1001L, "free_sig", "FREELANCER", 100L);
+            contractService.sign(1001L, signRequest("free_sig"), "FREELANCER", 100L);
 
             verify(eventPublisher).publishEvent(any(ContractActivatedEvent.class));
         }
@@ -440,7 +448,7 @@ class ContractServiceTest {
             when(contractRepository.save(any(Contract.class)))
                     .thenAnswer(invocation -> invocation.getArgument(0));
 
-            contractService.sign(1001L, "free_sig", "FREELANCER", 100L);
+            contractService.sign(1001L, signRequest("free_sig"), "FREELANCER", 100L);
 
             verify(eventPublisher, never()).publishEvent(any());
         }
@@ -453,7 +461,7 @@ class ContractServiceTest {
 
             BusinessException exception = assertThrows(
                     BusinessException.class,
-                    () -> contractService.sign(9999L, "sig", "FREELANCER", 100L)
+                    () -> contractService.sign(9999L, signRequest("sig"), "FREELANCER", 100L)
             );
 
             assertEquals(ErrorCode.CONTRACT_NOT_FOUND, exception.getErrorCode());
@@ -467,7 +475,7 @@ class ContractServiceTest {
 
             BusinessException exception = assertThrows(
                     BusinessException.class,
-                    () -> contractService.sign(1001L, "sig", "FREELANCER", 999L) // 무관한 사용자
+                    () -> contractService.sign(1001L, signRequest("sig"), "FREELANCER", 999L) // 무관한 사용자
             );
 
             assertEquals(ErrorCode.CONTRACT_FORBIDDEN, exception.getErrorCode());
@@ -481,7 +489,7 @@ class ContractServiceTest {
 
             BusinessException exception = assertThrows(
                     BusinessException.class,
-                    () -> contractService.sign(1001L, "sig", "ADMIN", 100L)
+                    () -> contractService.sign(1001L, signRequest("sig"), "ADMIN", 100L)
             );
 
             assertEquals(ErrorCode.CONTRACT_FORBIDDEN, exception.getErrorCode());

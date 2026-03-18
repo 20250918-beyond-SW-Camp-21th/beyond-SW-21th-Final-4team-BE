@@ -46,6 +46,8 @@ class ContractQueryServiceTest {
         contract.setEndDate(LocalDate.of(2024, 12, 31));
         contract.setBudget(5000000L);
         contract.setStatus(ContractStatus.IN_PROGRESS);
+        contract.setEmployerSignature("employer-sign");
+        contract.setFreelancerSignature("freelancer-sign");
     }
 
     @Test
@@ -75,6 +77,9 @@ class ContractQueryServiceTest {
         assertEquals("테스트 프로젝트", result.projectName());
         assertEquals(100L, result.freelancerId());
         assertEquals(200L, result.employerId());
+        assertEquals("IN_PROGRESS", result.status());
+        assertTrue(result.employerSigned());
+        assertTrue(result.freelancerSigned());
         assertEquals(0.05, result.commissionRate());
         assertEquals(25, result.paymentDay());
         assertEquals(LocalDate.of(2024, 1, 1), result.startDate());
@@ -174,6 +179,9 @@ class ContractQueryServiceTest {
         assertEquals(2L, result.id());
         assertEquals(1002L, result.contractId());
         assertNull(result.projectName());
+        assertNull(result.status());
+        assertFalse(result.employerSigned());
+        assertFalse(result.freelancerSigned());
         verify(contractRepository).findByContractId(1002L);
         verify(contractRepository, never()).findById(anyLong());
     }

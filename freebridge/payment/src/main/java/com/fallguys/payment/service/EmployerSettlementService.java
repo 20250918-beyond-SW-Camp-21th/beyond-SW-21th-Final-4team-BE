@@ -226,6 +226,7 @@ public class EmployerSettlementService {
 
         // 계약 정보 조회
         ContractInfo contract = contractQuery.getContractInfoByContractId(contractId);
+        validatePayableContract(contract, employerId);
 
         // 이 지점부터 외부 결제는 PAID 확정 — 내부 처리 실패 시 cancelPayment로 보상
         try {
@@ -348,6 +349,7 @@ public class EmployerSettlementService {
      */
     @Transactional
     public List<EmployerSettlement> createSettlementRecords(ContractInfo contract, String paymentId, Long employerId) {
+        validatePayableContract(contract, employerId);
         Long contractPublicId = contract.contractId();
 
         if (contractPublicId == null) {
@@ -455,6 +457,21 @@ public class EmployerSettlementService {
             result.add(es);
         }
         return result;
+    }
+
+    private void validatePayableContract(ContractInfo contract, Long employerId) {
+        if (contract == null) {
+            throw new BusinessException(ErrorCode.CONTRACT_NOT_FOUND);
+        }
+        if (!employerId.equals(contract.employerId())) {
+            throw new BusinessException(ErrorCode.CONTRACT_FORBIDDEN);
+        }
+        if (!contract.employerSigned() || !contract.freelancerSigned()) {
+            throw new BusinessException(ErrorCode.CONTRACT_NOT_ACTIVATABLE);
+        }
+        if (!"IN_PROGRESS".equals(contract.status())) {
+            throw new BusinessException(ErrorCode.CONTRACT_NOT_IN_PROGRESS);
+        }
     }
 
     private LocalDate buildDueDate(LocalDate startDate, int monthsOffset, int paymentDay) {

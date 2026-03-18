@@ -281,6 +281,8 @@ public class ContractService {
     }
 
     private ContractResponse toResponse(Contract c) {
+        boolean employerSigned = hasSignature(c.getEmployerSignature());
+        boolean freelancerSigned = hasSignature(c.getFreelancerSignature());
         return ContractResponse.builder()
                 .id(c.getId())
                 .contractId(c.getContractId())
@@ -317,6 +319,8 @@ public class ContractService {
                 .employerSignedDate(c.getEmployerSignedDate())
                 .freelancerSignature(c.getFreelancerSignature())
                 .freelancerSignedDate(c.getFreelancerSignedDate())
+                .employerSigned(employerSigned)
+                .freelancerSigned(freelancerSigned)
                 .freelancerName(getFreelancerName(c.getFreelancerId()))
                 .employerName(getEmployerDisplayName(c.getEmployerId()))
                 .build();
@@ -336,10 +340,14 @@ public class ContractService {
                 .endDate(c.getEndDate())
                 .status(c.getStatus() != null ? c.getStatus().name() : null)
                 .budget(c.getBudget())
-                .employerSigned(c.getEmployerSignature() != null)
-                .freelancerSigned(c.getFreelancerSignature() != null)
+                .employerSigned(hasSignature(c.getEmployerSignature()))
+                .freelancerSigned(hasSignature(c.getFreelancerSignature()))
                 .freelancerName(getFreelancerName(c.getFreelancerId()))
                 .employerName(getEmployerDisplayName(c.getEmployerId()))
                 .build();
+    }
+
+    private boolean hasSignature(String signature) {
+        return signature != null && !signature.isBlank();
     }
 }
