@@ -1,5 +1,6 @@
 package com.fallguys.mypage.api.shared;
 
+import com.fallguys.common.port.FileStorage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -27,6 +28,7 @@ public class SharedMypageApiImpl implements SharedMypageApi {
     private final ExternalUserApi externalUserApi;
     private final EmployerRepository employerRepository;
     private final ExternalFreelancerSearchApi externalFreelancerSearchApi;
+    private final FileStorage fileStorage;
 
     @Override
     public void updatePassword(Long userId, String currentPassword, String updatedPassword) {
@@ -125,9 +127,24 @@ public class SharedMypageApiImpl implements SharedMypageApi {
                 item.careerYears(),
                 item.wage(),
                 item.introduction(),
-                item.avatarUrl(),
+                toAccessibleUrl(item.avatarUrl()),
                 item.skills() == null ? List.of() : item.skills(),
                 item.grade()
         );
+    }
+
+    private String toAccessibleUrl(String storedKeyOrUrl) {
+        if (storedKeyOrUrl == null || storedKeyOrUrl.isBlank()) {
+            return null;
+        }
+        if (storedKeyOrUrl.startsWith("http://") || storedKeyOrUrl.startsWith("https://")) {
+            return storedKeyOrUrl;
+        }
+        try {
+            return fileStorage.generatePresignedUrl(storedKeyOrUrl);
+        } catch (RuntimeException e) {
+            log.error("Failed to generate accessible freelancer avatar URL. key={}", storedKeyOrUrl, e);
+            return null;
+        }
     }
 }

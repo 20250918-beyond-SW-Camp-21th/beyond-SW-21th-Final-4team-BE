@@ -133,11 +133,27 @@ public class UserService {
                 TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                     @Override
                     public void afterCommit() {
-                        syncFreelancerProfileTask.run();
+                        try {
+                            syncFreelancerProfileTask.run();
+                        } catch (RuntimeException e) {
+                            log.warn(
+                                    "AI sync failed after signup. action=new_profile, freelancerId={}",
+                                    savedFreelancer.getFreelancerId(),
+                                    e
+                            );
+                        }
                     }
                 });
             } else {
-                syncFreelancerProfileTask.run();
+                try {
+                    syncFreelancerProfileTask.run();
+                } catch (RuntimeException e) {
+                    log.warn(
+                            "AI sync failed after signup. action=new_profile, freelancerId={}",
+                            savedFreelancer.getFreelancerId(),
+                            e
+                    );
+                }
             }
         } else if (Role.EMPLOYER.equals(savedUser.getRole())) {
             // 필수 뼈대값 대입 (가입 시 법인명은 유저 이름으로 임시 설정)

@@ -131,6 +131,7 @@ public class MatchsServiceImpl implements MatchsService {
         application.accept();
         Long projectId = createProjectIfAbsent(application.getJobPostingId(), application.getFreelancerId());
         runAfterCommitSafely(() -> {
+            jobPostingService.refreshEmployerRecruitmentCaches(application.getEmployerId());
             refreshEmployerProjectStats(application.getEmployerId());
             refreshEmployerProjectList(application.getEmployerId());
             refreshEmployerProjectApplicants(application.getId());
@@ -152,6 +153,7 @@ public class MatchsServiceImpl implements MatchsService {
         proposal.accept();
         Long projectId = createProjectIfAbsent(proposal.getJobPostingId(), freelancerId);
         runAfterCommitSafely(() -> {
+            jobPostingService.refreshEmployerRecruitmentCaches(proposal.getEmployerId());
             refreshEmployerProjectStats(proposal.getEmployerId());
             refreshEmployerProjectList(proposal.getEmployerId());
             refreshFreelancerProjectStats(freelancerId);

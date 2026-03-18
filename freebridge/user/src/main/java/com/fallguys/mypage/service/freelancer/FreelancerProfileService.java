@@ -47,8 +47,9 @@ public class FreelancerProfileService {
 
     private static final long MAX_AVATAR_BYTES = 5 * 1024 * 1024; // 프로필 이미지 최대 허용 크기 5MB
 
-    @Transactional(readOnly = true)
+    @Transactional
     public FreelancerProfileResponseDto getProfile(Long userId) {
+        freelancerReviewService.syncReviewMetricsToFreelancer(userId);
         Freelancer freelancer = findByUserIdOrThrow(userId);
         ExternalUserResponse userResponse = sharedMypageApi.getUserById(userId);
         freelancerReviewService.getReviewSummary(userId);
@@ -77,7 +78,7 @@ public class FreelancerProfileService {
 
         PortfolioInfo portfolioInfo = freelancer.getPortfolioInfo();
         PortfolioInfoDto portfolioInfoDto = portfolioInfo == null ? null : new PortfolioInfoDto(
-                portfolioInfo.getPortfolioFileUrl(),
+                toAccessibleUrl(portfolioInfo.getPortfolioFileUrl()),
                 portfolioInfo.getPortfolioFileName(),
                 portfolioInfo.getPortfolioLastUpdated()
         );
@@ -85,7 +86,7 @@ public class FreelancerProfileService {
         CrmAlertsDto crmAlerts = new CrmAlertsDto(null, null, null);
 
         FreelancerBasicProfileDto basicProfile = new FreelancerBasicProfileDto(
-                freelancer.getAvatarUrl(),
+                toAccessibleUrl(freelancer.getAvatarUrl()),
                 userResponse != null ? userResponse.getName() : null,
                 userResponse != null ? userResponse.getEmail() : null,
                 null,
@@ -233,10 +234,11 @@ public class FreelancerProfileService {
 
             String extension = getExtension(file.getOriginalFilename());
             uploadKey = "freelancers/avatar/" + UUID.randomUUID() + extension;
-            String uploadedUrl = fileStorage.upload(fileBytes, uploadKey, file.getContentType());
+            String uploadedKey = fileStorage.upload(fileBytes, uploadKey, file.getContentType());
+            String previousKey = freelancer.getAvatarUrl();
 
             // DB 롤백 시 이미 업로드된 S3 파일 삭제 (고아 파일 방지)
-            String finalUploadKey = uploadKey;
+            String finalUploadKey = uploadedKey;
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCompletion(int status) {
@@ -250,9 +252,22 @@ public class FreelancerProfileService {
                 }
             });
 
-            freelancer.updateBasicProfile(null, uploadedUrl, null);
+            if (isStoredKey(previousKey) && !previousKey.equals(uploadedKey)) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        try {
+                            fileStorage.deleteByKey(previousKey);
+                        } catch (Exception ex) {
+                            log.error("S3 old avatar delete failed. key: {}", previousKey, ex);
+                        }
+                    }
+                });
+            }
 
-            return uploadedUrl;
+            freelancer.updateBasicProfile(null, uploadedKey, null);
+
+            return toAccessibleUrl(uploadedKey);
         } catch (BusinessException e) {
             throw e;
         } catch (IOException e) {
@@ -274,13 +289,21 @@ public class FreelancerProfileService {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    task.run();
+                    try {
+                        task.run();
+                    } catch (RuntimeException e) {
+                        log.warn("AI sync failed in runAfterCommitSafely", e);
+                    }
                 }
             });
             return;
         }
 
-        task.run();
+        try {
+            task.run();
+        } catch (RuntimeException e) {
+            log.warn("AI sync failed in runAfterCommitSafely", e);
+        }
     }
 
     private void syncFreelancerProfileToAi(Freelancer freelancer) {
@@ -346,6 +369,23 @@ public class FreelancerProfileService {
             return true;
         }
         return false;
+    }
+
+    private String toAccessibleUrl(String storedKeyOrUrl) {
+        if (storedKeyOrUrl == null || storedKeyOrUrl.isBlank()) {
+            return null;
+        }
+        if (storedKeyOrUrl.startsWith("http://") || storedKeyOrUrl.startsWith("https://")) {
+            return storedKeyOrUrl;
+        }
+        return fileStorage.generatePresignedUrl(storedKeyOrUrl);
+    }
+
+    private boolean isStoredKey(String storedKeyOrUrl) {
+        return storedKeyOrUrl != null
+                && !storedKeyOrUrl.isBlank()
+                && !storedKeyOrUrl.startsWith("http://")
+                && !storedKeyOrUrl.startsWith("https://");
     }
 
     private Double calculateTotalScore(Expertise expertise, Collaboration collaboration, Double fallbackAverageRate) {
