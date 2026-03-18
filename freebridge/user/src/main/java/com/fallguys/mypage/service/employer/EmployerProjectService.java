@@ -1,7 +1,7 @@
 package com.fallguys.mypage.service.employer;
 
-import com.fallguys.mypage.api.web.dto.employer.response.EmployerProjectStatsResponseDto;
 import com.fallguys.mypage.api.web.dto.employer.response.EmployerProjectListResponseDto;
+import com.fallguys.mypage.api.web.dto.employer.response.EmployerProjectStatsResponseDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;

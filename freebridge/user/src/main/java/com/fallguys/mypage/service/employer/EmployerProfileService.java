@@ -243,7 +243,8 @@ public class EmployerProfileService {
                 .orElseThrow(() -> new IllegalArgumentException("해당 유저의 고용주 프로필을 찾을 수 없습니다."));
 
         // BASIC 구독 플랜인 경우 업셀 대상으로 간주
-        EmployerProjectStatsResponseDto projectStats = employerProjectService.getProjectStats(employer.getEmployerId());
+        // Recruitment module caches employer project stats by employer userId.
+        EmployerProjectStatsResponseDto projectStats = employerProjectService.getProjectStats(userId);
 
         int totalProjects = safeInt(projectStats.totalProjects());
         int activeApplicants = safeInt(projectStats.activeApplicants());
