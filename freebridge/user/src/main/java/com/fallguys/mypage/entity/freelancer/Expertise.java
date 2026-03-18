@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Expertise {
-    private Integer programming;
-    private Integer framework;
-    private Integer problemSolving;
+    private Double programming;
+    private Double framework;
+    private Double problemSolving;
 }

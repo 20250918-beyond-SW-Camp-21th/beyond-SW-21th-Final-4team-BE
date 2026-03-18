@@ -44,8 +44,9 @@ public class FreelancerProfileService {
 
     private static final long MAX_AVATAR_BYTES = 5 * 1024 * 1024; // 프로필 이미지 최대 허용 크기 5MB
 
-    @Transactional(readOnly = true)
+    @Transactional
     public FreelancerProfileResponseDto getProfile(Long userId) {
+        freelancerReviewService.syncReviewMetricsToFreelancer(userId);
         Freelancer freelancer = findByUserIdOrThrow(userId);
         ExternalUserResponse userResponse = sharedMypageApi.getUserById(userId);
         freelancerReviewService.getReviewSummary(userId);
@@ -74,7 +75,7 @@ public class FreelancerProfileService {
 
         PortfolioInfo portfolioInfo = freelancer.getPortfolioInfo();
         PortfolioInfoDto portfolioInfoDto = portfolioInfo == null ? null : new PortfolioInfoDto(
-                portfolioInfo.getPortfolioFileUrl(),
+                toAccessibleUrl(portfolioInfo.getPortfolioFileUrl()),
                 portfolioInfo.getPortfolioFileName(),
                 portfolioInfo.getPortfolioLastUpdated()
         );
@@ -82,7 +83,7 @@ public class FreelancerProfileService {
         CrmAlertsDto crmAlerts = new CrmAlertsDto(null, null, null);
 
         FreelancerBasicProfileDto basicProfile = new FreelancerBasicProfileDto(
-                freelancer.getAvatarUrl(),
+                toAccessibleUrl(freelancer.getAvatarUrl()),
                 userResponse != null ? userResponse.getName() : null,
                 userResponse != null ? userResponse.getEmail() : null,
                 null,
@@ -150,55 +151,6 @@ public class FreelancerProfileService {
             freelancer.updateWorkConditions(workConditions);
         }
 
-        boolean hasExpertise = request.expertiseProgramming() != null
-                || request.expertiseFramework() != null
-                || request.expertiseProblemSolving() != null;
-
-        if (hasExpertise) {
-            Expertise existing = freelancer.getExpertise();
-            Integer programming = request.expertiseProgramming() != null
-                    ? request.expertiseProgramming()
-                    : existing != null ? existing.getProgramming() : null;
-            Integer framework = request.expertiseFramework() != null
-                    ? request.expertiseFramework()
-                    : existing != null ? existing.getFramework() : null;
-            Integer problemSolving = request.expertiseProblemSolving() != null
-                    ? request.expertiseProblemSolving()
-                    : existing != null ? existing.getProblemSolving() : null;
-            Expertise expertise = new Expertise(
-                    programming,
-                    framework,
-                    problemSolving
-            );
-            freelancer.updateExpertise(expertise);
-        }
-
-        boolean hasCollaboration = request.collaborationCommunication() != null
-                || request.collaborationScheduleAdherence() != null
-                || request.collaborationDispute() != null;
-
-        if (hasCollaboration) {
-            Collaboration existing = freelancer.getCollaboration();
-            Integer communication = request.collaborationCommunication() != null
-                    ? request.collaborationCommunication()
-                    : existing != null ? existing.getCommunication() : null;
-            Integer scheduleAdherence = request.collaborationScheduleAdherence() != null
-                    ? request.collaborationScheduleAdherence()
-                    : existing != null ? existing.getScheduleAdherence() : null;
-            Integer dispute = request.collaborationDispute() != null
-                    ? request.collaborationDispute()
-                    : existing != null ? existing.getDispute() : null;
-            Collaboration collaboration = new Collaboration(
-                    communication,
-                    scheduleAdherence,
-                    dispute
-            );
-            freelancer.updateCollaboration(collaboration);
-        }
-
-        if (request.averageRating() != null) {
-            freelancer.updateAverageRate(request.averageRating());
-        }
     }
 
     @Transactional
@@ -228,10 +180,11 @@ public class FreelancerProfileService {
 
             String extension = getExtension(file.getOriginalFilename());
             uploadKey = "freelancers/avatar/" + UUID.randomUUID() + extension;
-            String uploadedUrl = fileStorage.upload(fileBytes, uploadKey, file.getContentType());
+            String uploadedKey = fileStorage.upload(fileBytes, uploadKey, file.getContentType());
+            String previousKey = freelancer.getAvatarUrl();
 
             // DB 롤백 시 이미 업로드된 S3 파일 삭제 (고아 파일 방지)
-            String finalUploadKey = uploadKey;
+            String finalUploadKey = uploadedKey;
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCompletion(int status) {
@@ -245,9 +198,22 @@ public class FreelancerProfileService {
                 }
             });
 
-            freelancer.updateBasicProfile(null, uploadedUrl, null);
+            if (isStoredKey(previousKey) && !previousKey.equals(uploadedKey)) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        try {
+                            fileStorage.deleteByKey(previousKey);
+                        } catch (Exception ex) {
+                            log.error("S3 old avatar delete failed. key: {}", previousKey, ex);
+                        }
+                    }
+                });
+            }
 
-            return uploadedUrl;
+            freelancer.updateBasicProfile(null, uploadedKey, null);
+
+            return toAccessibleUrl(uploadedKey);
         } catch (BusinessException e) {
             throw e;
         } catch (IOException e) {
@@ -296,6 +262,23 @@ public class FreelancerProfileService {
             return true;
         }
         return false;
+    }
+
+    private String toAccessibleUrl(String storedKeyOrUrl) {
+        if (storedKeyOrUrl == null || storedKeyOrUrl.isBlank()) {
+            return null;
+        }
+        if (storedKeyOrUrl.startsWith("http://") || storedKeyOrUrl.startsWith("https://")) {
+            return storedKeyOrUrl;
+        }
+        return fileStorage.generatePresignedUrl(storedKeyOrUrl);
+    }
+
+    private boolean isStoredKey(String storedKeyOrUrl) {
+        return storedKeyOrUrl != null
+                && !storedKeyOrUrl.isBlank()
+                && !storedKeyOrUrl.startsWith("http://")
+                && !storedKeyOrUrl.startsWith("https://");
     }
 
     private Double calculateTotalScore(Expertise expertise, Collaboration collaboration, Double fallbackAverageRate) {

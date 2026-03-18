@@ -1,24 +1,26 @@
 package com.fallguys.mypage.service.employer;
 
 import com.fallguys.common.port.FileStorage;
-import com.fallguys.mypage.api.web.dto.employer.response.EmployerBasicProfileDto;
 import com.fallguys.mypage.api.web.dto.employer.request.EmployerProfileUpdateRequestDto;
-import com.fallguys.mypage.entity.employer.Employer;
-import com.fallguys.mypage.repository.employer.EmployerRepository;
 import com.fallguys.mypage.api.web.dto.employer.response.CrmAlertsResponseDto;
+import com.fallguys.mypage.api.web.dto.employer.response.EmployerBasicProfileDto;
+import com.fallguys.mypage.entity.employer.Employer;
+import com.fallguys.mypage.entity.employer.Scale;
 import com.fallguys.mypage.entity.employer.Subscription;
+import com.fallguys.mypage.repository.employer.EmployerRepository;
 import com.fallguys.user.api.shared.ExternalUserApi;
 import com.fallguys.user.api.shared.response.ExternalUserMyInfoResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
-import java.io.IOException;
-import java.util.UUID;
-import java.util.Set;
-import com.fallguys.mypage.entity.employer.Scale;
 
+import java.io.IOException;
+import java.util.Set;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -45,7 +47,17 @@ public class EmployerProfileService {
             }
         }
         String phone = userInfo != null ? userInfo.getPhone() : null;
-        return EmployerBasicProfileDto.from(employer, phone);
+        return new EmployerBasicProfileDto(
+                employer.getCompanyName(),
+                employer.getIndustry(),
+                employer.getScale() != null ? employer.getScale().name() : null,
+                employer.getLocation(),
+                employer.getWebsiteUrl(),
+                phone,
+                employer.getDescription(),
+                toAccessibleUrl(employer.getLogoUrl()),
+                employer.getStatus() != null ? employer.getStatus().name() : null
+        );
     }
 
     @Transactional
@@ -69,7 +81,7 @@ public class EmployerProfileService {
                 location,
                 websiteUrl,
                 description,
-                employer.getLogoUrl() // 기존 로고는 유지 (로고 수정 API 분리됨)
+                employer.getLogoUrl() // 기존 로고는 유지 (로고 수정 API 분리)
         );
 
         if (hasText(request.phone())) {
@@ -115,7 +127,7 @@ public class EmployerProfileService {
 
         String contentType = file.getContentType();
         Set<String> allowedMimeTypes = Set.of("image/jpeg", "image/png", "image/webp", "image/gif");
-        
+
         if (contentType == null || !allowedMimeTypes.contains(contentType.toLowerCase())) {
             throw new IllegalArgumentException("이미지 파일(JPEG, PNG, WEBP, GIF)만 업로드 가능합니다. (현재 타입: " + contentType + ")");
         }
@@ -129,18 +141,41 @@ public class EmployerProfileService {
             Employer employer = employerRepository.findByUserId(userId)
                     .orElseThrow(() -> new IllegalArgumentException("해당 유저의 고용주 프로필을 찾을 수 없습니다."));
 
-            // S3 키(경로) 생성 (예: employers/logo/uuid_filename)
             String extension = getExtension(file.getOriginalFilename());
             String key = "employers/logo/" + UUID.randomUUID() + extension;
-            
-            // S3 FileStorage 인터페이스를 통한 업로드 실제 수행
-            // 반환되는 key는 S3에 저장된 경로
-            String uploadedUrl = fileStorage.upload(fileBytes, key, file.getContentType());
-            
-            // DB 엔티티 업데이트
-            employer.updateLogoUrl(uploadedUrl);
-            
-            return uploadedUrl;
+            String uploadedKey = fileStorage.upload(fileBytes, key, file.getContentType());
+            String previousKey = employer.getLogoUrl();
+
+            String finalUploadKey = uploadedKey;
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCompletion(int status) {
+                    if (status == STATUS_ROLLED_BACK) {
+                        try {
+                            fileStorage.deleteByKey(finalUploadKey);
+                        } catch (Exception ex) {
+                            log.error("S3 rollback delete failed. key: {}", finalUploadKey, ex);
+                        }
+                    }
+                }
+            });
+
+            employer.updateLogoUrl(uploadedKey);
+
+            if (isStoredKey(previousKey) && !previousKey.equals(uploadedKey)) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        try {
+                            fileStorage.deleteByKey(previousKey);
+                        } catch (Exception ex) {
+                            log.error("S3 old logo delete failed. key: {}", previousKey, ex);
+                        }
+                    }
+                });
+            }
+
+            return toAccessibleUrl(uploadedKey);
         } catch (IOException e) {
             throw new RuntimeException("파일 업로드 중 오류가 발생했습니다.", e);
         }
@@ -182,12 +217,29 @@ public class EmployerProfileService {
         return false;
     }
 
+    private String toAccessibleUrl(String storedKeyOrUrl) {
+        if (storedKeyOrUrl == null || storedKeyOrUrl.isBlank()) {
+            return null;
+        }
+        if (storedKeyOrUrl.startsWith("http://") || storedKeyOrUrl.startsWith("https://")) {
+            return storedKeyOrUrl;
+        }
+        return fileStorage.generatePresignedUrl(storedKeyOrUrl);
+    }
+
+    private boolean isStoredKey(String storedKeyOrUrl) {
+        return storedKeyOrUrl != null
+                && !storedKeyOrUrl.isBlank()
+                && !storedKeyOrUrl.startsWith("http://")
+                && !storedKeyOrUrl.startsWith("https://");
+    }
+
     @Transactional(readOnly = true)
-    public com.fallguys.mypage.api.web.dto.employer.response.CrmAlertsResponseDto getCrmAlerts(Long userId) {
+    public CrmAlertsResponseDto getCrmAlerts(Long userId) {
         Employer employer = employerRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 유저의 고용주 프로필을 찾을 수 없습니다."));
-        
-        // BASIC 요금제인 경우 업셀링 대상으로 간주
+
+        // BASIC 구독 플랜인 경우 업셀 대상으로 간주
         boolean isPremiumUpsellEligible = (employer.getSubscription() == Subscription.BASIC);
 
         return new CrmAlertsResponseDto(isPremiumUpsellEligible);
