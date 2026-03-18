@@ -313,15 +313,29 @@ public class ChatMessageService {
         Map<String, Object> enriched = new HashMap<>(metadata);
         if (type == MessageType.FILE) {
             String fileKey = extractMetadataString(enriched.get("fileKey"));
+            String contentType = extractMetadataString(enriched.get("contentType"));
+            String fileName = extractMetadataString(enriched.get("fileName"));
             if (fileKey != null) {
                 try {
-                    enriched.put("fileUrl", fileStorage.generatePresignedUrl(fileKey));
+                    String fileUrl = isInlinePreviewableFile(contentType)
+                            ? fileStorage.generatePresignedUrl(fileKey)
+                            : fileStorage.generatePresignedDownloadUrl(fileKey, fileName);
+                    enriched.put("fileUrl", fileUrl);
                 } catch (Exception e) {
                     log.warn("채팅 파일 presigned url 생성 실패 - key: {}", fileKey, e);
                 }
             }
         }
         return enriched;
+    }
+
+    private boolean isInlinePreviewableFile(String contentType) {
+        if (contentType == null || contentType.isBlank()) {
+            return false;
+        }
+
+        String normalizedType = contentType.toLowerCase();
+        return normalizedType.startsWith("image/") || MediaType.APPLICATION_PDF_VALUE.equals(normalizedType);
     }
 
     private String extractMetadataString(Object value) {

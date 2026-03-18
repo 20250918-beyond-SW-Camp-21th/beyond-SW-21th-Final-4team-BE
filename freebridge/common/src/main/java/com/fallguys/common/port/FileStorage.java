@@ -11,4 +11,6 @@ public interface FileStorage {
     void deleteByKey(String key);
 
     String generatePresignedUrl(String key);
+
+    String generatePresignedDownloadUrl(String key, String fileName);
 }
