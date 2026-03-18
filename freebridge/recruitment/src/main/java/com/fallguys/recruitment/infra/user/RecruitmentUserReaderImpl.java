@@ -140,7 +140,7 @@ public class RecruitmentUserReaderImpl implements RecruitmentUserReader {
                         .stream()
                         .filter(skill -> skill != null && !skill.isBlank())
                         .map(String::trim)
-                        .collect(java.util.stream.Collectors.joining(", ")),
+                        .collect(java.util.stream.Collectors.joining(",")),
                 Optional.ofNullable(freelancer.getIntroduction()).orElse("정보 없음"),
                 Optional.ofNullable(freelancer.getStatus()).map(Enum::name).orElse("POTENTIAL")
         );

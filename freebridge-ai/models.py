@@ -28,7 +28,7 @@ class EmployerRecommendationResponse(BaseModel):
 
 class FreelancerRecommendRequest(BaseModel):
     freelancerId: int = Field(gt=0, description="Freelancer ID")
-    skills: str = Field(min_length=1, description="Freelancer skills")
+    skills: str = Field(default="", description="Freelancer skills")
     experience: str = Field(default="", description="Freelancer experience summary")
 
 

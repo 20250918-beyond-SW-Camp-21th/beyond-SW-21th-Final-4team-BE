@@ -395,41 +395,30 @@ public class JobPostingServiceImpl implements JobPostingService {
     }
 
     private boolean hasFreelancerSkillOverlap(List<String> jobTechStack, String freelancerSkills) {
-        List<String> requiredSkills = orEmpty(jobTechStack).stream()
+        java.util.Set<String> requiredSkills = orEmpty(jobTechStack).stream()
                 .filter(Objects::nonNull)
                 .map(String::trim)
                 .filter(skill -> !skill.isBlank())
                 .map(skill -> skill.toLowerCase(Locale.ROOT))
-                .distinct()
-                .toList();
+                .collect(java.util.stream.Collectors.toSet());
 
         if (requiredSkills.isEmpty()) {
             return true;
         }
 
-        List<String> candidateSkills = java.util.Arrays.stream(
+        java.util.Set<String> candidateSkills = java.util.Arrays.stream(
                         Optional.ofNullable(freelancerSkills).orElse("").split(",")
                 )
                 .map(String::trim)
                 .filter(skill -> !skill.isBlank())
                 .map(skill -> skill.toLowerCase(Locale.ROOT))
-                .distinct()
-                .toList();
+                .collect(java.util.stream.Collectors.toSet());
 
         if (candidateSkills.isEmpty()) {
             return false;
         }
 
-        for (String requiredSkill : requiredSkills) {
-            for (String candidateSkill : candidateSkills) {
-                if (requiredSkill.equals(candidateSkill)
-                        || requiredSkill.contains(candidateSkill)
-                        || candidateSkill.contains(requiredSkill)) {
-                    return true;
-                }
-            }
-        }
-        return false;
+        return requiredSkills.stream().anyMatch(candidateSkills::contains);
     }
 
     @Override   // 기업용: 캐싱 조회 전용

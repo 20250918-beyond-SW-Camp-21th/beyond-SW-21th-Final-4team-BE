@@ -145,8 +145,9 @@ async def get_job_recommendations(req: RecommendationRequest):
         structured_llm = llm.with_structured_output(FreelancerMatchList)
 
         description = req.description.strip() if req.description and req.description.strip() else "(상세 내용 없음)"
-        skills = req.skills.strip() if req.skills and req.skills.strip() else "(skills missing)"
-        search_query = f"{req.title} {description} {req.skills}".strip()
+        skills = req.skills.strip() if req.skills and req.skills.strip() else ""
+        job_skills = skills if skills else "(skills missing)"
+        search_query = f"{req.title} {description} {skills}".strip()
         logger.info(
             "Employer recommendation request. job_id=%s",
             req.jobId,
@@ -155,7 +156,7 @@ async def get_job_recommendations(req: RecommendationRequest):
             "Employer recommendation request detail. job_id=%s title=%s skills=%s query=%s",
             req.jobId,
             mask_profile(req.title),
-            mask_profile(req.skills, limit=30),
+            mask_profile(skills, limit=30),
             mask_profile(search_query, limit=40),
         )
 
@@ -220,6 +221,7 @@ async def get_job_recommendations(req: RecommendationRequest):
             적합도 순으로 최대 7명을 추천하세요.
             현재 공고 제목: {job_title}
             현재 공고 상세 내용: {job_description}
+            Current job skills: {job_skills}
             <context>{context}</context>
             """
         )
@@ -228,6 +230,7 @@ async def get_job_recommendations(req: RecommendationRequest):
             prompt.format(
                 job_title=req.title,
                 job_description=description,
+                job_skills=job_skills,
                 context=all_context,
             )
         )
