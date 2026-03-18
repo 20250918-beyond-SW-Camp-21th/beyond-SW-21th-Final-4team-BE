@@ -513,7 +513,12 @@ public class JobPostingServiceImpl implements JobPostingService {
                 maskSensitive(String.valueOf(jobPosting.getTechStack()))
         );
 
-        self.triggerFreelancerRecommendation(jobPostingId, userId);
+        generateFreelancerRecommendation(jobPostingId, userId);
+
+        List<AiRecommendationResponseDTO> refreshed = readCache(cacheKey, new TypeReference<>() {});
+        if (refreshed != null) {
+            return refreshed;
+        }
 
         List<AiRecommendationResponseDTO> warmedUp = awaitRecommendationCache(
                 cacheKey,
@@ -526,6 +531,10 @@ public class JobPostingServiceImpl implements JobPostingService {
     @org.springframework.scheduling.annotation.Async
     @Override
     public void triggerFreelancerRecommendation(Long jobPostingId, Long userId) {
+        generateFreelancerRecommendation(jobPostingId, userId);
+    }
+
+    private void generateFreelancerRecommendation(Long jobPostingId, Long userId) {
         String lockKey = "ai:lock:freelancers:" + jobPostingId;
         String lockToken = java.util.UUID.randomUUID().toString();
         Boolean acquired = redisTemplate.opsForValue().setIfAbsent(lockKey, lockToken, AI_RECOMMENDATION_LOCK_TTL);
