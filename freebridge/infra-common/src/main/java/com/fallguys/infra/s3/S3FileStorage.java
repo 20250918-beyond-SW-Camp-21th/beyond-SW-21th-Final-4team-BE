@@ -12,6 +12,8 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 
 @Component
@@ -58,5 +60,33 @@ public class S3FileStorage implements FileStorage {
                 .build();
 
         return s3Presigner.presignGetObject(presignRequest).url().toString();
+    }
+
+    @Override
+    public String generatePresignedDownloadUrl(String key, String fileName) {
+        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                .bucket(properties.getBucket())
+                .key(key)
+                .responseContentDisposition(buildAttachmentContentDisposition(fileName))
+                .build();
+
+        GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
+                .signatureDuration(Duration.ofMinutes(properties.getPresignedUrlExpirationMinutes()))
+                .getObjectRequest(getObjectRequest)
+                .build();
+
+        return s3Presigner.presignGetObject(presignRequest).url().toString();
+    }
+
+    private String buildAttachmentContentDisposition(String fileName) {
+        String normalized = (fileName == null || fileName.isBlank()) ? "attachment" : fileName.trim();
+        String asciiFallback = normalized
+                .replace("\\", "_")
+                .replace("\"", "_")
+                .replace(";", "_");
+        String encodedFileName = URLEncoder.encode(normalized, StandardCharsets.UTF_8)
+                .replace("+", "%20");
+
+        return "attachment; filename=\"" + asciiFallback + "\"; filename*=UTF-8''" + encodedFileName;
     }
 }
