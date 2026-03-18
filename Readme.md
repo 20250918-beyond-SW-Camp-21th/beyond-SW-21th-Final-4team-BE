@@ -1,3 +1,72 @@
+<img text-align="center" width="800" height="220" alt="FreeBridgeLogo" src="https://github.com/user-attachments/assets/8517ed0b-c483-481d-af2e-56ca2bf14b53" />
+
+
+> **프리랜서와 고용주의 '신뢰'를 잇는 올인원 프로젝트 매칭 플랫폼**
+>
+> 단순히 구인구직에서 끝나는 것이 아니라, **탐색 > 계약 > 프로젝트 수행 > 평가 > 포트폴리오 관리**까지 이어지는 프리랜서 비즈니스의 전체 생애주기를 체계적으로 지원합니다.
+
+---
+
+## 🚀 프로젝트 개요
+
+### 1. 배경 및 문제 의식
+현재 프리랜서 시장은 빠르게 성장하고 있지만, 구인구직 플랫폼에서 탐색한 이후의 **계약서 작성, 프로젝트 진행 관리, 정산 및 평가** 등의 과정은 여전히 파편화되어 진행되고 있습니다.
+
+- **고용주:** 검증되고 적합한 인재를 찾기 어렵고, 프로젝트 진행 상황 파악 및 후속 정산 절차가 번거롭습니다.
+- **프리랜서:** 자신의 경력, 포트폴리오, 이전 평가 이력을 체계적으로 관리하고 증명할 방법이 부족합니다.
+
+### 2. 해결 방안 (차별화 포인트)
+FreeBridge는 이 문제를 해결하기 위해 **계약 기반의 통합 관리 서비스**를 제공합니다.
+
+- **생애주기 중심 UX:** 사용자의 현재 상태에 맞는 다음 행동을 안내하는 역할별 운영 허브(마이페이지) 제공
+- **신뢰도 시스템:** 고용주의 솔직한 평가 점수와 이를 분석한 AI 리포트 제공
+- **안전한 프로세스:** 계약서 생성/조회/서명부터 S3 기반의 안전한 포트폴리오 파일 관리 및 법률 AI 가이드 연계
+
+---
+
+## 🛠 기술 스택 (Tech Stack)
+
+| 구분 | 기술 스택 |
+| :--- | :--- |
+| **Frontend** | <img src="https://img.shields.io/badge/Vue.js-4FC08D?style=flat&logo=vuedotjs&logoColor=white"/> <img src="https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white"/> <img src="https://img.shields.io/badge/Pinia-yellow?style=flat&logo=pinia&logoColor=white"/> <img src="https://img.shields.io/badge/Vite-646CFF?style=flat&logo=vite&logoColor=white"/> <img src="https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=flat&logo=tailwindcss&logoColor=white"/> |
+| **Backend** | <img src="https://img.shields.io/badge/Java-007396?style=flat&logo=openjdk&logoColor=white"/> <img src="https://img.shields.io/badge/Spring_Boot-6DB33F?style=flat&logo=springboot&logoColor=white"/> <img src="https://img.shields.io/badge/Spring_Data_JPA-green?style=flat"/> <img src="https://img.shields.io/badge/Redis-DC382D?style=flat&logo=redis&logoColor=white"/> <img src="https://img.shields.io/badge/AWS_S3-569A31?style=flat&logo=amazons3&logoColor=white"/> |
+| **Tools** | <img src="https://img.shields.io/badge/GitHub-181717?style=flat&logo=github&logoColor=white"/> <img src="https://img.shields.io/badge/Jira-0052CC?style=flat&logo=jirasoftware&logoColor=white"/> <img src="https://img.shields.io/badge/Gradle-02303A?style=flat&logo=gradle&logoColor=white"/> |
+
+---
+
+## 🌟 핵심 기능 (Key Features)
+
+| 공통 | 고용주 (Employer) | 프리랜서 (Freelancer) |
+| :--- | :--- | :--- |
+| **회원가입/온보딩** <br> (역할별 최적화) | **회사 프로필 관리** | **프로필/이력서/포트폴리오 관리** <br> (S3 연동) |
+| **실시간 채팅** | **인재 탐색 & 지원 제안** | **계약 기반 프로젝트 관리** |
+| **전자 계약 프로세스** <br> (생성, 조회, 서명, 완료) | **계약 & 정산 프로세스 관리** | **AI 기반 평가 분석 확인** <br> (고용주 리뷰 기반) |
+| | **구독 관리 & 알림 배너** | |
+
+---
+
+## 🖥 화면 구성 (UI/UX)
+
+| 페이지 | 화면 | 
+| :---: | :---: |
+| **회원가입** |<img width="600" height="550" alt="image" src="https://github.com/user-attachments/assets/fe125eb6-e1ee-4b2c-9cb6-be0560b5cc5d" />|
+| 마이페이지 | *(여기에 이미지 또는 GIF를 넣어주세요)*|
+| *(여기에페이지이름을넣어주세요)*| *(여기에 이미지 또는 GIF를 넣어주세요)*|
+| *(여기에페이지이름을넣어주세요)*| *(여기에 이미지 또는 GIF를 넣어주세요)*|
+
+---
+
+## 🏗 시스템 아키텍처 (System Architecture)
+
+- **Frontend (Vue 3)**: 마이페이지, 채팅, 계약/평가/포트폴리오 UI 및 클라이언트 사이드 로직 처리
+- **Backend (Spring Boot)**: 사용자 관리, 계약, 리뷰, 구독, 파일 관리 등 각 도메인별 API 서버 및 Shared Layer
+- **Storage**: Amazon S3를 이용한 프로필 이미지 및 대용량 포트폴리오 파일의 안전한 저장 및 관리
+
+<img width="4409" height="2384" alt="image" src="https://github.com/user-attachments/assets/4586d765-3d1c-42f7-8ec2-a6b30c5d1d6c" />
+
+
+---
+
 ## 📜 Convention
 
 ---
