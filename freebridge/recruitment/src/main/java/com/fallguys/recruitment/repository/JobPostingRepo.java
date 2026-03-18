@@ -4,6 +4,7 @@ import com.fallguys.recruitment.entity.JobPostingStatus;
 import com.fallguys.recruitment.entity.Status;
 import com.fallguys.recruitment.entity.JobPosting;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -23,6 +24,7 @@ public interface JobPostingRepo extends JpaRepository<JobPosting, Long> {
 
     List<JobPosting> findAllByStatusAndPostingStatusIn(Status status, Collection<JobPostingStatus> postingStatus);
 
+    @EntityGraph(attributePaths = "techStack")
     List<JobPosting> findByIdGreaterThanOrderByIdAsc(Long id, Pageable pageable);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
