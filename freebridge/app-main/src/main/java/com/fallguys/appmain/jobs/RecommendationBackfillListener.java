@@ -17,8 +17,8 @@ import org.springframework.context.event.EventListener;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.redis.core.Cursor;
 import org.springframework.data.redis.core.RedisCallback;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ScanOptions;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
@@ -50,7 +50,7 @@ public class RecommendationBackfillListener {
 
     private final JobPostingRepo jobPostingRepo;
     private final FreelancerRepository freelancerRepository;
-    private final RedisTemplate<String, Object> redisTemplate;
+    private final StringRedisTemplate redisTemplate;
 
     @Value("${fallguys.ai.python-url}")
     private String pythonUrl;
