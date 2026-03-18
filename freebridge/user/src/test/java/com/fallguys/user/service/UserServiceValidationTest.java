@@ -1,6 +1,7 @@
 package com.fallguys.user.service;
 
 import com.fallguys.common.ai.port.RecommendationEngine;
+import org.springframework.context.ApplicationEventPublisher;
 import com.fallguys.user.api.web.dto.request.PasswordUpdateRequest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -48,6 +49,8 @@ class UserServiceValidationTest {
     private RedisTokenService redisTokenService;
     @Mock
     private RecommendationEngine recommendationEngine;
+    @Mock
+    private ApplicationEventPublisher applicationEventPublisher;
 
     @BeforeEach
     void setUp() {
