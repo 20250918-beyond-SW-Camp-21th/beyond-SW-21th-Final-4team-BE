@@ -10,8 +10,10 @@ import com.fallguys.chatting.service.ChatMessageService;
 import com.fallguys.chatting.service.ChatRoomService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -89,6 +91,16 @@ public class ChatRoomController {
                 userId,
                 request.getContractId(),
                 Boolean.TRUE.equals(request.getOverrideExisting()));
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping(value = "/{roomId}/files", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ChatMessageResponse> uploadFileMessage(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable String roomId,
+            @RequestPart("file") MultipartFile file) {
+        String userId = extractUserId(authHeader);
+        ChatMessageResponse response = chatMessageService.uploadFileMessage(roomId, userId, file);
         return ResponseEntity.ok(response);
     }
 
