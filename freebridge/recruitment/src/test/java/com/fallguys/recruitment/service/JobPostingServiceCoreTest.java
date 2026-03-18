@@ -149,7 +149,7 @@ class JobPostingServiceCoreTest {
 
         // then
         assertEquals(ErrorCode.JOB_POSTING_FORBIDDEN, ex.getErrorCode());
-        verify(recommendationEngine, never()).recommendFreelancers(any(), any(), any(), any());
+        verify(recommendationEngine, never()).recommendFreelancers(any(), any(), any(), any(), any());
     }
 
     @Test
