@@ -47,7 +47,7 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
         org.springframework.http.client.SimpleClientHttpRequestFactory factory =
                 new org.springframework.http.client.SimpleClientHttpRequestFactory();
         factory.setConnectTimeout((int) java.time.Duration.ofSeconds(5).toMillis());
-        factory.setReadTimeout((int) java.time.Duration.ofSeconds(30).toMillis());
+        factory.setReadTimeout((int) java.time.Duration.ofSeconds(90).toMillis());
         this.restClient = RestClient.builder().requestFactory(factory).build();
         this.objectMapper = objectMapper;
         this.taskExecutor = taskExecutor;
@@ -174,12 +174,13 @@ public class AiAdapter implements ChatEngine, ContractEngine, RecommendationEngi
     }
 
     @Override
-    public <T> List<T> recommendFreelancers(Long jobId, String title, String description, Class<T> responseType) {
+    public <T> List<T> recommendFreelancers(Long jobId, String title, String description, String skills, Class<T> responseType) {
         try {
             String requestBody = objectMapper.writeValueAsString(Map.of(
                     "jobId", jobId,
                     "title", title,
-                    "description", description
+                    "description", description,
+                    "skills", skills == null ? "" : skills
             ));
 
             String rawJson = restClient.post()

@@ -69,9 +69,10 @@ public class JobPostingServiceImpl implements JobPostingService {
     private static final DateTimeFormatter ISO_SECONDS_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
     private static final Duration AI_RECOMMENDATION_CACHE_TTL = Duration.ofHours(24);
     private static final Duration AI_RECOMMENDATION_LOCK_TTL = Duration.ofMinutes(10);
-    private static final Duration AI_RECOMMENDATION_WAIT_TIMEOUT = Duration.ofSeconds(3);
+    private static final Duration AI_RECOMMENDATION_WAIT_TIMEOUT = Duration.ofSeconds(10);
     private static final Duration AI_RECOMMENDATION_WAIT_INTERVAL = Duration.ofMillis(200);
     private static final int AI_RECOMMENDATION_WARM_UP_LIMIT = 3;
+    private static final String JOB_RECOMMENDATION_CACHE_KEY_PREFIX = "ai:reco:jobs:v2:";
 
     private final JobPostingRepo jobPostingRepo;
     private final JobPostingFavoriteRepo jobPostingFavoriteRepo;
@@ -385,6 +386,52 @@ public class JobPostingServiceImpl implements JobPostingService {
         return source != null && source.toLowerCase(Locale.ROOT).contains(keyword);
     }
 
+    private String joinJobTechStack(List<String> techStack) {
+        return orEmpty(techStack).stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(skill -> !skill.isBlank())
+                .collect(java.util.stream.Collectors.joining(", "));
+    }
+
+    private boolean hasFreelancerSkillOverlap(List<String> jobTechStack, String freelancerSkills) {
+        List<String> requiredSkills = orEmpty(jobTechStack).stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(skill -> !skill.isBlank())
+                .map(skill -> skill.toLowerCase(Locale.ROOT))
+                .distinct()
+                .toList();
+
+        if (requiredSkills.isEmpty()) {
+            return true;
+        }
+
+        List<String> candidateSkills = java.util.Arrays.stream(
+                        Optional.ofNullable(freelancerSkills).orElse("").split(",")
+                )
+                .map(String::trim)
+                .filter(skill -> !skill.isBlank())
+                .map(skill -> skill.toLowerCase(Locale.ROOT))
+                .distinct()
+                .toList();
+
+        if (candidateSkills.isEmpty()) {
+            return false;
+        }
+
+        for (String requiredSkill : requiredSkills) {
+            for (String candidateSkill : candidateSkills) {
+                if (requiredSkill.equals(candidateSkill)
+                        || requiredSkill.contains(candidateSkill)
+                        || candidateSkill.contains(requiredSkill)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     @Override   // 기업용: 캐싱 조회 전용
     public List<AiRecommendationResponseDTO> getRecommendedFreelancers(Long jobPostingId, Long userId) {
         JobPosting jobPosting = getJobPostingOrThrow(jobPostingId);
@@ -452,6 +499,7 @@ public class JobPostingServiceImpl implements JobPostingService {
                     jobPosting.getId(),
                     jobPosting.getTitle(),
                     jobPosting.getDescription(),
+                    joinJobTechStack(jobPosting.getTechStack()),
                     AiRecommendationResponseDTO.class
             );
 
@@ -552,6 +600,15 @@ public class JobPostingServiceImpl implements JobPostingService {
                     List<String> userSkills = (f.skills() != null && !f.skills().trim().isEmpty())
                             ? java.util.Arrays.asList(f.skills().split(",")) 
                             : java.util.Collections.emptyList();
+                    if (!hasFreelancerSkillOverlap(jobPosting.getTechStack(), f.skills())) {
+                        log.info(
+                                "Freelancer recommendation candidate filtered by skill overlap. jobPostingId={}, employerId={}, freelancerId={}",
+                                jobPostingId,
+                                userId,
+                                dto.id()
+                        );
+                        return null;
+                    }
                     return dto.withFreelancerInfo(f.name(), userSkills, f.experience());
                 } catch (Exception e) {
                     log.warn(
@@ -580,7 +637,7 @@ public class JobPostingServiceImpl implements JobPostingService {
                 );
             } else if (result.isEmpty()) {
                 log.warn(
-                        "Freelancer recommendation empty result reason. jobPostingId={}, employerId={}, reason=enrichment_or_lookup_removed_all_candidates, candidateCount={}, resolvedCount={}",
+                        "Freelancer recommendation empty result reason. jobPostingId={}, employerId={}, reason=enrichment_lookup_or_skill_overlap_removed_all_candidates, candidateCount={}, resolvedCount={}",
                         jobPostingId,
                         userId,
                         freelancerIds.size(),
@@ -602,7 +659,7 @@ public class JobPostingServiceImpl implements JobPostingService {
         // Validation check to prevent triggering background task for bad userIds
         RecruitmentUser freelancer = recruitmentUserReader.getFreelancerByIdOrThrow(userId);
 
-        String cacheKey = "ai:reco:jobs:" + userId;
+        String cacheKey = JOB_RECOMMENDATION_CACHE_KEY_PREFIX + userId;
         List<AiRecommendationResponseDTO> cached = readCache(cacheKey, new TypeReference<>() {});
         if (cached != null) {
             log.info("Job recommendation cache hit. userId={}, result={}", userId, summarizeRecommendationIds(cached));
@@ -690,7 +747,7 @@ public class JobPostingServiceImpl implements JobPostingService {
                     summarizeRecommendationIds(result)
             );
 
-            String cacheKey = "ai:reco:jobs:" + userId;
+            String cacheKey = JOB_RECOMMENDATION_CACHE_KEY_PREFIX + userId;
             writeCacheWithTtl(cacheKey, result, AI_RECOMMENDATION_CACHE_TTL);
         } catch (Exception e) {
             log.error("Async Job Recommendation failed for Freelancer: {}", userId, e);

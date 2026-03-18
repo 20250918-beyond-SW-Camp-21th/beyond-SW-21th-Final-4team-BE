@@ -145,15 +145,17 @@ async def get_job_recommendations(req: RecommendationRequest):
         structured_llm = llm.with_structured_output(FreelancerMatchList)
 
         description = req.description.strip() if req.description and req.description.strip() else "(상세 내용 없음)"
-        search_query = f"{req.title} {description}"
+        skills = req.skills.strip() if req.skills and req.skills.strip() else "(skills missing)"
+        search_query = f"{req.title} {description} {req.skills}".strip()
         logger.info(
             "Employer recommendation request. job_id=%s",
             req.jobId,
         )
         logger.debug(
-            "Employer recommendation request detail. job_id=%s title=%s query=%s",
+            "Employer recommendation request detail. job_id=%s title=%s skills=%s query=%s",
             req.jobId,
             mask_profile(req.title),
+            mask_profile(req.skills, limit=30),
             mask_profile(search_query, limit=40),
         )
 
