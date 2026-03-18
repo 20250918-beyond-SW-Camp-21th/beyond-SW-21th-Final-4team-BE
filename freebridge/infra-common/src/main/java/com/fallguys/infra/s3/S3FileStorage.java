@@ -82,9 +82,13 @@ public class S3FileStorage implements FileStorage {
         String sanitizedFileName = fileName == null ? "" : fileName.replaceAll("\\p{Cntrl}", "");
         String normalized = sanitizedFileName.isBlank() ? "attachment" : sanitizedFileName.trim();
         String asciiFallback = normalized
+                .replaceAll("[^\\x20-\\x7E]", "_")
                 .replace("\\", "_")
                 .replace("\"", "_")
                 .replace(";", "_");
+        if (asciiFallback.isBlank()) {
+            asciiFallback = "attachment";
+        }
         String encodedFileName = URLEncoder.encode(normalized, StandardCharsets.UTF_8)
                 .replace("+", "%20");
 
