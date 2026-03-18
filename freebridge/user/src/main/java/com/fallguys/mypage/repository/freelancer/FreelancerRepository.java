@@ -20,6 +20,8 @@ public interface FreelancerRepository extends JpaRepository<Freelancer, Long> {
 
     List<Freelancer> findAllByUserIdIn(Collection<Long> userIds);
 
+    List<Freelancer> findByFreelancerIdGreaterThanOrderByFreelancerIdAsc(Long freelancerId, Pageable pageable);
+
     @Query(
             value = """
                 select distinct f
