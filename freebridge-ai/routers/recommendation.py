@@ -333,8 +333,6 @@ async def get_freelancer_recommendations(req: FreelancerRecommendRequest):
             """
         )
 
-        experience = req.experience.strip() if req.experience and req.experience.strip() else "(경력 정보 없음)"
-        search_query = f"{req.skills} {experience}"
         skills = req.skills.strip() if req.skills and req.skills.strip() else ""
         experience = req.experience.strip() if req.experience and req.experience.strip() else ""
         prompt_skills = skills if skills else "(skills missing)"
