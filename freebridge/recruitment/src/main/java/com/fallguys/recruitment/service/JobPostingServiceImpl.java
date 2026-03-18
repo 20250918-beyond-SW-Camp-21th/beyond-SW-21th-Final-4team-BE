@@ -959,6 +959,17 @@ public class JobPostingServiceImpl implements JobPostingService {
         writeMypageRedisValue(EMPLOYER_PROJECT_STATS_KEY_PREFIX + employerId, payload);
     }
 
+    @Override
+    public void refreshEmployerRecruitmentCaches(Long employerId) {
+        if (employerId == null) {
+            return;
+        }
+
+        redisTemplate.delete(employerJobsCacheKey(employerId));
+        redisTemplate.delete(employerProjectsCacheKey(employerId));
+        redisTemplate.delete(allJobsCacheKey());
+    }
+
     private void refreshEmployerProjectListForMypage(Long employerId) {
         String redisKey = EMPLOYER_PROJECT_LIST_KEY_PREFIX + employerId;
         Map<Long, Integer> cachedApplicantCounts = readCachedEmployerApplicantCounts(redisKey);
