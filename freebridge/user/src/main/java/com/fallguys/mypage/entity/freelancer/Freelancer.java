@@ -150,12 +150,14 @@ public class Freelancer {
     public void updateExpertise(Expertise expertise) {
         // Review scores must only be updated by the server-side review aggregation flow.
         if (expertise == null) throw new IllegalArgumentException("expertise is required");
+        expertise.validate();
         this.expertise = expertise;
     }
 
     public void updateCollaboration(Collaboration collaboration) {
         // Review scores must only be updated by the server-side review aggregation flow.
         if (collaboration == null) throw new IllegalArgumentException("collaboration is required");
+        collaboration.validate();
         this.collaboration = collaboration;
     }
 

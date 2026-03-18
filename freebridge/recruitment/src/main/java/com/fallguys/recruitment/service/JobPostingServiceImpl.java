@@ -424,8 +424,13 @@ public class JobPostingServiceImpl implements JobPostingService {
             return jobPosting.getStatus().name();
         }
 
-        if (!EnumSet.of(JobPostingStatus.OPEN, JobPostingStatus.IN_PROGRESS).contains(jobPosting.getPostingStatus())) {
-            return jobPosting.getPostingStatus().name();
+        JobPostingStatus postingStatus = jobPosting.getPostingStatus();
+        if (postingStatus == null) {
+            return Status.ACTIVE.name();
+        }
+
+        if (!EnumSet.of(JobPostingStatus.OPEN, JobPostingStatus.IN_PROGRESS).contains(postingStatus)) {
+            return postingStatus.name();
         }
 
         return Status.ACTIVE.name();
@@ -1187,7 +1192,6 @@ public class JobPostingServiceImpl implements JobPostingService {
 
     private void evictAllJobRecommendationCaches() {
         deleteByPattern(JOB_RECOMMENDATION_CACHE_KEY_PREFIX + "*");
-        deleteByPattern("ai:lock:jobs:*");
     }
 
     private void deleteByPattern(String pattern) {

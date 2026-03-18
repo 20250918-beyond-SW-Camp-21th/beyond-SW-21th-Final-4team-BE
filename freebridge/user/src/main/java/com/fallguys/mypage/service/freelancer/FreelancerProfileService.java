@@ -160,14 +160,14 @@ public class FreelancerProfileService {
 
         if (hasExpertise) {
             Expertise existing = freelancer.getExpertise();
-            Integer programming = request.expertiseProgramming() != null
-                    ? request.expertiseProgramming()
+            Double programming = request.expertiseProgramming() != null
+                    ? request.expertiseProgramming().doubleValue()
                     : existing != null ? existing.getProgramming() : null;
-            Integer framework = request.expertiseFramework() != null
-                    ? request.expertiseFramework()
+            Double framework = request.expertiseFramework() != null
+                    ? request.expertiseFramework().doubleValue()
                     : existing != null ? existing.getFramework() : null;
-            Integer problemSolving = request.expertiseProblemSolving() != null
-                    ? request.expertiseProblemSolving()
+            Double problemSolving = request.expertiseProblemSolving() != null
+                    ? request.expertiseProblemSolving().doubleValue()
                     : existing != null ? existing.getProblemSolving() : null;
             Expertise expertise = new Expertise(
                     programming,
@@ -183,14 +183,14 @@ public class FreelancerProfileService {
 
         if (hasCollaboration) {
             Collaboration existing = freelancer.getCollaboration();
-            Integer communication = request.collaborationCommunication() != null
-                    ? request.collaborationCommunication()
+            Double communication = request.collaborationCommunication() != null
+                    ? request.collaborationCommunication().doubleValue()
                     : existing != null ? existing.getCommunication() : null;
-            Integer scheduleAdherence = request.collaborationScheduleAdherence() != null
-                    ? request.collaborationScheduleAdherence()
+            Double scheduleAdherence = request.collaborationScheduleAdherence() != null
+                    ? request.collaborationScheduleAdherence().doubleValue()
                     : existing != null ? existing.getScheduleAdherence() : null;
-            Integer dispute = request.collaborationDispute() != null
-                    ? request.collaborationDispute()
+            Double dispute = request.collaborationDispute() != null
+                    ? request.collaborationDispute().doubleValue()
                     : existing != null ? existing.getDispute() : null;
             Collaboration collaboration = new Collaboration(
                     communication,
@@ -325,6 +325,21 @@ public class FreelancerProfileService {
         builder.append("Wage: ").append(Optional.ofNullable(freelancer.getWage()).orElse(0L)).append('\n');
         builder.append("Grade: ").append(Optional.ofNullable(freelancer.getGrade()).map(Enum::name).orElse("")).append('\n');
         builder.append("Status: ").append(Optional.ofNullable(freelancer.getStatus()).map(Enum::name).orElse("POTENTIAL")).append('\n');
+        builder.append("Expertise Average Rate: ").append(
+                Optional.ofNullable(calculateExpertiseAverage(freelancer.getExpertise()))
+                        .map(Object::toString)
+                        .orElse("")
+        ).append('\n');
+        builder.append("Collaboration Average Rate: ").append(
+                Optional.ofNullable(calculateCollaborationAverage(freelancer.getCollaboration()))
+                        .map(Object::toString)
+                        .orElse("")
+        ).append('\n');
+        builder.append("Average Rate: ").append(
+                Optional.ofNullable(freelancer.getAverageRate())
+                        .map(Object::toString)
+                        .orElse("")
+        ).append('\n');
 
         WorkConditions workConditions = freelancer.getWorkConditions();
         if (workConditions != null) {
