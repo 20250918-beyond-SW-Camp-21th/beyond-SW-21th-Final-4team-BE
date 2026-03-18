@@ -1,5 +1,6 @@
 package com.fallguys.user.service;
 
+import com.fallguys.common.ai.port.RecommendationEngine;
 import com.fallguys.common.event.EmailVerifiedEvent;
 import com.fallguys.user.api.web.dto.request.LoginRequestDto;
 import com.fallguys.user.api.web.dto.request.PasswordUpdateRequest;
@@ -31,6 +32,10 @@ import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -46,6 +51,7 @@ public class UserService {
     private final ResumeRepository resumeRepository;
     private final StringRedisTemplate redisTemplate;
     private final RedisTokenService redisTokenService;
+    private final RecommendationEngine recommendationEngine;
 
     @Async
     @EventListener
@@ -109,6 +115,29 @@ public class UserService {
             if (resumeRepository.findByFreelancerId(savedFreelancer.getFreelancerId()).isEmpty()) {
                 resumeRepository.save(new Resume(savedFreelancer.getFreelancerId()));
                 log.info("프리랜서 기본 이력서 생성 완료 - freelancerId: {}", savedFreelancer.getFreelancerId());
+            }
+            Runnable syncFreelancerProfileTask = () -> recommendationEngine.syncToAiServer(
+                    savedFreelancer.getFreelancerId(),
+                    savedFreelancer.getFreelancerId(),
+                    "new_profile",
+                    new StringBuilder()
+                            .append("Job: ").append(Optional.ofNullable(savedFreelancer.getJob()).orElse("")).append('\n')
+                            .append("Introduction: ").append(Optional.ofNullable(savedFreelancer.getIntroduction()).orElse("")).append('\n')
+                            .append("Skills: ").append(String.join(", ", Optional.ofNullable(savedFreelancer.getSkills()).orElseGet(java.util.List::of))).append('\n')
+                            .append("Grade: ").append(Optional.ofNullable(savedFreelancer.getGrade()).map(Enum::name).orElse("")).append('\n')
+                            .append("Status: ").append(Optional.ofNullable(savedFreelancer.getStatus()).map(Enum::name).orElse("POTENTIAL"))
+                            .toString(),
+                    Optional.ofNullable(savedFreelancer.getStatus()).map(Enum::name).orElse("POTENTIAL")
+            );
+            if (TransactionSynchronizationManager.isActualTransactionActive()) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        syncFreelancerProfileTask.run();
+                    }
+                });
+            } else {
+                syncFreelancerProfileTask.run();
             }
         } else if (Role.EMPLOYER.equals(savedUser.getRole())) {
             // 필수 뼈대값 대입 (가입 시 법인명은 유저 이름으로 임시 설정)

@@ -115,6 +115,8 @@ public class JobPostingServiceImpl implements JobPostingService {
         JobPosting jobPosting = JobPosting.from(jobPostingCreateDTO, user.id(), user.name());
         jobPostingRepo.save(jobPosting);
         runAfterCommitSafely(() -> {
+            syncJobPostingToAi(jobPosting);
+            evictAllJobRecommendationCaches();
             evictEmployerSideCaches(user.id());
             refreshEmployerProjectStatsForMypage(user.id());
             refreshEmployerProjectListForMypage(user.id());
@@ -135,6 +137,8 @@ public class JobPostingServiceImpl implements JobPostingService {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
         runAfterCommitSafely(() -> {
+            syncJobPostingToAi(jobPosting);
+            evictAllJobRecommendationCaches();
             evictEmployerSideCaches(user.id());
             refreshEmployerProjectStatsForMypage(user.id());
             refreshEmployerProjectListForMypage(user.id());
@@ -155,6 +159,8 @@ public class JobPostingServiceImpl implements JobPostingService {
         validateNotDeleted(jobPosting);
         jobPosting.delete();
         runAfterCommitSafely(() -> {
+            syncJobPostingToAi(jobPosting);
+            evictAllJobRecommendationCaches();
             evictEmployerSideCaches(user.id());
             refreshEmployerProjectStatsForMypage(user.id());
             refreshEmployerProjectListForMypage(user.id());
@@ -393,6 +399,46 @@ public class JobPostingServiceImpl implements JobPostingService {
                 .map(String::trim)
                 .filter(skill -> !skill.isBlank())
                 .collect(java.util.stream.Collectors.joining(", "));
+    }
+
+    private String buildJobPostingAiContent(JobPosting jobPosting) {
+        String techStack = joinJobTechStack(jobPosting.getTechStack());
+
+        StringBuilder builder = new StringBuilder();
+        builder.append("Title: ").append(Optional.ofNullable(jobPosting.getTitle()).orElse("")).append('\n');
+        builder.append("Description: ").append(Optional.ofNullable(jobPosting.getDescription()).orElse("")).append('\n');
+        builder.append("Tech Stack: ").append(techStack).append('\n');
+        builder.append("Budget: ").append(Optional.ofNullable(jobPosting.getBudget()).orElse(0L)).append('\n');
+        builder.append("Duration: ").append(Optional.ofNullable(jobPosting.getDuration()).orElse(0)).append('\n');
+        builder.append("Employer: ").append(Optional.ofNullable(jobPosting.getEmployerName()).orElse("")).append('\n');
+        builder.append("Headcount: ").append(Optional.ofNullable(jobPosting.getHeadcount()).orElse(0)).append('\n');
+        builder.append("Matched Headcount: ").append(Optional.ofNullable(jobPosting.getMatchedHeadcount()).orElse(0)).append('\n');
+        builder.append("Posting Status: ").append(
+                jobPosting.getPostingStatus() == null ? "" : jobPosting.getPostingStatus().name()
+        );
+        return builder.toString();
+    }
+
+    private String resolveJobPostingAiStatus(JobPosting jobPosting) {
+        if (jobPosting.getStatus() != Status.ACTIVE) {
+            return jobPosting.getStatus().name();
+        }
+
+        if (!EnumSet.of(JobPostingStatus.OPEN, JobPostingStatus.IN_PROGRESS).contains(jobPosting.getPostingStatus())) {
+            return jobPosting.getPostingStatus().name();
+        }
+
+        return Status.ACTIVE.name();
+    }
+
+    private void syncJobPostingToAi(JobPosting jobPosting) {
+        recommendationEngine.syncToAiServer(
+                jobPosting.getId(),
+                jobPosting.getId(),
+                "job_posting",
+                buildJobPostingAiContent(jobPosting),
+                resolveJobPostingAiStatus(jobPosting)
+        );
     }
 
     private String normalizeRecommendationSearchText(String value) {
@@ -882,6 +928,8 @@ public class JobPostingServiceImpl implements JobPostingService {
         jobPosting.closeRecruitment();
 
         runAfterCommitSafely(() -> {
+            syncJobPostingToAi(jobPosting);
+            evictAllJobRecommendationCaches();
             Long employerId = jobPosting.getEmployerId();
             evictEmployerSideCaches(employerId);
             redisTemplate.delete(employerProjectsCacheKey(employerId));
@@ -1124,6 +1172,11 @@ public class JobPostingServiceImpl implements JobPostingService {
 
     private void evictAllFreelancerSearchCaches() {
         deleteByPattern(CACHE_PREFIX + ":freelancer:search:*");
+    }
+
+    private void evictAllJobRecommendationCaches() {
+        deleteByPattern(JOB_RECOMMENDATION_CACHE_KEY_PREFIX + "*");
+        deleteByPattern("ai:lock:jobs:*");
     }
 
     private void deleteByPattern(String pattern) {
