@@ -51,11 +51,18 @@ public class ContractQueryService implements ContractQuery {
                 c.getProjectName(),
                 c.getFreelancerId(),
                 c.getEmployerId(),
+                c.getStatus() != null ? c.getStatus().name() : null,
+                hasSignature(c.getEmployerSignature()),
+                hasSignature(c.getFreelancerSignature()),
                 c.getCommissionRate(),
                 c.getPaymentDay(),
                 c.getStartDate(),
                 c.getEndDate(),
                 c.getBudget(),
                 c.getEmployerBusinessName());
+    }
+
+    private boolean hasSignature(String signature) {
+        return signature != null && !signature.isBlank();
     }
 }

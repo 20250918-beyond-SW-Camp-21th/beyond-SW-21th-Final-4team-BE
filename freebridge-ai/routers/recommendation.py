@@ -333,8 +333,14 @@ async def get_freelancer_recommendations(req: FreelancerRecommendRequest):
             """
         )
 
-        experience = req.experience.strip() if req.experience and req.experience.strip() else "(경력 정보 없음)"
-        search_query = f"{req.skills} {experience}"
+        skills = req.skills.strip() if req.skills and req.skills.strip() else ""
+        experience = req.experience.strip() if req.experience and req.experience.strip() else ""
+        prompt_skills = skills if skills else "(skills missing)"
+        prompt_experience = experience if experience else "(experience missing)"
+        search_query = " ".join(part for part in [skills, experience] if part).strip()
+        if not search_query:
+            search_query = "IT freelancer project"
+
         logger.info(
             "Freelancer recommendation request. freelancer_id=%s",
             req.freelancerId,
@@ -342,8 +348,8 @@ async def get_freelancer_recommendations(req: FreelancerRecommendRequest):
         logger.debug(
             "Freelancer recommendation request detail. freelancer_id=%s raw_skills=%s raw_experience=%s query=%s",
             req.freelancerId,
-            mask_profile(req.skills, limit=40),
-            mask_profile(req.experience, limit=40),
+            mask_profile(skills, limit=40),
+            mask_profile(experience, limit=40),
             mask_profile(search_query, limit=50),
         )
         retriever = vs.as_retriever(
@@ -372,7 +378,7 @@ async def get_freelancer_recommendations(req: FreelancerRecommendRequest):
             _describe_docs(docs),
         )
 
-        skill_tokens = _extract_skill_tokens(req.skills)
+        skill_tokens = _extract_skill_tokens(skills)
         logger.debug(
             "Freelancer recommendation skill tokens. freelancer_id=%s token_count=%s tokens=%s",
             req.freelancerId,
@@ -433,7 +439,11 @@ async def get_freelancer_recommendations(req: FreelancerRecommendRequest):
             for doc in docs
         )
 
-        formatted_prompt = prompt.format(skills=req.skills, experience=experience, context=context)
+        formatted_prompt = prompt.format(
+            skills=prompt_skills,
+            experience=prompt_experience,
+            context=context,
+        )
         result = await structured_llm.ainvoke(formatted_prompt)
         filtered_matches = _sort_matches_by_score(
             _filter_matches_by_allowed_ids(result.matches, allowed_ids)

@@ -52,6 +52,8 @@ public class ContractResponse {
     private LocalDateTime employerSignedDate;
     private String freelancerSignature;
     private LocalDateTime freelancerSignedDate;
+    private Boolean employerSigned;
+    private Boolean freelancerSigned;
 
     // TODO: Replace mock values with real names once user module is ready
     private String freelancerName;
