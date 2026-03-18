@@ -36,7 +36,7 @@ class ReputationAnalysisResponse(BaseModel):
     summary: str = Field(description="전체 리뷰의 단순 요약")
     positive_keywords: List[str] = Field(description="리뷰에서 추출된 긍정 키워드 리스트")
     negative_keywords: List[str] = Field(description="리뷰에서 추출된 부정 키워드 리스트")
-
+ 
 
 _llm = None
 
