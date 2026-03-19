@@ -20,6 +20,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -50,6 +51,9 @@ class FreelancerProfileServiceTest {
 
     @Mock
     private RecommendationEngine recommendationEngine;
+
+    @Mock
+    private RedisTemplate<String, Object> redisTemplate;
 
     @BeforeEach
     void setUp() {
@@ -184,6 +188,38 @@ class FreelancerProfileServiceTest {
 
     @Test
     @DisplayName("[TDD] 4. 프로필 수정: 존재하지 않는 userId면 USER_NOT_FOUND 예외 발생")
+    void updateProfile_EvictsFreelancerJobRecommendationCache() {
+        Long userId = 201L;
+        Freelancer mockFreelancer = Freelancer.create(userId, "Backend Developer", FreelancerGrade.JUNIOR);
+        given(freelancerRepository.findByUserId(userId)).willReturn(Optional.of(mockFreelancer));
+
+        FreelancerProfileUpdateRequestDto request = new FreelancerProfileUpdateRequestDto(
+                "Backend Developer",
+                "profile intro",
+                3,
+                40000L,
+                List.of("Java"),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+
+        freelancerProfileService.updateProfile(userId, request);
+
+        verify(redisTemplate).delete("ai:reco:jobs:v3:" + userId);
+        verify(redisTemplate).delete("ai:lock:jobs:" + userId);
+    }
+
+    @Test
     void updateProfile_NotFound_ThrowsException() {
         // given
         Long userId = 999L;

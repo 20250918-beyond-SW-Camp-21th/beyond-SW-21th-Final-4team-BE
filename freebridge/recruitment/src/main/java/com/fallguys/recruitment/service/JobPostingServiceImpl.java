@@ -74,7 +74,8 @@ public class JobPostingServiceImpl implements JobPostingService {
     private static final Duration AI_RECOMMENDATION_WAIT_TIMEOUT = Duration.ofSeconds(20);
     private static final Duration AI_RECOMMENDATION_WAIT_INTERVAL = Duration.ofMillis(200);
     private static final int AI_RECOMMENDATION_WARM_UP_LIMIT = 3;
-    private static final String JOB_RECOMMENDATION_CACHE_KEY_PREFIX = "ai:reco:jobs:v2:";
+    private static final String JOB_RECOMMENDATION_CACHE_KEY_PREFIX = "ai:reco:jobs:v3:";
+    private static final String JOB_RECOMMENDATION_LOCK_KEY_PREFIX = "ai:lock:jobs:";
 
     private final JobPostingRepo jobPostingRepo;
     private final JobPostingFavoriteRepo jobPostingFavoriteRepo;
@@ -732,8 +733,8 @@ public class JobPostingServiceImpl implements JobPostingService {
         // Validation check to prevent triggering background task for bad userIds
         RecruitmentUser freelancer = recruitmentUserReader.getFreelancerByIdOrThrow(userId);
 
-        String cacheKey = JOB_RECOMMENDATION_CACHE_KEY_PREFIX + userId;
-        String lockKey = "ai:lock:jobs:" + userId;
+        String cacheKey = jobRecommendationCacheKey(userId);
+        String lockKey = jobRecommendationLockKey(userId);
         List<AiRecommendationResponseDTO> cached = readCache(cacheKey, new TypeReference<>() {});
         if (cached != null) {
             log.info("Job recommendation cache hit. userId={}, result={}", userId, summarizeRecommendationIds(cached));
@@ -769,7 +770,7 @@ public class JobPostingServiceImpl implements JobPostingService {
     @org.springframework.scheduling.annotation.Async
     @Override
     public void triggerJobRecommendation(Long userId) {
-        String lockKey = "ai:lock:jobs:" + userId;
+        String lockKey = jobRecommendationLockKey(userId);
         String lockToken = java.util.UUID.randomUUID().toString();
         Boolean acquired = redisTemplate.opsForValue().setIfAbsent(lockKey, lockToken, AI_RECOMMENDATION_LOCK_TTL);
         if (Boolean.FALSE.equals(acquired)) {
@@ -820,6 +821,14 @@ public class JobPostingServiceImpl implements JobPostingService {
                     if (!EnumSet.of(JobPostingStatus.OPEN, JobPostingStatus.IN_PROGRESS).contains(job.getPostingStatus())) {
                         return null;
                     }
+                    if (!hasRecommendedJobSkillOverlap(job.getTechStack(), skills)) {
+                        log.info(
+                                "Dropping job recommendation without tech stack overlap. userId={}, jobId={}",
+                                userId,
+                                job.getId()
+                        );
+                        return null;
+                    }
                     return dto.withJobInfo(job.getTechStack(), job.getDescription(), job.getBudget(), job.getDuration());
                 } catch (Exception e) {
                     return null;
@@ -832,7 +841,7 @@ public class JobPostingServiceImpl implements JobPostingService {
                     summarizeRecommendationIds(result)
             );
 
-            String cacheKey = JOB_RECOMMENDATION_CACHE_KEY_PREFIX + userId;
+            String cacheKey = jobRecommendationCacheKey(userId);
             writeCacheWithTtl(cacheKey, result, AI_RECOMMENDATION_CACHE_TTL);
         } catch (Exception e) {
             log.error("Async Job Recommendation failed for Freelancer: {}", userId, e);
@@ -1227,8 +1236,43 @@ public class JobPostingServiceImpl implements JobPostingService {
         deleteByPattern(CACHE_PREFIX + ":freelancer:search:*");
     }
 
+    private boolean hasRecommendedJobSkillOverlap(List<String> jobTechStack, String freelancerSkills) {
+        java.util.Set<String> requiredSkills = orEmpty(jobTechStack).stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(skill -> !skill.isBlank())
+                .map(skill -> skill.toLowerCase(Locale.ROOT))
+                .collect(java.util.stream.Collectors.toSet());
+
+        if (requiredSkills.isEmpty()) {
+            return false;
+        }
+
+        java.util.Set<String> candidateSkills = java.util.Arrays.stream(
+                        Optional.ofNullable(freelancerSkills).orElse("").split(",")
+                )
+                .map(String::trim)
+                .filter(skill -> !skill.isBlank())
+                .map(skill -> skill.toLowerCase(Locale.ROOT))
+                .collect(java.util.stream.Collectors.toSet());
+
+        if (candidateSkills.isEmpty()) {
+            return false;
+        }
+
+        return requiredSkills.stream().anyMatch(candidateSkills::contains);
+    }
+
     private void evictAllJobRecommendationCaches() {
         deleteByPattern(JOB_RECOMMENDATION_CACHE_KEY_PREFIX + "*");
+    }
+
+    private String jobRecommendationCacheKey(Long userId) {
+        return JOB_RECOMMENDATION_CACHE_KEY_PREFIX + userId;
+    }
+
+    private String jobRecommendationLockKey(Long userId) {
+        return JOB_RECOMMENDATION_LOCK_KEY_PREFIX + userId;
     }
 
     private void deleteByPattern(String pattern) {

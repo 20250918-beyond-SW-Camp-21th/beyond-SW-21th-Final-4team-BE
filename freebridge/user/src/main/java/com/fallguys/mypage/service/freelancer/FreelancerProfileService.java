@@ -25,6 +25,7 @@ import com.fallguys.mypage.repository.freelancer.FreelancerRepository;
 import com.fallguys.user.api.shared.response.ExternalUserResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -41,12 +42,16 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class FreelancerProfileService {
 
+    private static final String JOB_RECOMMENDATION_CACHE_KEY_PREFIX = "ai:reco:jobs:v3:";
+    private static final String JOB_RECOMMENDATION_LOCK_KEY_PREFIX = "ai:lock:jobs:";
+
     private final FreelancerRepository freelancerRepository;
     private final FileStorage fileStorage;
     private final SharedMypageApi sharedMypageApi;
     private final FreelancerReviewService freelancerReviewService;
     private final RecommendationEngine recommendationEngine;
     private final FreelancerProjectService freelancerProjectService;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     private static final int MIN_APPLICATIONS_FOR_PORTFOLIO_IMPROVEMENT = 5;
     private static final double PORTFOLIO_SUCCESS_RATIO_THRESHOLD = 0.2;
@@ -215,7 +220,10 @@ public class FreelancerProfileService {
             freelancer.updateAverageRate(request.averageRating());
         }
 
-        runAfterCommitSafely(() -> syncFreelancerProfileToAi(freelancer));
+        runAfterCommitSafely(() -> {
+            evictFreelancerJobRecommendationCache(userId);
+            syncFreelancerProfileToAi(freelancer);
+        });
     }
 
     @Transactional
@@ -325,6 +333,11 @@ public class FreelancerProfileService {
                 buildFreelancerProfileAiContent(freelancer),
                 Optional.ofNullable(freelancer.getStatus()).map(Enum::name).orElse("POTENTIAL")
         );
+    }
+
+    private void evictFreelancerJobRecommendationCache(Long userId) {
+        redisTemplate.delete(JOB_RECOMMENDATION_CACHE_KEY_PREFIX + userId);
+        redisTemplate.delete(JOB_RECOMMENDATION_LOCK_KEY_PREFIX + userId);
     }
 
     private String buildFreelancerProfileAiContent(Freelancer freelancer) {

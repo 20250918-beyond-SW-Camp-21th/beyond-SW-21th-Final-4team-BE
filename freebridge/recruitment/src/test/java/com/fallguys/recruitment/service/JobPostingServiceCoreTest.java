@@ -32,8 +32,9 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import java.util.List;
+import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -72,6 +73,7 @@ class JobPostingServiceCoreTest {
     @org.junit.jupiter.api.BeforeEach
     void setUp() {
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        ReflectionTestUtils.setField(service, "self", service);
     }
 
     @Test
@@ -259,6 +261,27 @@ class JobPostingServiceCoreTest {
         );
 
         assertEquals(ErrorCode.JOB_POSTING_FORBIDDEN, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("[TDD] freelancer job recommendation stores no-overlap jobs as empty result")
+    void triggerJobRecommendation_filtersOutJobsWithoutTechStackOverlap() {
+        Long userId = 3L;
+        JobPosting noOverlapJob = posting(101L, 99L, Status.ACTIVE);
+        ReflectionTestUtils.setField(noOverlapJob, "techStack", List.of("C"));
+
+        when(recruitmentUserReader.getFreelancerByIdOrThrow(userId))
+                .thenReturn(new RecruitmentUser(userId, "freelancer", "Java", "Spring", "ACTIVE"));
+        when(valueOperations.setIfAbsent(anyString(), any(), any(Duration.class))).thenReturn(true);
+        when(recommendationEngine.recommendJobs(eq(userId), any(), any(), eq(AiRecommendationResponseDTO.class)))
+                .thenReturn(List.of(new AiRecommendationResponseDTO(101L, "C only project", 0.91, List.of(), null, null, null)));
+        when(jobPostingRepo.findAllById(List.of(101L))).thenReturn(List.of(noOverlapJob));
+
+        service.triggerJobRecommendation(userId);
+
+        ArgumentCaptor<Object> cacheValueCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(valueOperations).set(eq("ai:reco:jobs:v3:" + userId), cacheValueCaptor.capture(), any(Duration.class));
+        assertEquals(List.of(), cacheValueCaptor.getValue());
     }
 
     private JobPosting posting(Long id, Long employerId, Status status) {
