@@ -49,33 +49,6 @@ FreeBridge는 이 문제를 해결하기 위해 **계약 기반의 통합 관리
 
 ---
 
-## 🖥 화면 구성 (UI/UX)
-
-| 페이지 | 화면 | 
-| :---: | :---: |
-| **회원가입** |<img width="600" height="550" alt="image" src="https://github.com/user-attachments/assets/fe125eb6-e1ee-4b2c-9cb6-be0560b5cc5d" />|
-| 마이페이지 | *(여기에 이미지 또는 GIF를 넣어주세요)*|
-| *(여기에페이지이름을넣어주세요)*| *(여기에 이미지 또는 GIF를 넣어주세요)*|
-| *(여기에페이지이름을넣어주세요)*| *(여기에 이미지 또는 GIF를 넣어주세요)*|
-
----
-
-## 🏗 시스템 아키텍처 (System Architecture)
-
-- **Frontend (Vue 3)**: 마이페이지, 채팅, 계약/평가/포트폴리오 UI 및 클라이언트 사이드 로직 처리
-- **Backend (Spring Boot)**: 사용자 관리, 계약, 리뷰, 구독, 파일 관리 등 각 도메인별 API 서버 및 Shared Layer
-- **Storage**: Amazon S3를 이용한 프로필 이미지 및 대용량 포트폴리오 파일의 안전한 저장 및 관리
-
-<img width="4409" height="2384" alt="image" src="https://github.com/user-attachments/assets/4586d765-3d1c-42f7-8ec2-a6b30c5d1d6c" />
-
----
-
-## ERD
-<img width="1607" height="1012" alt="image" src="https://github.com/user-attachments/assets/dee6f299-198a-431e-b86b-4707ded687ad" />
-
-
----
-
 ## 프로젝트 구조
 
 ```
@@ -125,23 +98,39 @@ src
 
 프로젝트의 안정적인 구현을 위해 기능 및 비기능 요구사항을 상세히 정의하였습니다. 
 
-[![Requirements](./asset/backend_requirements.png)](./assets/4팀_docs.xlsx - 요구사항 정의서.pdf)
-
 ---
 
 ## 🏗️ 빌드 및 배포
 
 ### 🔹 Architecture 다이어그램
-<img src="./asset/architecture-diagram-team3.png" alt="Architecture-diagram"/>
+<img width="4409" height="2384" alt="image" src="https://github.com/user-attachments/assets/4586d765-3d1c-42f7-8ec2-a6b30c5d1d6c" />
 
-### 🔹 Pipeline 빌드 과정
-<img src="./asset/gif/1.pipe-line.gif">
+### 🔹 CICD 계획 흐름도
 
-### 🔹 ArgoCD 배포 동기화
-<img src="./asset/gif/2.argocd.gif">
+<img width="1513" height="830" alt="image" src="https://github.com/user-attachments/assets/45ade217-c092-4e15-a492-99154b977e6c" />
 
-### 🔹 프론트엔드 화면
-<img src="./asset/gif/3.todo.gif">
+---
+
+## 🖥️ 운영 및 모니터링 전략
+
+<img width="1099" height="468" alt="image" src="https://github.com/user-attachments/assets/32782c9b-67ef-45da-8060-aea02d7e0954" />
+모니터링 체계는 배포 성공 여부를 단순히 Jenkins 결과로만 판단하지 않고, 실제 운영 중인 서비스 상태까지 함께 검증할 수 있게 해준다.
+즉, FreeBridge의 CI/CD는 배포 자동화와 운영 모니터링이 결합된 형태로 구성되어 있다.
+
+---
+
+## 🖥 화면 구성 (UI/UX)
+
+| 페이지 | 화면 | 
+| :---: | :---: |
+| **회원가입** | <img width="600" height="550" alt="image" src="https://github.com/user-attachments/assets/fe125eb6-e1ee-4b2c-9cb6-be0560b5cc5d" />
+| **마이페이지** | <img width="1896" height="939" alt="image" src="https://github.com/user-attachments/assets/0b212824-919e-4db4-ade8-029c75ab3603" /><img width="1896" height="937" alt="image" src="https://github.com/user-attachments/assets/2a271fb2-1201-4193-b05a-02e14c35b814" />||
+| **공고**| <img width="1902" height="942" alt="image" src="https://github.com/user-attachments/assets/8eab244d-a945-45ac-8979-4505665694eb" />|
+| **채팅** | <img width="1901" height="939" alt="image" src="https://github.com/user-attachments/assets/771b2039-5164-4fd8-8c91-ca4aa599fde6" />|
+| **계약서**| <img width="1915" height="942" alt="image" src="https://github.com/user-attachments/assets/f4e77575-7e30-4d72-a87c-cab0113e27b1" />|
+| **정산**| <img width="1914" height="938" alt="image" src="https://github.com/user-attachments/assets/b00e1b60-88ad-45d9-adeb-3de88c314ee0" />|
+| **내 리뷰**| <img width="1901" height="940" alt="image" src="https://github.com/user-attachments/assets/cbadb717-a673-4564-a797-fbfb26044aeb" />|
+
 
 ---
 
