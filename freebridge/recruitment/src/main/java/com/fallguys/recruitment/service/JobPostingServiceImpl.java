@@ -780,13 +780,12 @@ public class JobPostingServiceImpl implements JobPostingService {
 
         try {
             RecruitmentUser freelancer = recruitmentUserReader.getFreelancerByIdOrThrow(userId);
-            String skills = (freelancer.skills() == null || freelancer.skills().isBlank())
+            String rawSkills = (freelancer.skills() == null || freelancer.skills().isBlank())
                     ? "없음" : freelancer.skills().trim();
-            String experience = (freelancer.experience() == null || freelancer.experience().isBlank())
+            String rawExperience = (freelancer.experience() == null || freelancer.experience().isBlank())
                     ? "없음" : freelancer.experience().trim();
-
-            skills = normalizeRecommendationSearchText(skills);
-            experience = normalizeRecommendationSearchText(experience);
+            final String skills = normalizeRecommendationSearchText(rawSkills);
+            final String experience = normalizeRecommendationSearchText(rawExperience);
 
             log.debug(
                     "Job recommendation AI request detail. userId={}, rawSkills={}, rawExperience={}",
