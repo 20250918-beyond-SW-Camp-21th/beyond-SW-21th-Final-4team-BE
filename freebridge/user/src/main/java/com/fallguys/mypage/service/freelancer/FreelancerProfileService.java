@@ -43,8 +43,6 @@ import java.util.UUID;
 public class FreelancerProfileService {
 
     private static final String JOB_RECOMMENDATION_CACHE_KEY_PREFIX = "ai:reco:jobs:v3:";
-    private static final String JOB_RECOMMENDATION_LOCK_KEY_PREFIX = "ai:lock:jobs:";
-
     private final FreelancerRepository freelancerRepository;
     private final FileStorage fileStorage;
     private final SharedMypageApi sharedMypageApi;
@@ -221,7 +219,11 @@ public class FreelancerProfileService {
         }
 
         runAfterCommitSafely(() -> {
-            evictFreelancerJobRecommendationCache(userId);
+            try {
+                evictFreelancerJobRecommendationCache(userId);
+            } catch (RuntimeException e) {
+                log.warn("Failed to evict freelancer job recommendation cache. userId={}", userId, e);
+            }
             syncFreelancerProfileToAi(freelancer);
         });
     }
@@ -337,7 +339,6 @@ public class FreelancerProfileService {
 
     private void evictFreelancerJobRecommendationCache(Long userId) {
         redisTemplate.delete(JOB_RECOMMENDATION_CACHE_KEY_PREFIX + userId);
-        redisTemplate.delete(JOB_RECOMMENDATION_LOCK_KEY_PREFIX + userId);
     }
 
     private String buildFreelancerProfileAiContent(Freelancer freelancer) {

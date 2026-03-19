@@ -1239,9 +1239,8 @@ public class JobPostingServiceImpl implements JobPostingService {
     private boolean hasRecommendedJobSkillOverlap(List<String> jobTechStack, String freelancerSkills) {
         java.util.Set<String> requiredSkills = orEmpty(jobTechStack).stream()
                 .filter(Objects::nonNull)
-                .map(String::trim)
-                .filter(skill -> !skill.isBlank())
-                .map(skill -> skill.toLowerCase(Locale.ROOT))
+                .map(this::normalizeRecommendationSkillToken)
+                .filter(Objects::nonNull)
                 .collect(java.util.stream.Collectors.toSet());
 
         if (requiredSkills.isEmpty()) {
@@ -1251,9 +1250,8 @@ public class JobPostingServiceImpl implements JobPostingService {
         java.util.Set<String> candidateSkills = java.util.Arrays.stream(
                         Optional.ofNullable(freelancerSkills).orElse("").split(",")
                 )
-                .map(String::trim)
-                .filter(skill -> !skill.isBlank())
-                .map(skill -> skill.toLowerCase(Locale.ROOT))
+                .map(this::normalizeRecommendationSkillToken)
+                .filter(Objects::nonNull)
                 .collect(java.util.stream.Collectors.toSet());
 
         if (candidateSkills.isEmpty()) {
@@ -1261,6 +1259,24 @@ public class JobPostingServiceImpl implements JobPostingService {
         }
 
         return requiredSkills.stream().anyMatch(candidateSkills::contains);
+    }
+
+    private String normalizeRecommendationSkillToken(String skill) {
+        if (skill == null) {
+            return null;
+        }
+
+        String normalized = skill.trim()
+                .replace("[", "")
+                .replace("]", "")
+                .replace("\"", "")
+                .replace("'", "");
+
+        if (normalized.isBlank()) {
+            return null;
+        }
+
+        return normalized.toLowerCase(Locale.ROOT);
     }
 
     private void evictAllJobRecommendationCaches() {

@@ -284,6 +284,30 @@ class JobPostingServiceCoreTest {
         assertEquals(List.of(), cacheValueCaptor.getValue());
     }
 
+    @Test
+    @DisplayName("[TDD] freelancer job recommendation normalizes bracketed skills")
+    void triggerJobRecommendation_acceptsBracketedFreelancerSkills() {
+        Long userId = 4L;
+        JobPosting overlapJob = posting(102L, 99L, Status.ACTIVE);
+        ReflectionTestUtils.setField(overlapJob, "techStack", List.of("Java"));
+
+        when(recruitmentUserReader.getFreelancerByIdOrThrow(userId))
+                .thenReturn(new RecruitmentUser(userId, "freelancer", "[Java]", "Spring", "ACTIVE"));
+        when(valueOperations.setIfAbsent(anyString(), any(), any(Duration.class))).thenReturn(true);
+        when(recommendationEngine.recommendJobs(eq(userId), any(), any(), eq(AiRecommendationResponseDTO.class)))
+                .thenReturn(List.of(new AiRecommendationResponseDTO(102L, "Java project", 0.95, List.of(), null, null, null)));
+        when(jobPostingRepo.findAllById(List.of(102L))).thenReturn(List.of(overlapJob));
+
+        service.triggerJobRecommendation(userId);
+
+        ArgumentCaptor<Object> cacheValueCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(valueOperations).set(eq("ai:reco:jobs:v3:" + userId), cacheValueCaptor.capture(), any(Duration.class));
+        @SuppressWarnings("unchecked")
+        List<AiRecommendationResponseDTO> cachedResult = (List<AiRecommendationResponseDTO>) cacheValueCaptor.getValue();
+        assertEquals(1, cachedResult.size());
+        assertEquals(102L, cachedResult.get(0).id());
+    }
+
     private JobPosting posting(Long id, Long employerId, Status status) {
         JobPosting posting = JobPosting.from(
                 new JobPostingCreateDTO("title", "desc", List.of("Java"), 1000L, 3, 2),

@@ -216,10 +216,11 @@ class FreelancerProfileServiceTest {
         freelancerProfileService.updateProfile(userId, request);
 
         verify(redisTemplate).delete("ai:reco:jobs:v3:" + userId);
-        verify(redisTemplate).delete("ai:lock:jobs:" + userId);
+        verify(redisTemplate, never()).delete("ai:lock:jobs:" + userId);
     }
 
     @Test
+    @DisplayName("[TDD] 4. ?ê¾¨ì¤ˆ???ì„ì ™: è­°ëŒì˜±?ì„? ?ë”…ë’— userIdï§Ž?USER_NOT_FOUND ?ë‰ì‡… è«›ì’–ê¹®")
     void updateProfile_NotFound_ThrowsException() {
         // given
         Long userId = 999L;
