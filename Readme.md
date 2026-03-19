@@ -76,304 +76,110 @@ FreeBridge는 이 문제를 해결하기 위해 **계약 기반의 통합 관리
 
 ---
 
-## 📜 Convention
+## 프로젝트 구조
+
+```
+Backend
+
+freebridge
+├─ app-main        # 실행 진입점
+├─ common          # 공통 코드
+├─ infra-common    # 인프라 연동
+├─ user            # 사용자/마이페이지
+├─ recruitment     # 채용/공고
+├─ matchs          # 매칭
+├─ contract        # 계약
+├─ payment         # 결제
+├─ settlement      # 정산
+├─ review          # 리뷰
+├─ chatting        # 채팅
+├─ email           # 이메일
+└─ subscription    # 구독
+
+Front
+
+src
+├─ api             # API 통신
+├─ assets          # 정적 파일
+├─ components      # 공통 UI
+├─ composables     # 재사용 로직
+├─ constants       # 상수
+├─ layouts         # 레이아웃
+├─ router          # 라우팅
+├─ stores          # 상태 관리
+├─ tour            # 가이드 기능
+├─ types           # 타입 정의
+├─ utils           # 유틸
+└─ views           # 페이지
+   ├─ auth         # 인증
+   ├─ domain       # 핵심 서비스 화면
+   ├─ Guide        # 안내 페이지
+   └─ onboarding   # 초기 안내
+
+```
+---
+##  📄 프로젝트 문서
+> [해당 프로젝트 문서 시트는 여기에서 확인하실 수 있습니다.](https://docs.google.com/spreadsheets/d/1bubX_mo95sQpQ4RLZaK4I_UPfS5rEU7S/edit?gid=15752498#gid=15752498)
+
+## 📋 요구사항 정의 (Requirements)
+
+프로젝트의 안정적인 구현을 위해 기능 및 비기능 요구사항을 상세히 정의하였습니다. 
+
+[![Requirements](./asset/backend_requirements.png)](./assets/4팀_docs.xlsx - 요구사항 정의서.pdf)
 
 ---
 
-### 1. Git Flow (JIRA 연동 기준)
+## 🏗️ 빌드 및 배포
 
-작업 시작 시 선행되어야 할 작업은 다음과 같습니다.
+### 🔹 Architecture 다이어그램
+<img src="./asset/architecture-diagram-team3.png" alt="Architecture-diagram"/>
 
-> JIRA Issue를 생성합니다. (Issue Type, Assignee, Sprint 설정)생성된 JIRA Issue Key를 기준으로 branch를 생성합니다. add → commit → push → pull request 를 진행합니다.pull request를 develop branch로 merge 합니다.이전에 merge된 작업이 있을 경우 다른 branch에서 진행하던 작업에 merge된 작업을 pull 받아옵니다.종료된 JIRA Issue의 상태를 Done으로 변경합니다.
->
+### 🔹 Pipeline 빌드 과정
+<img src="./asset/gif/1.pipe-line.gif">
 
-### 2. Etc
+### 🔹 ArgoCD 배포 동기화
+<img src="./asset/gif/2.argocd.gif">
 
-준수해야 할 규칙은 다음과 같습니다.
-
-> 🚫develop branch에서의 작업은 원칙적으로 금지합니다. 단, README 작성은 develop branch에서 수행합니다. commit, push, merge, pull request 등 모든 작업은 오류 없이 정상적으로 실행되는 지 확인 후 수행합니다.모든 commit / PR은 JIRA Issue Key와 반드시 연결되어야 합니다.
->
-
----
-
-<details>
-<summary style = " font-size:1.3em;">Branch</summary>
-<div markdown="1">
-
-### 1. Branch
-
-branch는 작업 단위 & 기능 단위로 생성하며 JIRA Issue 네이밍을 기반으로 생성합니다. 네이밍 규칙을 따르되, 이슈는 Github에서 진행됩니다.
-
-### 2. Branch Naming Rule (JIRA)
-
-branch를 생성하기 전 Issue를 먼저 생성합니다.
-
-생성된 **Issue** 와 domain 명을 조합하여 branch 이름을 결정합니다.
-
-```
-<Prefix>/<JIRA-Issue-Key>-<Domain>-<Description>
-```
-
-### 3. Prefix
-
-- `main` : 개발이 완료된 산출물이 저장될 공간입니다.
-- `develop`: feature branch에서 구현된 기능들이 merge될 default branch 입니다.
-- `feature`: 기능을 개발하는 branch 입니다. 이슈 별 & 작업 별로 branch를 생성 후 기능을 개발하며 naming은 소문자를 사용합니다.
-
-### 4. Etc
-
-- `feature/PL-7-user-profile`
-- `feature/PL-12-project-matching`
-
-</div>
-</details>
+### 🔹 프론트엔드 화면
+<img src="./asset/gif/3.todo.gif">
 
 ---
 
-<details>
-<summary style = " font-size:1.3em;">Issue</summary>
-<div markdown="1">
+## 회고록
 
-### 1. Issue (JIRA)
+### 📝 정재우
+회고록
 
-작업 시작 전 **JIRA Issue 생성이 선행**되어야 합니다.
+### 📝 이용우
+이번 프로젝트를 하면서 여러 가지를 느끼고 배울 수 있었다.
 
-issue 는 Epic, Task 중 하나를 선택하여 생성하며, Task를 선택할 시, **Epic Issue 내에서 Sub-issue로 생성합니다.**
+초기에는 모든 일이 순조로웠고 시간도 많이 남아 그 전에 프로젝트에서 느꼈던 대로 생애주기에 대해 집중했고  “나중에 시간이 남으면 성능 개선에 더 집중해야지”라고 생각했다.
 
-issue 제목에는 기능의 대표적인 설명을 적고,
+하지만 초반 세팅과 소통, 그리고 프로젝트 진행 중 역할에 따른 협업과 요청들이 계속 생기면서 해야 할 일이 갑자기 많아졌다. 시간이 부족해지자 AI의 도움을 받으며 개발을 진행했는데, 하나를 고치면 잘 되던 것이 안 되고, 다시 그것을 고치면 다른 부분이 문제가 되는 상황이 반복됐다.
 
-description에는 세부적인 작업 내용과 완료 조건(DoD)을 작성합니다.
+마치 여름철 에어컨 밑에서 작은 이불을 서로 끌어당기며 자는 것처럼, 한 사람의 오류를 수정하면 다른 사람에게 영향을 주는 일이 비일비재했다.
 
-issue 생성 시 다음 항목을 필수로 설정합니다.
+그럼에도 불구하고 결국 프로젝트를 완성했다는 점에서 큰 기쁨을 느낀다. 다만, 성능 개선에 대해 깊이 고민해보고 싶은 부분이 많았는데 이를 충분히 해보지 못한 점은 아쉬움으로 남는다.
 
-### 2. Issue Naming Rule
+하지만 아쉬움이 남는다는 것은 아직 더 성장할 수 있다는 의미라고 생각한다. 부트캠프가 끝난 이후에도 계속 발전할 수 있도록 노력해야겠다.
+6개월 동안 모두 수고 많으셨습니다.
+다들 꼭 잘 돼서 저 밥 사주세요
 
-```
-<JIRA-Issue-Key> [<Prefix>] <Domain>
-```
 
-- EPIC: 도메인을 기준으로 잡습니다.
+### 📝 이형욱
+회고록
 
-  EPIC의 prefix는 아래와 같습니다.
+### 📝 임재열
+회고록
 
-    - BE : 백엔드
-    - FE : 프론트엔드
-    - DATA : 데이터처리
-    - INFRA: 인프라
-    - AI : Ai 도메인
-    - 공통 : 공통 도메인
+### 📝 윤홍석
+이번 프로젝트에서는 여러 가지를 배울 수 있는 귀중한 경험이었다. 
 
-  예시)
+초반 회의 단계에서 팀원들과 무한 회의 지옥에 빠져서 출구 없는 미로에 빠진 기분이 들었다. 또한 결국 극적인 합의를 통해 무언가에 동의하더라도 문서로 만들지 않으면 다음 회의에서 또다시 회의 지옥에 빠지기에 문서화의 중요함을 이번 기회에 배울 수 있었다. 
 
-  `JR-30 [공통] Common-Domain`
+이 모든 난관을 거치고 개발을 시작한 후에는 이번에는 수많은 회사의 공고들에 어째서 협업 경험이 필수 요소 혹은 우대 사항으로 적혀있는지 뼈저리게 체감할 수 있었다. 분명 같은 언어로 같은 단어를 얘기했지만, 서로가 이해한 것이 다른 경우는 비일비재했고 서로 이런 기능은 당연히 있겠지라고 생각을 해서 의존성 문제가 생기거나 서로 본인 담당이라 생각해서 중복 개발이 되는 등 다양한 소통 문제가 있었고 이것이 협업이라는 것을 배울 훌륭한 기회였다. 
 
-  `JR-18 [BE] user`
+기술적으로는 이번에 결제와 계약서를 담당하게 되었는데, 결제를 가상 결제창을 띄우고 DB에서 숫자를 추가하고 빼기만 하기보다는 실제 결제 화면을 보여줄 수 있는 포트원 API를 사용하기로 했다. 다행히 포트원에서 MCP를 지원해 줘서 이번에 클로드 코드의 MCP에이전트 기능을 활용할 수 있었다. 에이전트가 포트원 관련 코드를 프론트에서 백엔드까지 다 이해하고 있었기에 어떤 형식으로 정보를 보내주고 받아오는지부터, 지금 있는 코드의 로직의 확인까지 가능해서 매우 편리했다. 
 
-  `JR-3 [FE] userpage`
+초반 기획보다는 규모가 축소되었지만 결국 완성을 했다는 사실에 만족감을 느낀다. 추후 시간이 있다면 꾸준히 개선을 해보고 싶다. 
 
-- TASK: Service/페이지 단위 issue
-
-  TASK의 prefix는 아래와 같습니다.
-
-    - **feat** : 새로운 기능 구현
-    - **fix** : 코드 오류 수정
-    - **del** : 쓸모없는 코드 삭제
-    - **docs** : 문서 개정
-    - **refactor** : 리팩터링
-    - **chore** : 설정, 의존성, 환경 변경
-    - **test** : 테스트 코드 작성
-    - **style** : 코드 포맷, 주석, 줄바꿈
-
-### 3. Etc
-
-</div>
-</details>
-
----
-
-<details>
-<summary style = " font-size:1.3em;">Commit</summary>
-<div markdown="1">
-
-### 1. Commit Message Convention (JIRA 연동)
-
-```
-<JIRA-Issue-Key> [<Prefix>] <Description>
-```
-
-- JIRA Issue Key를 포함하여 **자동 이슈 연동**을 활성화합니다.
-
-### 예시
-
-- **feat** : 새로운 기능 구현
-
-  `PL-11 [feat] 구글 로그인 API 기능 구현`
-
-- **fix** : 코드 오류 수정
-
-  `PL-10 [fix] 회원가입 비즈니스 로직 오류 수정`
-
-- **del** : 쓸모없는 코드 삭제
-
-  `PL-12 [del] 불필요한 import 제거`
-
-- **docs** : 문서 개정
-
-  `PL-14 [docs] README 수정`
-
-- **refactor** : 리팩터링
-
-  `PL-15 [refactor] 코드 로직 개선`
-
-- **chore** : 설정, 의존성, 환경 변경
-
-  `PL-21 [chore] yml 수정`
-
-  `PL-22 [chore] lombok 의존성 추가`
-
-- **test** : 테스트 코드 작성
-
-  `PL-20 [test] 로그인 API 테스트 코드 작성`
-
-- **style** : 코드 포맷, 주석, 줄바꿈
-
-</div>
-</details>
-
----
-
-<details>
-<summary style = " font-size:1.3em;">Naming</summary>
-<div markdown="1">
-
-### 1. Pull Request
-
-develop & main branch로 merge할 때에는 pull request가 필요합니다.
-
-pull request는 반드시 **JIRA Issue와 연결**되어야 합니다.
-
-### 2. Pull Request Naming Rule (JIRA)
-
-```
-<JIRA-Issue-Key> [<Prefix>] <Description>
-```
-
-### 3. Etc
-
-`PL-3 [feat] 약속 잡기 API 구현`
-
-`PL-5 [chore] Spring Data JPA 의존성 추가`
-
-</div>
-</details>
-
-## 📜 Code Convention
-
----
-
-<details>
-<summary style = " font-size:1.3em;">Naming</summary>
-<div markdown="1">
-
-- 패키지 : 언더스코어(`_`)나 대문자를 섞지 않고 소문자를 사용하여 작성합니다.
-- 클래스 : 클래스 이름은 명사나 명사절로 지으며, 대문자 카멜표기법(Upper camel case)을 사용합니다.
-- 메서드 : 메서드 이름은 동사/전치사로 시작하며, 소문자 카멜표기법(Lower camel case)를 사용합니다. 의도가 전달되도록 최대한 간결하게 표현합니다.
-- 변수 : 소문자 카멜표기법(Lower camel case)를 사용합니다.
-- ENUM, 상수 : 상태를 가지지 않는 자료형이면서 `static final`로 선언되어 있는 필드일 때를 상수로 간주하며, 대문자와 언더스코어(Upper_snake_case)로 구성합니다.
-- DB 테이블: 소문자와 언더스코어로(lower_snake_case) 구성합니다.
-- 컬렉션(Collection): **복수형**을 사용하거나 **컬렉션을 명시합니다**. (Ex. userList, users, userMap)
-- LocalDateTime: 접미사에 **Date**를 붙입니다.
-
-</div>
-</details>
-
----
-
-<details>
-<summary style = " font-size:1.3em;">Comment</summary>
-<div markdown="1">
-
-### 1. 한줄 주석은 // 를 사용한다.
-
-```java
-// 하이~
-
-```
-
-### 2. Bracket 사용 시 내부에 주석을 작성한다.
-
-```java
-/*
-   하이~!
-*/
-
-```
-
-### 3. 주요 함수에 대한 주석
-
-```java
-/*
- * 입력 : 인덱스:Long
- * 기능 : 유저 인덱스로 db에 접근해 유저 객체를 반환한다
- * 출력 : 유저:User
- */
-public User getUser(Long idx)
-
-```
-
-</div>
-</details>
-
-
----
-
-<details>
-<summary style = " font-size:1.3em;">Import</summary>
-<div markdown="1">
-
-### 1. 소스파일당 1개의 탑레벨 클래스를 담기
-
-> 탑레벨 클래스(Top level class)는 소스 파일에 1개만 존재해야 한다. ( 탑레벨 클래스 선언의 컴파일타임 에러 체크에 대해서는 Java Language Specification 7.6 참조 )
->
-
-### 2. static import에만 와일드 카드 허용
-
-> 클래스를 import할때는 와일드카드(*) 없이 모든 클래스명을 다 쓴다. static import에서는 와일드카드를 허용한다.
->
-
-### 3. 애너테이션 선언 후 새줄 사용
-
-> 클래스, 인터페이스, 메서드, 생성자에 붙는 애너테이션은 선언 후 새줄을 사용한다. 이 위치에서도 파라미터가 없는 애너테이션 1개는 같은 줄에 선언할 수 있다.
->
-
-### 4. 배열에서 대괄호는 타입 뒤에 선언
-
-> 배열 선언에 오는 대괄호([])는 타입의 바로 뒤에 붙인다. 변수명 뒤에 붙이지 않는다.
->
-
-### 5. `long`형 값의 마지막에 `L`붙이기
-
-> long형의 숫자에는 마지막에 대문자 'L’을 붙인다. 소문자 'l’보다 숫자 '1’과의 차이가 커서 가독성이 높아진다.
->
-
-</div>
-</details>
-
----
-
-<details>
-<summary style = " font-size:1.3em;">URL</summary>
-<div markdown="1">
-
-### URL
-
-URL은 RESTful API 설계 가이드에 따라 작성합니다.
-
-- HTTP Method로 구분할 수 있는 get, put 등의 행위는 url에 표현하지 않습니다.
-- 마지막에 `/` 를 포함하지 않습니다.
-- `_` 대신 를 사용합니다.
-- 소문자를 사용합니다.
-- 확장자는 포함하지 않습니다.
-
-</div>
-</details>
