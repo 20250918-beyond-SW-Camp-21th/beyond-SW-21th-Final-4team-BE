@@ -11,6 +11,7 @@ import com.fallguys.recruitment.api.dto.response.PagedResponseDTO;
 import com.fallguys.recruitment.api.support.TokenUserIdResolver;
 import com.fallguys.recruitment.api.util.PagingUtils;
 import com.fallguys.recruitment.service.JobPostingService;
+import com.fallguys.recruitment.service.support.RecommendationPendingException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -129,9 +130,15 @@ public class JobPostingEmployerController {
     ) {
         Long userId = tokenUserIdResolver.resolveUserId(authorization);
 
-        List<AiRecommendationResponseDTO> recommendations = jobPostingService.getRecommendedFreelancers(jobPostingId, userId);
-
-        return ResponseEntity.ok(ApiResponse.ok(recommendations));
+        try {
+            List<AiRecommendationResponseDTO> recommendations =
+                    jobPostingService.getRecommendedFreelancers(jobPostingId, userId);
+            return ResponseEntity.ok(ApiResponse.ok(recommendations));
+        } catch (RecommendationPendingException ignored) {
+            return ResponseEntity.accepted()
+                    .header("Retry-After", "3")
+                    .body(ApiResponse.ok(List.of()));
+        }
     }
 
     @Operation(summary = "프로젝트 완료 처리", description = "고용주가 프로젝트를 완료 처리하고 해당 내용을 AI 서버에 동기화합니다.")

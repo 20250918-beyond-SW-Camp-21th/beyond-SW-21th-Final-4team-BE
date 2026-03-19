@@ -7,6 +7,7 @@ import com.fallguys.recruitment.api.dto.response.FreelancerJobPostingSearchDTO;
 import com.fallguys.recruitment.api.dto.response.PagedResponseDTO;
 import com.fallguys.recruitment.api.util.PagingUtils;
 import com.fallguys.recruitment.service.JobPostingService;
+import com.fallguys.recruitment.service.support.RecommendationPendingException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -76,8 +77,14 @@ public class JobPostingFreelancerController {
         // 토큰에서 프리랜서 유저 ID 추출
         Long userId = tokenUserIdResolver.resolveUserId(authorization);
 
-        List<AiRecommendationResponseDTO> result = jobPostingService.getRecommendedJobsForFreelancer(userId);
-
-        return ResponseEntity.ok(ApiResponse.ok(result));
+        try {
+            List<AiRecommendationResponseDTO> result =
+                    jobPostingService.getRecommendedJobsForFreelancer(userId);
+            return ResponseEntity.ok(ApiResponse.ok(result));
+        } catch (RecommendationPendingException ignored) {
+            return ResponseEntity.accepted()
+                    .header("Retry-After", "3")
+                    .body(ApiResponse.ok(List.of()));
+        }
     }
 }

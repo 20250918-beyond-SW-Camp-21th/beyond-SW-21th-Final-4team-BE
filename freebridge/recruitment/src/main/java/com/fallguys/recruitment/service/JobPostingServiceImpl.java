@@ -23,6 +23,7 @@ import com.fallguys.recruitment.repository.JobPostingRepo;
 import com.fallguys.recruitment.repository.ProjectPostingRepo;
 import com.fallguys.recruitment.service.port.RecruitmentUser;
 import com.fallguys.recruitment.service.port.RecruitmentUserReader;
+import com.fallguys.recruitment.service.support.RecommendationPendingException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -493,6 +494,7 @@ public class JobPostingServiceImpl implements JobPostingService {
         validateOwnership(jobPosting, userId);
 
         String cacheKey = "ai:reco:freelancers:" + jobPostingId;
+        String lockKey = "ai:lock:freelancers:" + jobPostingId;
         List<AiRecommendationResponseDTO> cached = readCache(cacheKey, new TypeReference<>() {});
         if (cached != null) {
             log.info("Freelancer recommendation cache hit. jobPostingId={}, result={}", jobPostingId, summarizeRecommendationIds(cached));
@@ -525,7 +527,15 @@ public class JobPostingServiceImpl implements JobPostingService {
                 new TypeReference<>() {},
                 AI_RECOMMENDATION_WAIT_TIMEOUT
         );
-        return warmedUp != null ? warmedUp : java.util.Collections.emptyList();
+        if (warmedUp != null) {
+            return warmedUp;
+        }
+
+        if (isRecommendationPending(lockKey)) {
+            throw new RecommendationPendingException("Freelancer recommendation is still being generated.");
+        }
+
+        return java.util.Collections.emptyList();
     }
 
     @org.springframework.scheduling.annotation.Async
@@ -723,6 +733,7 @@ public class JobPostingServiceImpl implements JobPostingService {
         RecruitmentUser freelancer = recruitmentUserReader.getFreelancerByIdOrThrow(userId);
 
         String cacheKey = JOB_RECOMMENDATION_CACHE_KEY_PREFIX + userId;
+        String lockKey = "ai:lock:jobs:" + userId;
         List<AiRecommendationResponseDTO> cached = readCache(cacheKey, new TypeReference<>() {});
         if (cached != null) {
             log.info("Job recommendation cache hit. userId={}, result={}", userId, summarizeRecommendationIds(cached));
@@ -744,7 +755,15 @@ public class JobPostingServiceImpl implements JobPostingService {
                 new TypeReference<>() {},
                 AI_RECOMMENDATION_WAIT_TIMEOUT
         );
-        return warmedUp != null ? warmedUp : java.util.Collections.emptyList();
+        if (warmedUp != null) {
+            return warmedUp;
+        }
+
+        if (isRecommendationPending(lockKey)) {
+            throw new RecommendationPendingException("Job recommendation is still being generated.");
+        }
+
+        return java.util.Collections.emptyList();
     }
 
     @org.springframework.scheduling.annotation.Async
@@ -871,6 +890,15 @@ public class JobPostingServiceImpl implements JobPostingService {
                     lockToken
             );
         } catch (Exception ignored) {
+        }
+    }
+
+    private boolean isRecommendationPending(String lockKey) {
+        try {
+            return Boolean.TRUE.equals(redisTemplate.hasKey(lockKey));
+        } catch (Exception e) {
+            log.warn("Failed to read recommendation lock state. key={}", lockKey, e);
+            return false;
         }
     }
 
