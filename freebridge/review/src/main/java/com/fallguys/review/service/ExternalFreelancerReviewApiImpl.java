@@ -16,13 +16,13 @@ public class ExternalFreelancerReviewApiImpl implements ExternalFreelancerReview
 
     @Override
     @Transactional(readOnly = true)
-    public FreelancerReviewMetricsDto getFreelancerReviewMetrics(Long freelancerId) {
-        if (freelancerId == null) {
+    public FreelancerReviewMetricsDto getFreelancerReviewMetrics(Long userId) {
+        if (userId == null) {
             return FreelancerReviewMetricsDto.empty();
         }
 
         FreelancerReviewMetricsProjection projection =
-                employerReviewRepository.findFreelancerReviewMetrics(freelancerId);
+                employerReviewRepository.findFreelancerReviewMetrics(userId);
 
         if (projection == null) {
             return FreelancerReviewMetricsDto.empty();

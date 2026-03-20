@@ -47,11 +47,19 @@ public class FreelancerReviewService {
         }
 
         try {
+            log.info("Freelancer review summary requested. userId={}, freelancerId={}", userId, freelancerId);
             FreelancerReviewMetricsDto metrics = externalFreelancerReviewApi.getFreelancerReviewMetrics(userId);
             if (isEmptyMetrics(metrics)) {
+                log.info("Freelancer review summary is empty. userId={}, freelancerId={}", userId, freelancerId);
                 return FreelancerEvaluationSummaryDto.empty(topPercentile);
             }
 
+            log.info(
+                    "Freelancer review summary loaded metrics. userId={}, freelancerId={}, averageRate={}",
+                    userId,
+                    freelancerId,
+                    metrics.averageRate()
+            );
             return FreelancerEvaluationSummaryDto.fromAverageMap(
                     java.util.Map.of(
                             "programming", metrics.programming(),
@@ -76,8 +84,10 @@ public class FreelancerReviewService {
             return;
         }
 
+        Long freelancerId = freelancer.getFreelancerId();
         FreelancerReviewMetricsDto metrics = externalFreelancerReviewApi.getFreelancerReviewMetrics(userId);
         if (isEmptyMetrics(metrics)) {
+            log.info("Freelancer profile sync found empty metrics. userId={}, freelancerId={}", userId, freelancerId);
             freelancer.updateReviewMetrics(
                     new Expertise(0.0, 0.0, 0.0),
                     new Collaboration(0.0, 0.0, 0.0),
@@ -86,6 +96,12 @@ public class FreelancerReviewService {
             return;
         }
 
+        log.info(
+                "Freelancer profile sync loaded metrics. userId={}, freelancerId={}, averageRate={}",
+                userId,
+                freelancerId,
+                metrics.averageRate()
+        );
         freelancer.updateReviewMetrics(
                 new Expertise(metrics.programming(), metrics.framework(), metrics.debugging()),
                 new Collaboration(metrics.communication(), metrics.schedule(), metrics.dispute()),
@@ -103,8 +119,10 @@ public class FreelancerReviewService {
         }
 
         try {
+            log.info("Freelancer AI report requested. userId={}, freelancerId={}", userId, freelancerId);
             FreelancerReviewMetricsDto metrics = externalFreelancerReviewApi.getFreelancerReviewMetrics(userId);
             if (isEmptyMetrics(metrics)) {
+                log.info("Freelancer AI report skipped because metrics are empty. userId={}, freelancerId={}", userId, freelancerId);
                 return new FreelancerAiReputationReportDto(
                         "미정",
                         0,
@@ -119,19 +137,21 @@ public class FreelancerReviewService {
             log.warn("Redis에서 리뷰 존재 여부를 확인하지 못했습니다. freelancerId={}", freelancerId, e);
         }
 
-        String redisKey = "freelancer:review:ai_report:" + freelancerId;
+        String redisKey = "freelancer:review:ai_report:" + userId;
         try {
             Object cachedData = redisTemplate.opsForValue().get(redisKey);
             if (cachedData != null) {
+                log.info("Freelancer AI report cache hit. userId={}, freelancerId={}, redisKey={}", userId, freelancerId, redisKey);
                 return objectMapper.convertValue(cachedData, FreelancerAiReputationReportDto.class);
             }
+            log.info("Freelancer AI report cache miss. userId={}, freelancerId={}, redisKey={}", userId, freelancerId, redisKey);
         } catch (Exception e) {
             log.warn("Redis에서 AI 평판 리포트를 조회하지 못했습니다. freelancerId={}", freelancerId, e);
         }
 
         FreelancerAiReputationReportDto report;
         try {
-            report = reviewEngine.getFreelancerAnalysis(freelancerId);
+            report = reviewEngine.getFreelancerAnalysis(userId);
         } catch (AiServiceException e) {
             log.warn("AI 평판 분석 서비스를 사용할 수 없습니다. userId={}, freelancerId={}", userId, freelancerId, e);
             return emptyAiReport();
@@ -265,5 +285,21 @@ public class FreelancerReviewService {
         } catch (Exception e) {
             log.warn("프리랜서 리뷰 캐시 삭제 실패. freelancerId={}, aiReportKey={}, ratesKey={}", freelancerId, aiReportKey, ratesKey, e);
         }
+
+        freelancerRepository.findById(freelancerId)
+                .map(Freelancer::getUserId)
+                .ifPresent(userId -> {
+                    String aiReportUserKey = "freelancer:review:ai_report:" + userId;
+                    String ratesUserKey = "freelancer:review:rates:" + userId;
+                    try {
+                        redisTemplate.delete(aiReportUserKey);
+                        redisTemplate.delete(ratesUserKey);
+                        log.info("Freelancer review user cache invalidated. freelancerId={}, userId={}, aiReportUserKey={}, ratesUserKey={}",
+                                freelancerId, userId, aiReportUserKey, ratesUserKey);
+                    } catch (Exception e) {
+                        log.warn("Failed to invalidate freelancer review user cache. freelancerId={}, userId={}, aiReportUserKey={}, ratesUserKey={}",
+                                freelancerId, userId, aiReportUserKey, ratesUserKey, e);
+                    }
+                });
     }
 }

@@ -99,7 +99,10 @@ def fetch_freelancer_reviews(freelancer_id: int):
             sql = """
                 SELECT description, language, framework, debugging, communication, schedule, dispute 
                 FROM employer_freelancer_reviews 
-                WHERE freelancer_id = %s AND status = 'ACTIVE' LIMIT 50
+                WHERE status = 'ACTIVE'
+                  AND deleted = false
+                  AND freelancer_id = %s
+                LIMIT 50
             """
             cursor.execute(sql, (freelancer_id,))
             rows = cursor.fetchall()
