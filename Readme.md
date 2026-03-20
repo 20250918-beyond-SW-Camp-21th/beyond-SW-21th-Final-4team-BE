@@ -14,13 +14,14 @@
 ## 🚀 프로젝트 개요
 
 ### 1. 배경 및 문제 의식
-현재 프리랜서 시장은 빠르게 성장하고 있지만, 구인구직 플랫폼에서 탐색한 이후의 **계약서 작성, 프로젝트 진행 관리, 정산 및 평가** 등의 과정은 여전히 파편화되어 진행되고 있습니다.
+<img width="600" height="200" alt="image" src="https://github.com/user-attachments/assets/3cd3833d-f08f-4f9b-92dc-cb7c41aec67e" />
 
-- **고용주:** 검증되고 적합한 인재를 찾기 어렵고, 프로젝트 진행 상황 파악 및 후속 정산 절차가 번거롭습니다.
-- **프리랜서:** 자신의 경력, 포트폴리오, 이전 평가 이력을 체계적으로 관리하고 증명할 방법이 부족합니다.
 
 ### 2. 해결 방안 (차별화 포인트)
 FreeBridge는 이 문제를 해결하기 위해 **계약 기반의 통합 관리 서비스**를 제공합니다.
+
+<img width="600" height="280" alt="image" src="https://github.com/user-attachments/assets/90de07de-58cf-45f3-a927-1799f1ca981c" />
+
 
 - **생애주기 중심 UX:** 사용자의 현재 상태에 맞는 다음 행동을 안내하는 역할별 운영 허브(마이페이지) 제공
 - **신뢰도 시스템:** 고용주의 솔직한 평가 점수와 이를 분석한 AI 리포트 제공
@@ -111,6 +112,12 @@ src
 
 ---
 
+## 요구사항 정의서
+![4팀_docs xlsx - 요구사항 정의서](https://github.com/user-attachments/assets/6d6402ec-a01a-4b6a-9c56-35d98c739eba)
+
+## WBS
+![4팀_docs xlsx - WBS_page-0001](https://github.com/user-attachments/assets/a6f2ae99-6376-4475-ae54-514162614cd6)
+
 ## 🖥️ 운영 및 모니터링 전략
 
 <img width="1099" height="468" alt="image" src="https://github.com/user-attachments/assets/32782c9b-67ef-45da-8060-aea02d7e0954" />
@@ -118,6 +125,29 @@ src
 즉, FreeBridge의 CI/CD는 배포 자동화와 운영 모니터링이 결합된 형태로 구성되어 있다.
 
 ---
+## ✅ 고객관리 시스템
+
+<details><summary>프리랜서</summary>
+<img width="1457" height="516" alt="image" src="https://github.com/user-attachments/assets/80c10116-9122-4290-8b0d-6d94a77b9c88" />
+
+<img width="1392" height="990" alt="image" src="https://github.com/user-attachments/assets/b4163acd-c74c-44d4-9541-5e908826763c" />
+</details>
+
+<details><summary>고용주</summary>
+<img width="1454" height="525" alt="image" src="https://github.com/user-attachments/assets/593c3d2b-07d0-4ae0-808b-085e1f035379" />
+
+<img width="1394" height="988" alt="image" src="https://github.com/user-attachments/assets/a13c9db3-1b16-4544-96a7-03d7ee9adf4d" />
+</details>
+
+---
+
+## 🔥 트러블슈팅
+
+<img width="1370" height="566" alt="image" src="https://github.com/user-attachments/assets/101d4170-0de2-4230-b6ea-750b45cf8397" />
+
+<img width="1369" height="553" alt="image" src="https://github.com/user-attachments/assets/d4b4c6e0-c6ff-4d07-b48e-2ce0a056fb57" />
+
+
 
 ## 🖥 화면 구성 (UI/UX)
 
