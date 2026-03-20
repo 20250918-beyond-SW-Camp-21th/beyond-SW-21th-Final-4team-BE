@@ -19,6 +19,10 @@ class ScoreDto(BaseModel):
     name: str = Field(description="항목 이름 (예: 전문성, 의사소통, 일정준수 등)")
     score: int = Field(ge=1, le=5, description="해당 항목의 평가 점수 (1~5점)")
 
+class RawScoreDto(BaseModel):
+    name: str
+    score: float = Field(ge=1, le=5)
+
 class FreelancerAiReputationReportDto(BaseModel):
     grade: str = Field(description="종합 평판 등급 (예: 'S', 'A', 'B', 'C', 'D')")
     positivityScore: int = Field(ge=0, le=100, description="리뷰 긍정 지수 (0~100점)")
@@ -27,6 +31,15 @@ class FreelancerAiReputationReportDto(BaseModel):
     weaknesses: List[str] = Field(description="리뷰에서 두드러지는 주요 약점 또는 개선점 (최대 3개)")
     technicalScores: List[ScoreDto] = Field(description="기술적 역량(개발 실력, 버그 해결 등) 관련 세부 점수 평가")
     softSkills: List[ScoreDto] = Field(description="소프트스킬(의사소통, 분위기 등) 관련 세부 점수 평가")
+
+class RawFreelancerAiReputationReportDto(BaseModel):
+    grade: str
+    positivityScore: float = Field(ge=0, le=100)
+    summary: str
+    strengths: List[str]
+    weaknesses: List[str]
+    technicalScores: List[RawScoreDto]
+    softSkills: List[RawScoreDto]
 
 class ReputationAnalysisRequest(BaseModel):
     scores: List[int]
@@ -54,6 +67,28 @@ def truncate_text(text: str, max_length: int = 5000) -> str:
     if len(text) > max_length:
         return text[:max_length] + "...(중략)"
     return text
+
+def round_score(value: float) -> int:
+    rounded = int(value + 0.5)
+    return max(1, min(5, rounded))
+
+def round_percent(value: float) -> int:
+    rounded = int(value + 0.5)
+    return max(0, min(100, rounded))
+
+def normalize_scores(scores: List[RawScoreDto]) -> List[ScoreDto]:
+    return [ScoreDto(name=score.name, score=round_score(score.score)) for score in scores]
+
+def normalize_freelancer_report(raw_result: RawFreelancerAiReputationReportDto) -> FreelancerAiReputationReportDto:
+    return FreelancerAiReputationReportDto(
+        grade=raw_result.grade,
+        positivityScore=round_percent(raw_result.positivityScore),
+        summary=raw_result.summary,
+        strengths=raw_result.strengths,
+        weaknesses=raw_result.weaknesses,
+        technicalScores=normalize_scores(raw_result.technicalScores),
+        softSkills=normalize_scores(raw_result.softSkills),
+    )
 
 def get_db_connection():
     db_host = os.getenv("DB_HOST", "localhost")
@@ -172,7 +207,7 @@ async def analyze_freelancer_reputation(freelancer_id: int):
                 avg_scores_context += f"- {key}: {avg:.1f} / 5\n"
 
         llm = get_llm()
-        structured_llm = llm.with_structured_output(FreelancerAiReputationReportDto)
+        structured_llm = llm.with_structured_output(RawFreelancerAiReputationReportDto)
         
         prompt = ChatPromptTemplate.from_template("""
         당신은 IT 프리랜서 커리어 코치 및 전문 헤드헌터입니다.
@@ -193,7 +228,8 @@ async def analyze_freelancer_reputation(freelancer_id: int):
         </리뷰>
         """)
 
-        result = await structured_llm.ainvoke(prompt.format(reviews=truncated_reviews, avg_scores=avg_scores_context))
+        raw_result = await structured_llm.ainvoke(prompt.format(reviews=truncated_reviews, avg_scores=avg_scores_context))
+        result = normalize_freelancer_report(raw_result)
         logger.info(
             "Freelancer analysis completed. freelancer_id=%s positivity_score=%s strengths_count=%s weaknesses_count=%s",
             freelancer_id,
