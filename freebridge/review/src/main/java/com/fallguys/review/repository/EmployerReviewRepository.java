@@ -48,14 +48,7 @@ public interface EmployerReviewRepository extends JpaRepository<EmployerReview, 
             FROM employer_freelancer_reviews
             WHERE status = 'ACTIVE'
               AND deleted = false
-              AND (
-                freelancer_id = :freelancerId
-                OR freelancer_id = (
-                    SELECT f.freelancer_id
-                    FROM freelancer f
-                    WHERE f.user_id = :freelancerId
-                )
-              )
+              AND freelancer_id = :userId
             """, nativeQuery = true)
-    FreelancerReviewMetricsProjection findFreelancerReviewMetrics(@Param("freelancerId") Long freelancerId);
+    FreelancerReviewMetricsProjection findFreelancerReviewMetrics(@Param("userId") Long userId);
 }

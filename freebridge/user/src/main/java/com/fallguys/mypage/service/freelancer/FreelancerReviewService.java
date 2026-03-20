@@ -276,21 +276,30 @@ public class FreelancerReviewService {
         }
 
         Long freelancerId = event.freelancerId();
-        Long userId = freelancerRepository.findById(freelancerId)
-                .map(Freelancer::getUserId)
-                .orElse(freelancerId);
         String aiReportKey = "freelancer:review:ai_report:" + freelancerId;
         String ratesKey = "freelancer:review:rates:" + freelancerId;
-        String aiReportUserKey = "freelancer:review:ai_report:" + userId;
-        String ratesUserKey = "freelancer:review:rates:" + userId;
         try {
             redisTemplate.delete(aiReportKey);
             redisTemplate.delete(ratesKey);
-            redisTemplate.delete(aiReportUserKey);
-            redisTemplate.delete(ratesUserKey);
             log.info("프리랜서 리뷰 캐시 삭제 완료. freelancerId={}, aiReportKey={}, ratesKey={}", freelancerId, aiReportKey, ratesKey);
         } catch (Exception e) {
             log.warn("프리랜서 리뷰 캐시 삭제 실패. freelancerId={}, aiReportKey={}, ratesKey={}", freelancerId, aiReportKey, ratesKey, e);
         }
+
+        freelancerRepository.findById(freelancerId)
+                .map(Freelancer::getUserId)
+                .ifPresent(userId -> {
+                    String aiReportUserKey = "freelancer:review:ai_report:" + userId;
+                    String ratesUserKey = "freelancer:review:rates:" + userId;
+                    try {
+                        redisTemplate.delete(aiReportUserKey);
+                        redisTemplate.delete(ratesUserKey);
+                        log.info("Freelancer review user cache invalidated. freelancerId={}, userId={}, aiReportUserKey={}, ratesUserKey={}",
+                                freelancerId, userId, aiReportUserKey, ratesUserKey);
+                    } catch (Exception e) {
+                        log.warn("Failed to invalidate freelancer review user cache. freelancerId={}, userId={}, aiReportUserKey={}, ratesUserKey={}",
+                                freelancerId, userId, aiReportUserKey, ratesUserKey, e);
+                    }
+                });
     }
 }
