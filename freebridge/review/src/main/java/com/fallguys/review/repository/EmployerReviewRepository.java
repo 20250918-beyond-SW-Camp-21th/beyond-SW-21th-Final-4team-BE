@@ -46,9 +46,16 @@ public interface EmployerReviewRepository extends JpaRepository<EmployerReview, 
                 AVG(schedule) AS schedule,
                 AVG(dispute) AS dispute
             FROM employer_freelancer_reviews
-            WHERE freelancer_id = :freelancerId
-              AND status = 'ACTIVE'
+            WHERE status = 'ACTIVE'
               AND deleted = false
+              AND (
+                freelancer_id = :freelancerId
+                OR freelancer_id = (
+                    SELECT f.freelancer_id
+                    FROM freelancer f
+                    WHERE f.user_id = :freelancerId
+                )
+              )
             """, nativeQuery = true)
     FreelancerReviewMetricsProjection findFreelancerReviewMetrics(@Param("freelancerId") Long freelancerId);
 }
